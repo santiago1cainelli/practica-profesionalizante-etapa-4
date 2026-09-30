@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* Estilos de Impresión Profesional para Comprobantes y Recibos Oficiales */
+@media print {
+  /* Ocultar elementos de navegación, pie de página y botones de la aplicación */
+  header,
+  nav,
+  footer,
+  aside,
+  button,
+  .no-print,
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Resetear el cuerpo para impresión limpia en hoja blanca */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Desactivar el fondo oscuro/backdrop del modal durante la impresión */
+  #recibo-modal-overlay,
+  .fixed.inset-0 {
+    position: static !important;
+    background: none !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
+  /* El contenedor de la tarjeta del recibo ocupa el 100% sin sombras de pantalla */
+  #recibo-modal-card {
+    position: static !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Barra superior y barra inferior de acciones no deben aparecer impresas */
+  #recibo-modal-header,
+  #recibo-modal-footer {
+    display: none !important;
+  }
+
+  /* Área imprimible del recibo con bordes nítidos y contraste */
+  #recibo-printable-content {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Preservar bordes y colores exactos en la impresión */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: portrait;
+    margin: 8mm 12mm;
+  }
+}
