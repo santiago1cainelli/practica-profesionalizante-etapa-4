@@ -64,7 +64,6 @@ export const CasillerosGrid: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-emerald-600 text-white">
               Infraestructura y Vestuarios
             </span>
-            <span className="text-xs text-slate-500 font-medium">Requerimiento R6</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-[#1A365D] tracking-tight flex items-center space-x-2">
             <Grid className="w-6 h-6 text-[#2B6CB0]" />
@@ -201,7 +200,7 @@ export const CasillerosGrid: React.FC = () => {
                 <div className="space-y-3">
                   <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-lg space-y-1">
                     <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider">
-                      Socio Asignado (R6):
+                      Socio Asignado:
                     </span>
                     <h4 className="text-sm font-bold text-slate-900">{selectedLocker.socioNombre}</h4>
                     <p className="text-xs text-slate-600">DNI: {selectedLocker.socioDni}</p>
@@ -237,7 +236,7 @@ export const CasillerosGrid: React.FC = () => {
                       <option value="">-- Seleccione un socio sin casillero --</option>
                       {eligibleSocios.map((s) => (
                         <option key={s.id} value={s.id} disabled={s.estado === 'SUSPENDIDO_MOROSIDAD'}>
-                          {s.nombreCompleto} (DNI: {s.dni}) {s.estado === 'SUSPENDIDO_MOROSIDAD' ? ' [SUSPENDIDO R10]' : ''}
+                          {s.nombreCompleto} (DNI: {s.dni}) {s.estado === 'SUSPENDIDO_MOROSIDAD' ? ' [SUSPENDIDO POR MOROSIDAD]' : ''}
                         </option>
                       ))}
                     </select>

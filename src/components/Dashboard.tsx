@@ -131,7 +131,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Critical Alert Banner if there are Suspended Delinquent Members (R10) */}
+      {/* Critical Alert Banner if there are Suspended Delinquent Members */}
       {morosos.length > 0 && (
         <div className="bg-red-50 border-l-4 border-[#C53030] p-4 rounded-r-lg shadow-xs flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center space-x-3">
@@ -140,7 +140,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-red-900">
-                Alerta de Morosidad Crítica (Regla R10): {morosos.length} {morosos.length === 1 ? 'socio suspendido' : 'socios suspendidos'}
+                Alerta de Morosidad Crítica: {morosos.length} {morosos.length === 1 ? 'socio suspendido' : 'socios suspendidos'}
               </h3>
               <p className="text-xs text-red-700">
                 Socios con 2 o más cuotas consecutivas adeudadas tienen el acceso bloqueado a casilleros y nuevas inscripciones.
@@ -266,7 +266,7 @@ export const Dashboard: React.FC = () => {
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-xs p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-bold text-[#1A365D]">Estado de Cobranza por Zonas (R7 - R8)</h2>
+              <h2 className="text-base font-bold text-[#1A365D]">Estado de Cobranza por Zonas</h2>
               <p className="text-xs text-slate-500">Distribución de socios y cupones emitidos por radio geográfico</p>
             </div>
             <button
@@ -304,11 +304,11 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Rendición Semanal 10% (R9) */}
+        {/* Rendición Semanal 10% */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-[#1A365D]">Rendición Cobradores (R9)</h2>
+              <h2 className="text-base font-bold text-[#1A365D]">Rendición Semanal de Cobradores</h2>
               <span className="text-[10px] font-bold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
                 10% Comisión
               </span>

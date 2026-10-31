@@ -35,6 +35,7 @@ interface GuestHomeProps {
 
 export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
   const { setActiveTab, actividades, addSocio, showToast, quickSwitchUser, currentUser } = useApp();
+  const isLoggedIn = currentUser.role !== 'PUBLICO';
 
   // Registration Form State
   const [formData, setFormData] = useState({
@@ -179,13 +180,47 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
 
             {/* Primary Calls to Action */}
             <div className="mt-8 flex flex-wrap items-center gap-3.5">
-              <a
-                href="#asociarse"
-                className="px-6 py-3.5 rounded-lg bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm sm:text-base transition-all shadow-lg hover:shadow-red-900/40 flex items-center space-x-2 group"
-              >
-                <span>¡Quiero ser Socio!</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </a>
+              {!isLoggedIn ? (
+                <a
+                  href="#asociarse"
+                  className="px-6 py-3.5 rounded-lg bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm sm:text-base transition-all shadow-lg hover:shadow-red-900/40 flex items-center space-x-2 group"
+                >
+                  <span>¡Quiero ser Socio!</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </a>
+              ) : currentUser.role === 'SOCIO' ? (
+                <button
+                  onClick={() => setActiveTab('portal_socio')}
+                  className="px-6 py-3.5 rounded-lg bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm sm:text-base transition-all shadow-lg hover:shadow-red-900/40 flex items-center space-x-2 group"
+                >
+                  <span>Mi Portal de Socio & Carnet</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              ) : currentUser.role === 'ADMIN' ? (
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className="px-6 py-3.5 rounded-lg bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm sm:text-base transition-all shadow-lg hover:shadow-red-900/40 flex items-center space-x-2 group"
+                >
+                  <span>Panel de Gestión Administrativa</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              ) : currentUser.role === 'COBRADOR' ? (
+                <button
+                  onClick={() => setActiveTab('cobranza')}
+                  className="px-6 py-3.5 rounded-lg bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm sm:text-base transition-all shadow-lg hover:shadow-red-900/40 flex items-center space-x-2 group"
+                >
+                  <span>Cobranza & Rendición</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setActiveTab('asistencia')}
+                  className="px-6 py-3.5 rounded-lg bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm sm:text-base transition-all shadow-lg hover:shadow-red-900/40 flex items-center space-x-2 group"
+                >
+                  <span>Planilla de Asistencia</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
 
               <a
                 href="#disciplinas"
@@ -198,10 +233,19 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
               <button
                 onClick={() => setShowDirectLogin(true)}
                 className="px-5 py-3.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-slate-200 hover:text-white font-medium text-xs sm:text-sm border border-slate-700 transition-all flex items-center space-x-2"
-                title="Acceder con credenciales de Socio, Cobrador, Instructor o Administrador"
+                title={isLoggedIn ? `Usuario conectado: ${currentUser.nombreCompleto} (${currentUser.role})` : 'Acceder con credenciales de Socio, Cobrador, Instructor o Administrador'}
               >
-                <LogIn className="w-4 h-4 text-blue-400" />
-                <span>Acceso al Sistema</span>
+                {isLoggedIn ? (
+                  <>
+                    <UserCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Conectado: {currentUser.nombreCompleto.split(' ')[0]}</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4 text-blue-400" />
+                    <span>Acceso al Sistema</span>
+                  </>
+                )}
               </button>
             </div>
 
@@ -270,7 +314,7 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
             <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4">
               <Users className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-base text-slate-900 mb-2">Plan Grupo Familiar (R4)</h3>
+            <h3 className="font-bold text-base text-slate-900 mb-2">Plan Grupo Familiar</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               Bonificación estatutaria de ${CUOTA_VALORES.DESCUENTO_FAMILIAR_POR_HIJO.toLocaleString('es-AR')} mensual por cada hijo menor de 18 años adherido al socio titular. Cuidamos la economía familiar.
             </p>
@@ -280,7 +324,7 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
             <div className="w-12 h-12 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center mb-4">
               <Award className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-base text-slate-900 mb-2">Reconocimiento al Vitalicio (R3)</h3>
+            <h3 className="font-bold text-base text-slate-900 mb-2">Reconocimiento al Vitalicio</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               Socios con más de 30 años ininterrumpidos en el club quedan 100% exentos de la cuota social como gratitud por su fidelidad e historia compartida.
             </p>
@@ -290,7 +334,7 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
             <div className="w-12 h-12 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center mb-4">
               <MapPin className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-base text-slate-900 mb-2">Cobranza a Domicilio por Zonas (R7)</h3>
+            <h3 className="font-bold text-base text-slate-900 mb-2">Cobranza a Domicilio por Zonas</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               3 cobradores domiciliarios oficiales recorren Centro, Sur y Costanera con recibo troquelado oficial. También podés abonar en ventanilla de Sede Central.
             </p>
@@ -377,12 +421,28 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
               </ul>
             </div>
 
-            <a
-              href="#asociarse"
-              className="mt-6 w-full py-2.5 px-4 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold text-center block transition-colors border border-white/20 shadow-sm"
-            >
-              Asociar a un Menor
-            </a>
+            {!isLoggedIn ? (
+              <a
+                href="#asociarse"
+                className="mt-6 w-full py-2.5 px-4 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold text-center block transition-colors border border-white/20 shadow-sm"
+              >
+                Asociar a un Menor
+              </a>
+            ) : currentUser.role === 'SOCIO' ? (
+              <button
+                onClick={() => setActiveTab('portal_socio')}
+                className="mt-6 w-full py-2.5 px-4 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold text-center block transition-colors border border-white/20 shadow-sm"
+              >
+                Ver Mi Grupo Familiar
+              </button>
+            ) : currentUser.role === 'ADMIN' ? (
+              <button
+                onClick={() => setActiveTab('socios')}
+                className="mt-6 w-full py-2.5 px-4 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold text-center block transition-colors border border-white/20 shadow-sm"
+              >
+                Gestionar en Padrón
+              </button>
+            ) : null}
           </div>
 
           {/* Activo (Featured) */}
@@ -430,12 +490,28 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
               </ul>
             </div>
 
-            <a
-              href="#asociarse"
-              className="mt-6 w-full py-3 px-4 rounded-xl bg-[#C53030] hover:bg-[#9B2C2C] text-white text-xs font-bold text-center block transition-all shadow-md hover:shadow-lg"
-            >
-              Asociarme Ahora
-            </a>
+            {!isLoggedIn ? (
+              <a
+                href="#asociarse"
+                className="mt-6 w-full py-3 px-4 rounded-xl bg-[#C53030] hover:bg-[#9B2C2C] text-white text-xs font-bold text-center block transition-all shadow-md hover:shadow-lg"
+              >
+                Asociarme Ahora
+              </a>
+            ) : currentUser.role === 'SOCIO' ? (
+              <button
+                onClick={() => setActiveTab('portal_socio')}
+                className="mt-6 w-full py-3 px-4 rounded-xl bg-[#C53030] hover:bg-[#9B2C2C] text-white text-xs font-bold text-center block transition-all shadow-md hover:shadow-lg"
+              >
+                Ver Mi Estado de Socio
+              </button>
+            ) : currentUser.role === 'ADMIN' ? (
+              <button
+                onClick={() => setActiveTab('socios')}
+                className="mt-6 w-full py-3 px-4 rounded-xl bg-[#C53030] hover:bg-[#9B2C2C] text-white text-xs font-bold text-center block transition-all shadow-md hover:shadow-lg"
+              >
+                Administrar Padrón Socios
+              </button>
+            ) : null}
           </div>
 
           {/* Vitalicio */}
@@ -455,7 +531,7 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
                   $0
                 </span>
                 <span className="text-xs text-slate-300 font-normal"> / mes (Exento)</span>
-                <span className="block text-[11px] text-amber-300/90 mt-1">100% bonificado de por vida (R3)</span>
+                <span className="block text-[11px] text-amber-300/90 mt-1">100% bonificado de por vida</span>
               </div>
 
               <ul className="space-y-2.5 text-xs text-slate-200">
@@ -520,7 +596,21 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
           <div className="flex items-center space-x-2.5">
             <ShieldCheck className="w-5 h-5 text-blue-700 shrink-0" />
             <span>
-              <strong>Reglamento Deportivo:</strong> La inscripción a actividades deportivas es de uso exclusivo para socios del club. Los invitados no pueden inscribir socios a actividades directamente; para anotarte, asóciate completando la solicitud o inicia sesión.
+              {isLoggedIn ? (
+                currentUser.role === 'SOCIO' ? (
+                  <>
+                    <strong>Reglamento Deportivo:</strong> Como socio activo del club, podés inscribirte a cualquiera de las actividades deportivas habilitadas desde tu portal o la vitrina deportiva.
+                  </>
+                ) : (
+                  <>
+                    <strong>Gestión Deportiva:</strong> Consulta de horarios, cupos y profesores de las 6 disciplinas federadas del club.
+                  </>
+                )
+              ) : (
+                <>
+                  <strong>Reglamento Deportivo:</strong> La inscripción a actividades deportivas es de uso exclusivo para socios del club. Los invitados no pueden inscribir socios a actividades directamente; para anotarte, asóciate completando la solicitud o inicia sesión.
+                </>
+              )}
             </span>
           </div>
           <button
@@ -597,7 +687,7 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
                     >
                       Inscribirme (Mi Perfil)
                     </button>
-                  ) : (
+                  ) : !isLoggedIn ? (
                     <a
                       href="#asociarse"
                       onClick={() => setFormData((prev) => ({ ...prev, actividadInteresId: act.id }))}
@@ -606,6 +696,13 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
                     >
                       Asociarme e Inscribirme
                     </a>
+                  ) : (
+                    <button
+                      onClick={() => setActiveTab('actividades')}
+                      className="px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-[#1A365D] text-xs font-bold transition-colors"
+                    >
+                      Ver Cupos
+                    </button>
                   )}
                 </div>
               </div>
@@ -614,11 +711,12 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
         </div>
       </section>
 
-      {/* 5. FORMULARIO DE ALTA ONLINE / QUIERO SER SOCIO */}
-      <section
-        id="asociarse"
-        className="bg-white rounded-2xl border-2 border-slate-200 shadow-xl overflow-hidden p-6 sm:p-10"
-      >
+      {/* 5. FORMULARIO DE ALTA ONLINE / SOLICITUD DE INGRESO (SOLO VISIBLE PARA NO LOGUEADOS) */}
+      {!isLoggedIn && (
+        <section
+          id="asociarse"
+          className="bg-white rounded-2xl border-2 border-slate-200 shadow-xl overflow-hidden p-6 sm:p-10"
+        >
         <div className="max-w-4xl mx-auto">
           <div className="text-center max-w-xl mx-auto mb-8">
             <span className="px-3 py-1 rounded-full bg-red-100 text-[#C53030] text-xs font-black uppercase tracking-wider">
@@ -759,7 +857,7 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Zona de Cobro Preferida (R7)
+                  Zona de Cobro Preferida
                 </label>
                 <select
                   value={formData.zonaCobro}
@@ -809,6 +907,7 @@ export const GuestHome: React.FC<GuestHomeProps> = ({ onOpenLoginModal }) => {
           </form>
         </div>
       </section>
+      )}
 
       {/* 6. SEDE, HORARIOS Y CONTACTO */}
       <section className="bg-slate-200/70 rounded-2xl p-6 sm:p-8 border border-slate-300">

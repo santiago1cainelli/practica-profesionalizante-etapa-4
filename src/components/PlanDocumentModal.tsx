@@ -91,7 +91,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
               1. Resumen Ejecutivo y Objetivos
             </h2>
             <p className="text-slate-700 text-xs sm:text-sm text-justify">
-              El presente documento establece la hoja de ruta técnica y organizativa para la implementación del cliente frontend en <strong>React (TypeScript)</strong> para el Club Social y Deportivo "El Globo". El sistema se conecta directamente con la arquitectura REST desarrollada en <strong>NestJS</strong>, garantizando el cumplimiento de los requerimientos funcionales (R1 a R11) y no funcionales (RBAC, performance, usabilidad y arquitectura multiplataforma).
+              El presente documento establece la hoja de ruta técnica y organizativa para la implementación del cliente frontend en <strong>React (TypeScript)</strong> para el Club Social y Deportivo "El Globo". El sistema se conecta directamente con la arquitectura REST desarrollada en <strong>NestJS</strong>, garantizando el cumplimiento de los módulos funcionales y no funcionales (RBAC, performance, usabilidad y arquitectura multiplataforma).
             </p>
           </div>
 
@@ -123,7 +123,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
                   <th className="p-2.5 border border-slate-300">Fase / Sprint</th>
                   <th className="p-2.5 border border-slate-300 w-24">Semanas</th>
                   <th className="p-2.5 border border-slate-300">Entregables Principales</th>
-                  <th className="p-2.5 border border-slate-300">Requerimientos</th>
+                  <th className="p-2.5 border border-slate-300">Módulos Cubiertos</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -135,7 +135,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
                     • Cliente Axios con Interceptores JWT.<br />
                     • Pantalla de Login y Guardia de Rutas por Rol (RBAC).
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">R1 (Autenticación y Roles RBAC)</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Autenticación y Roles RBAC</td>
                 </tr>
                 <tr className="bg-slate-50/70 hover:bg-slate-50">
                   <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 2: Padrón y Categorización</td>
@@ -145,7 +145,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
                     • Cálculo automático de categorías (Cadete &lt;18, Activo &ge;18, Vitalicio &gt;30a).<br />
                     • Gestión del Plan Grupo Familiar y vinculación cónyuge/hijos.
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">R2, R3, R4 (Plan Familiar)</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Padrón, Categorías y Plan Familiar</td>
                 </tr>
                 <tr className="hover:bg-slate-50">
                   <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 3: Infraestructura y Deportes</td>
@@ -155,7 +155,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
                     • Panel de Asistencia e Inscripción para Instructores.<br />
                     • Grilla interactiva de 100 Casilleros con vinculación única.
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">R5 (Actividades), R6 (Casilleros)</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Actividades Deportivas y Casilleros</td>
                 </tr>
                 <tr className="bg-slate-50/70 hover:bg-slate-50">
                   <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 4: Cobranza, Zonas y Recibos</td>
@@ -165,7 +165,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
                     • Gestión de Zonas de Cobro (Zona 0 a Zona 3).<br />
                     • Módulo de Liquidación Semanal (10% Comisión Cobradores).
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">R7 (Zonas), R8 (Recibos), R9 (10%)</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Zonas de Cobro, Recibos y Rendición</td>
                 </tr>
                 <tr className="hover:bg-slate-50">
                   <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 5: Morosidad y Automatismos</td>
@@ -175,7 +175,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
                     • Reemisión de cupones con 5% de recargo.<br />
                     • Generación de reportes y exportación en PDF.
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">R10 (Morosidad), R11 (5% Mora)</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Control de Morosidad y Recargos</td>
                 </tr>
                 <tr className="bg-slate-50/70 hover:bg-slate-50">
                   <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 6: Testing, QA y Despliegue</td>
@@ -185,7 +185,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
                     • Pruebas de carga con 1500 socios simultáneos.<br />
                     • Despliegue en producción (Vercel / Nginx / Cloud Run).
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">R2 (Multiplataforma), R3 (QA)</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Multiplataforma y Control de Calidad</td>
                 </tr>
               </tbody>
             </table>
@@ -238,11 +238,11 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
               </tbody>
             </table>
 
-            {/* Callout R10 */}
+            {/* Callout Morosidad */}
             <div className="bg-[#EBF8FF] border-l-4 border-[#3182CE] p-3 rounded-r text-xs text-slate-800">
               <div className="font-bold text-[#2B6CB0] flex items-center space-x-1.5 mb-1">
                 <ShieldAlert className="w-4 h-4 text-[#C53030]" />
-                <span>Regla Crítica de Negocio - Control de Morosidad (R10):</span>
+                <span>Regla de Negocio - Control de Morosidad:</span>
               </div>
               <p className="leading-normal">
                 Si el socio acumula 2 meses impagos consecutivos, el frontend bloqueará automáticamente las opciones de inscripción a actividades, alquiler de casilleros y mostrará la alerta de suspensión temporal hasta que se regularice la deuda mediante el cobrador de zona o en la sede (Zona 0).

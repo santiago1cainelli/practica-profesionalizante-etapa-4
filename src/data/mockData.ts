@@ -305,7 +305,7 @@ export const INITIAL_SOCIOS: Socio[] = [
     edad: 43,
     antiguedadAnios: 8,
     categoria: 'ACTIVO',
-    estado: 'SUSPENDIDO_MOROSIDAD', // R10: 2 meses impagos consecutivos
+    estado: 'SUSPENDIDO_MOROSIDAD', // 2 meses impagos consecutivos
     cuotasAdeudadas: 2,
     esTitularFamilia: false,
     familiares: [],
@@ -507,7 +507,7 @@ export const INITIAL_CUPONES: CuponRecibo[] = [
     cuotaSocialBase: CUOTA_VALORES.ACTIVO, // 14000
     detalleActividades: [{ nombre: 'Básquetbol Primera', monto: 6500 }],
     costoCasillero: CUOTA_VALORES.CASILLERO_MENSUAL, // 3500
-    recargoMoraPorcentaje: 0.05, // 5% mora R11
+    recargoMoraPorcentaje: 0.05, // 5% mora
     montoRecargoMora: 1200,
     descuentoFamiliar: 0,
     subtotal: 24000,
@@ -566,7 +566,7 @@ export const INITIAL_RENDICIONES: RendicionLiquidacion[] = [
     periodoFecha: '01 al 07 de Septiembre 2026',
     recibosCobradosIds: ['cup-101'],
     totalCobrado: 29500,
-    porcentajeComision: 0.10, // 10% R9
+    porcentajeComision: 0.10, // 10%
     montoComisionCobrador: 2950,
     netoRendidoClub: 26550,
     estado: 'APROBADA',

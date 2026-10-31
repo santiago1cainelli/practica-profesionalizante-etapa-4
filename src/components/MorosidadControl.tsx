@@ -52,14 +52,14 @@ export const MorosidadControl: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-red-600 text-white">
               Automatismos & Control
             </span>
-            <span className="text-xs text-slate-500 font-medium">Requerimientos R10 y R11</span>
+            <span className="text-xs text-slate-500 font-medium">Control Estatutario</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-[#1A365D] tracking-tight flex items-center space-x-2">
             <AlertOctagon className="w-6 h-6 text-[#C53030]" />
             <span>Panel de Control de Morosidad y Recargos</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Detección de 2+ cuotas consecutivas impagas (Suspensión automática R10) y recargo moratorio del 5% (R11).
+            Detección de 2+ cuotas consecutivas impagas (Suspensión automática) y recargo moratorio del 5%.
           </p>
         </div>
 
@@ -78,10 +78,10 @@ export const MorosidadControl: React.FC = () => {
           <ShieldAlert className="w-5 h-5 text-[#C53030] shrink-0 mt-0.5" />
           <div className="text-xs text-red-950">
             <h4 className="font-bold text-red-900 text-sm mb-0.5">
-              Regla Crítica de Negocio - Control de Morosidad (R10):
+              Regla de Negocio - Control de Morosidad:
             </h4>
             <p className="leading-relaxed">
-              Si el socio acumula <strong>2 meses impagos consecutivos</strong>, el sistema bloquea automáticamente las opciones de inscripción a actividades, alquiler de casilleros y emite la alerta de suspensión temporal hasta que se regularice la deuda mediante el cobrador de zona o en la sede (Zona 0). Toda reemisión aplica un <strong>5% de recargo por mora</strong> (R11).
+              Si el socio acumula <strong>2 meses impagos consecutivos</strong>, el sistema bloquea automáticamente las opciones de inscripción a actividades, alquiler de casilleros y emite la alerta de suspensión temporal hasta que se regularice la deuda mediante el cobrador de zona o en la sede (Zona 0). Toda reemisión aplica un <strong>5% de recargo por mora</strong>.
             </p>
           </div>
         </div>
@@ -91,7 +91,7 @@ export const MorosidadControl: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl border border-red-200 shadow-xs">
           <div className="flex justify-between items-center mb-1">
-            <span className="text-xs font-bold text-red-800 uppercase">Suspendidos por Morosidad (R10)</span>
+            <span className="text-xs font-bold text-red-800 uppercase">Suspendidos por Morosidad</span>
             <AlertOctagon className="w-4 h-4 text-red-600" />
           </div>
           <div className="text-2xl font-black text-red-700">{totalSuspendidos} socios</div>
@@ -181,7 +181,7 @@ export const MorosidadControl: React.FC = () => {
                             isSuspended ? 'bg-red-600 text-white animate-pulse' : 'bg-amber-100 text-amber-800'
                           }`}
                         >
-                          {isSuspended ? 'SUSPENSIÓN TEMPORAL ACTIVA (R10)' : 'AVISO PREVIO: 1 CUOTA IMPAGA'}
+                          {isSuspended ? 'SUSPENSIÓN TEMPORAL ACTIVA' : 'AVISO PREVIO: 1 CUOTA IMPAGA'}
                         </span>
                         <span className="text-[11px] text-slate-500">Cat: {socio.categoria}</span>
                       </div>
@@ -249,7 +249,7 @@ export const MorosidadControl: React.FC = () => {
                           }}
                           className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-bold transition-colors shadow-xs"
                         >
-                          Aplicar 5% Mora (R11)
+                          Aplicar 5% Mora
                         </button>
                       )}
 

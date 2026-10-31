@@ -146,7 +146,7 @@ export const ReciboModal: React.FC<ReciboModalProps> = ({ cupon, onClose }) => {
                 )}
                 {cupon.montoRecargoMora > 0 && (
                   <tr className="text-red-700 bg-red-50/50">
-                    <td className="p-2 font-semibold">Recargo Estatutario por Mora 5% (R11)</td>
+                    <td className="p-2 font-semibold">Recargo Estatutario por Mora (5%)</td>
                     <td className="p-2 text-right font-bold font-mono">+${cupon.montoRecargoMora.toLocaleString('es-AR')}</td>
                   </tr>
                 )}

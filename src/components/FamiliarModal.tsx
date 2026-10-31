@@ -37,7 +37,7 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
     if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
 
     if ((parentesco === 'HIJO' || parentesco === 'HIJA') && edad >= 18) {
-      setErrorMsg('Regla Plan Familiar (R4): Los hijos mayores de 18 años deben registrarse como socios activos individuales.');
+      setErrorMsg('Regla Plan Familiar: Los hijos mayores de 18 años deben registrarse como socios activos individuales.');
       return;
     }
 
@@ -62,7 +62,7 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
           <div className="flex items-center space-x-2">
             <Users className="w-5 h-5 text-red-400" />
             <span className="font-bold text-sm tracking-wide">
-              PLAN GRUPO FAMILIAR (R4) — SOCIO N° {socio.numeroSocio}
+              PLAN GRUPO FAMILIAR — SOCIO N° {socio.numeroSocio}
             </span>
           </div>
           <button onClick={onClose} className="p-1 text-white/80 hover:text-white rounded">
@@ -195,7 +195,7 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
                   className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Nota (R4): Por estatuto del club, los hijos menores de 18 años obtienen un descuento de $1.500 en el recibo unificado familiar.
+                  Nota: Por estatuto del club, los hijos menores de 18 años obtienen un descuento de $1.500 en el recibo unificado familiar.
                 </p>
               </div>
 

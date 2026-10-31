@@ -10,7 +10,6 @@ import {
   FileSpreadsheet,
   AlertOctagon,
   UserCheck,
-  FileText,
   ShieldCheck,
   LogOut,
   ChevronDown,
@@ -23,16 +22,20 @@ import {
   LogIn
 } from 'lucide-react';
 import { useApp, ActiveTab } from '../context/AppContext';
-import { MOCK_USERS } from '../data/mockData';
+import { MOCK_USERS, CUOTA_VALORES } from '../data/mockData';
 import { UserRole } from '../types';
 
 interface NavbarProps {
-  onOpenPlanDoc: () => void;
+  onOpenPlanDoc?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenPlanDoc }) => {
+export const Navbar: React.FC<NavbarProps> = () => {
   const { currentUser, quickSwitchUser, activeTab, setActiveTab, toast, closeToast, socios, cupones, rendiciones } = useApp();
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Socio info when user is a registered member
+  const socioActual = currentUser.socioId ? socios.find((s) => s.id === currentUser.socioId) : null;
+  const cuotaValor = socioActual ? CUOTA_VALORES[socioActual.categoria] : null;
 
   // Counts for notification badges
   const morososCount = socios.filter((s) => s.estado === 'SUSPENDIDO_MOROSIDAD').length;
@@ -55,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenPlanDoc }) => {
     { id: 'asistencia', label: 'Asistencia', icon: ClipboardCheck, roles: ['ADMIN', 'INSTRUCTOR'] },
     { id: 'cobranza', label: 'Cobranza & Zonas', icon: Receipt, roles: ['ADMIN', 'COBRADOR'] },
     { id: 'rendicion', label: 'Rendición (10%)', icon: FileSpreadsheet, roles: ['ADMIN', 'COBRADOR'], badge: rendicionesPendientes },
-    { id: 'morosidad', label: 'Morosidad (R10)', icon: AlertOctagon, roles: ['ADMIN'], badge: morososCount },
+    { id: 'morosidad', label: 'Morosidad', icon: AlertOctagon, roles: ['ADMIN'], badge: morososCount },
     { id: 'portal_socio', label: 'Mi Portal Socio', icon: UserCheck, roles: ['SOCIO', 'ADMIN'] },
   ];
 
@@ -108,16 +111,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenPlanDoc }) => {
               </button>
             )}
 
-            {/* View Implementation Plan */}
-            <button
-              onClick={onOpenPlanDoc}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800/80 hover:bg-slate-700 rounded-md border border-slate-600 text-blue-100 transition-colors shadow-xs"
-              title="Ver el Plan de Implementación Frontend de 6 Semanas"
-            >
-              <FileText className="w-4 h-4 text-red-400" />
-              <span className="hidden md:inline">Plan Técnico</span>
-              <span className="hidden lg:inline text-[10px] text-slate-300">(Caccia, Cainelli...)</span>
-            </button>
+            {/* Cuota Social Badge when logged in as Socio */}
+            {currentUser.role === 'SOCIO' && cuotaValor !== null && (
+              <div
+                onClick={() => setActiveTab('portal_socio')}
+                className="cursor-pointer hidden sm:flex items-center space-x-1.5 px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900/80 rounded-md border border-emerald-500/50 text-xs transition-colors shadow-xs"
+                title="Ver detalle de cuota social y aranceles en Mi Portal Socio"
+              >
+                <span className="text-[10px] uppercase font-bold text-emerald-400">Cuota Social:</span>
+                <span className="font-mono font-bold text-emerald-100">
+                  {cuotaValor > 0 ? `$${cuotaValor.toLocaleString('es-AR')}/mes` : 'Exento ($0)'}
+                </span>
+              </div>
+            )}
 
             {/* User Switcher Dropdown */}
             <div className="relative">
@@ -130,8 +136,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenPlanDoc }) => {
                 </div>
                 <div className="text-left hidden sm:block">
                   <div className="font-semibold leading-tight text-white">{currentUser.nombreCompleto}</div>
-                  <div className="text-[10px] text-blue-200 uppercase tracking-wider">
-                    {roleBadges[currentUser.role]?.label || currentUser.role}
+                  <div className="text-[10px] text-blue-200 uppercase tracking-wider flex items-center space-x-1">
+                    <span>{roleBadges[currentUser.role]?.label || currentUser.role}</span>
+                    {currentUser.role === 'SOCIO' && cuotaValor !== null && (
+                      <span className="text-emerald-300 font-mono font-bold">
+                        • {cuotaValor > 0 ? `$${cuotaValor.toLocaleString('es-AR')}` : '$0'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-blue-200" />
@@ -198,6 +209,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenPlanDoc }) => {
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
+                  {item.id === 'portal_socio' && currentUser.role === 'SOCIO' && cuotaValor !== null && (
+                    <span className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-emerald-500 text-white shadow-xs">
+                      {cuotaValor > 0 ? `$${cuotaValor.toLocaleString('es-AR')}` : 'Exento'}
+                    </span>
+                  )}
                   {item.badge !== undefined && item.badge > 0 && (
                     <span className="ml-1.5 px-1.5 py-0.2 bg-red-600 text-white rounded-full text-[10px] font-black">
                       {item.badge}

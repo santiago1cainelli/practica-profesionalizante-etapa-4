@@ -82,7 +82,7 @@ export const ActividadesShowcase: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-amber-500 text-white">
               Deportes & Disciplinas
             </span>
-            <span className="text-xs text-slate-500 font-medium">Requerimiento R5</span>
+            <span className="text-xs text-slate-500 font-medium">Catálogo Oficial</span>
             {isGuest && (
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-slate-600 text-white">
                 Modo Invitado
@@ -303,10 +303,10 @@ export const ActividadesShowcase: React.FC = () => {
                       <button
                         disabled
                         className="w-full py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 cursor-not-allowed opacity-90"
-                        title="Regulariza tu deuda en secretaría para poder anotarte a deportes (Control R10)"
+                        title="Regulariza tu deuda en secretaría para poder anotarte a deportes"
                       >
                         <ShieldAlert className="w-4 h-4 text-red-600" />
-                        <span>Bloqueado por Morosidad (R10)</span>
+                        <span>Bloqueado por Morosidad</span>
                       </button>
                     );
                   }
@@ -530,18 +530,18 @@ export const ActividadesShowcase: React.FC = () => {
                         disabled={yaInscripto || isSuspended}
                       >
                         {s.nombreCompleto} (DNI: {s.dni})
-                        {isSuspended ? ' [BLOQUEADO MOROSIDAD R10]' : yaInscripto ? ' [YA INSCRIPTO]' : ''}
+                        {isSuspended ? ' [BLOQUEADO POR MOROSIDAD]' : yaInscripto ? ' [YA INSCRIPTO]' : ''}
                       </option>
                     );
                   })}
                 </select>
               </div>
 
-              {/* R10 Warning */}
+              {/* Delinquency Warning */}
               <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800 flex items-start space-x-1.5">
                 <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Control de Morosidad (R10):</strong> Socios que adeudan 2 o más cuotas consecutivas tienen inhabilitada la inscripción hasta regularizar su situación contable.
+                  <strong>Control de Morosidad:</strong> Socios que adeudan 2 o más cuotas consecutivas tienen inhabilitada la inscripción hasta regularizar su situación contable.
                 </span>
               </div>
 

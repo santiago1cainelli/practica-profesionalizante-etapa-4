@@ -247,7 +247,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('el_globo_asistencias', JSON.stringify(asistencias));
   }, [asistencias]);
 
-  // Recalcular estado de morosidad (R10)
+  // Recalcular estado de morosidad
   // Si tiene 2 o más cuotas adeudadas -> SUSPENDIDO_MOROSIDAD
   const refreshMorosidadStatus = (currentSocios: Socio[], currentCupones: CuponRecibo[]) => {
     return currentSocios.map((socio) => {
@@ -340,7 +340,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
     if (isNaN(edad) || edad < 0) edad = 0;
 
-    // Si es hijo, validar requerimiento R4: < 18 años
+    // Si es hijo, validar regla de negocio: menor de 18 años
     if ((familiarData.parentesco === 'HIJO' || familiarData.parentesco === 'HIJA') && edad >= 18) {
       showToast('warning', 'Validación Plan Familiar', 'Los hijos mayores de 18 años deben asociarse individualmente como categoría Activo.');
       return;
@@ -389,15 +389,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    // Regla R10: Control de morosidad bloquea casilleros
     if (socio.estado === 'SUSPENDIDO_MOROSIDAD') {
-      showToast('error', 'Acción denegada por Morosidad (R10)', `El socio ${socio.nombreCompleto} está suspendido por adeudar 2 o más cuotas. Debe regularizar su deuda en secretaría.`);
+      showToast('error', 'Acción denegada por Morosidad', `El socio ${socio.nombreCompleto} está suspendido por adeudar 2 o más cuotas. Debe regularizar su deuda en secretaría.`);
       return false;
     }
 
-    // Regla R6: Asignación ÚNICA de casillero por socio
+    // Regla: Asignación ÚNICA de casillero por socio
     if (socio.casilleroAsignadoId && socio.casilleroAsignadoId !== lockerNumber) {
-      showToast('error', 'Límite de casillero alcanzado (R6)', `El socio ya cuenta con el casillero N° ${socio.casilleroAsignadoId} asignado. Máximo 1 casillero por socio.`);
+      showToast('error', 'Límite de casillero alcanzado', `El socio ya cuenta con el casillero N° ${socio.casilleroAsignadoId} asignado. Máximo 1 casillero por socio.`);
       return false;
     }
 
@@ -490,9 +489,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (!socio || !actividad) return false;
 
-    // Regla R10: Control de morosidad bloquea actividades
+    // Regla: Control de morosidad bloquea actividades
     if (socio.estado === 'SUSPENDIDO_MOROSIDAD') {
-      showToast('error', 'Bloqueo por Morosidad (R10)', `El socio ${socio.nombreCompleto} se encuentra suspendido. Regularice su estado contable para inscribirse a deportes.`);
+      showToast('error', 'Bloqueo por Morosidad', `El socio ${socio.nombreCompleto} se encuentra suspendido. Regularice su estado contable para inscribirse a deportes.`);
       return false;
     }
 
@@ -591,7 +590,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const subtotal = Math.max(0, cuotaSocialBase + costoActividades + costoCasillero - descuentoFamiliar);
 
-    // Regla R11: 5% recargo por mora si ya tiene cuotas impagas
+    // Regla estatutaria: 5% recargo por mora si ya tiene cuotas impagas
     const tieneMora = socio.cuotasAdeudadas > 0;
     const recargoMoraPorcentaje = tieneMora ? CUOTA_VALORES.RECARGO_MORA_PORCENTAJE : 0;
     const montoRecargoMora = tieneMora ? Math.round(subtotal * CUOTA_VALORES.RECARGO_MORA_PORCENTAJE) : 0;
@@ -658,7 +657,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('success', 'Pago Registrado', `El recibo ha sido cancelado exitosamente mediante ${metodoPago.replace('_', ' ')}.`);
   };
 
-  // Regla R11: Reemisión de cupones con 5% de recargo
+  // Reemisión de cupones con 5% de recargo
   const reemitirCuponConMora = (cuponId: string) => {
     let targetCupon: CuponRecibo | undefined;
     setCupones((prev) =>
@@ -679,7 +678,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    showToast('warning', 'Cupón Reemitido con 5% Mora (R11)', `Se aplicó el recargo estatutario del 5% al recibo de ${targetCupon?.socioNombre || 'socio'}.`);
+    showToast('warning', 'Cupón Reemitido con 5% Mora', `Se aplicó el recargo estatutario del 5% al recibo de ${targetCupon?.socioNombre || 'socio'}.`);
   };
 
   // Regularizar deuda total de un socio en secretaría
@@ -714,10 +713,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    showToast('success', 'Deuda Regularizada (R10)', 'El socio ha regularizado todas sus obligaciones. Se rehabilitan los accesos a actividades y casilleros.');
+    showToast('success', 'Deuda Regularizada', 'El socio ha regularizado todas sus obligaciones. Se rehabilitan los accesos a actividades y casilleros.');
   };
 
-  // RENDICIONES SEMANALES DE COBRADORES (R9: 10% de comisión)
+  // RENDICIONES SEMANALES DE COBRADORES (10% de comisión)
   const crearRendicionSemanal = (zonaCobro: number, cobradorId: string, cobradorNombre: string, cuponesIds: string[]) => {
     const cuponesRendidos = cupones.filter((c) => cuponesIds.includes(c.id));
     const totalCobrado = cuponesRendidos.reduce((acc, c) => acc + c.totalPagar, 0);

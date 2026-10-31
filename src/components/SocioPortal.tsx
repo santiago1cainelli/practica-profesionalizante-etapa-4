@@ -11,10 +11,12 @@ import {
   Download,
   Calendar,
   MapPin,
-  CheckCircle2
+  CheckCircle2,
+  Banknote,
+  Wallet
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ZONAS_NOMBRES } from '../data/mockData';
+import { ZONAS_NOMBRES, CUOTA_VALORES } from '../data/mockData';
 import { ReciboModal } from './ReciboModal';
 import { CuponRecibo } from '../types';
 import titularCardBg from '../assets/images/titular_card_bg_1789672816138.jpg';
@@ -52,11 +54,22 @@ export const SocioPortal: React.FC = () => {
   const misActividades = actividades.filter((a) => socio.actividadesIds.includes(a.id));
   const misCupones = cupones.filter((c) => c.socioId === socio.id);
 
+  // Cuota Social e importes mensuales del socio
+  const cuotaBase = CUOTA_VALORES[socio.categoria] ?? 14000;
+  const costoActividades = misActividades.reduce((sum, a) => sum + a.costoMensual, 0);
+  const costoCasillero = socio.casilleroAsignadoId ? CUOTA_VALORES.CASILLERO_MENSUAL : 0;
+  const hijosCount = socio.familiares.filter((f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
+  const descuentoFamiliar = hijosCount * CUOTA_VALORES.DESCUENTO_FAMILIAR_POR_HIJO;
+  const subtotal = Math.max(0, cuotaBase + costoActividades + costoCasillero - descuentoFamiliar);
+  const tieneMora = socio.cuotasAdeudadas > 0;
+  const montoRecargoMora = tieneMora ? Math.round(subtotal * CUOTA_VALORES.RECARGO_MORA_PORCENTAJE) : 0;
+  const totalMes = subtotal + montoRecargoMora;
+
   return (
     <div className="space-y-6">
       
       {/* Header & Socio Selector */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-indigo-600 text-white">
@@ -73,29 +86,56 @@ export const SocioPortal: React.FC = () => {
           </p>
         </div>
 
-        {/* Member selector only visible for Admin testability; Socios only see their own profile */}
-        {currentUser.role === 'ADMIN' ? (
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Ver como socio:</span>
-            <select
-              value={socio.id}
-              onChange={(e) => setSelectedSocioId(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none"
-            >
-              {socios.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombreCompleto} (Socio N° {s.numeroSocio})
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Valor de Cuota Destacado */}
+          <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100/60 border border-emerald-300/80 px-4 py-2.5 rounded-xl shadow-xs flex items-center space-x-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black shadow-xs">
+              <Banknote className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-[10px] uppercase font-black text-emerald-800 tracking-wider">
+                  Valor Cuota Social
+                </span>
+                <span className="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 rounded text-[9px] font-bold uppercase">
+                  {socio.categoria}
+                </span>
+              </div>
+              <div className="flex items-baseline space-x-1 mt-0.5">
+                <span className="text-xl sm:text-2xl font-black text-emerald-950 font-mono tracking-tight">
+                  {cuotaBase > 0 ? `$${cuotaBase.toLocaleString('es-AR')}` : '$0'}
+                </span>
+                <span className="text-xs text-emerald-800 font-semibold">
+                  {cuotaBase > 0 ? '/ mes' : '(Exento)'}
+                </span>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="flex items-center space-x-2">
-            <span className="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg text-xs font-bold">
-              Sesión de Socio: {socio.nombreCompleto}
-            </span>
-          </div>
-        )}
+
+          {/* Member selector only visible for Admin testability; Socios only see their own profile */}
+          {currentUser.role === 'ADMIN' ? (
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Ver como socio:</span>
+              <select
+                value={socio.id}
+                onChange={(e) => setSelectedSocioId(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              >
+                {socios.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombreCompleto} (Socio N° {s.numeroSocio})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <span className="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg text-xs font-bold">
+                Sesión de Socio: {socio.nombreCompleto}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -138,8 +178,8 @@ export const SocioPortal: React.FC = () => {
                 </span>
               </div>
 
-              {/* Category & Status Banner */}
-              <div className="flex items-center space-x-2 mb-4">
+              {/* Category, Status & Cuota Banner */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                     socio.categoria === 'CADETE'
@@ -152,12 +192,16 @@ export const SocioPortal: React.FC = () => {
                   {socio.categoria}
                 </span>
 
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/20 font-mono shadow-xs">
+                  Cuota: {cuotaBase > 0 ? `$${cuotaBase.toLocaleString('es-AR')}/mes` : '$0 (Exento)'}
+                </span>
+
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                     isSuspended ? 'bg-red-500 text-white animate-pulse' : 'bg-emerald-500 text-white'
                   }`}
                 >
-                  {isSuspended ? 'SUSPENDIDO (R10)' : 'HABILITADO'}
+                  {isSuspended ? 'SUSPENDIDO' : 'HABILITADO'}
                 </span>
               </div>
 
@@ -196,7 +240,11 @@ export const SocioPortal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-blue-100 bg-black/30 backdrop-blur-xs p-2.5 rounded-lg border border-white/10 mb-4">
+              <div className="grid grid-cols-3 gap-2 text-[11px] text-blue-100 bg-black/30 backdrop-blur-xs p-2.5 rounded-lg border border-white/10 mb-4">
+                <div>
+                  <span className="text-[9px] text-blue-300 block uppercase">Cuota Base</span>
+                  <strong className="text-white font-mono">{cuotaBase > 0 ? `$${cuotaBase.toLocaleString('es-AR')}` : '$0'}</strong>
+                </div>
                 <div>
                   <span className="text-[9px] text-blue-300 block uppercase">Antigüedad</span>
                   <strong>{socio.antiguedadAnios} años</strong>
@@ -237,7 +285,7 @@ export const SocioPortal: React.FC = () => {
               <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <div>
                 <strong className="block text-sm font-bold text-red-950 mb-0.5">
-                  Atención: Acceso Suspendido por Morosidad (R10)
+                  Atención: Acceso Suspendido por Morosidad
                 </strong>
                 <p>
                   Usted registra {socio.cuotasAdeudadas} cuotas consecutivas adeudadas. Para habilitar su carnet en los molinetes, hacer uso de su casillero o continuar en sus disciplinas deportivas, por favor regularice su saldo pendiente con el cobrador de zona o en secretaría.
@@ -257,6 +305,94 @@ export const SocioPortal: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Card Resumen de Cuota Mensual & Aranceles */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+              <div className="flex items-start sm:items-center space-x-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-xs">
+                  <Banknote className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded">
+                      Cuota Mensual Oficial
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">Categoría {socio.categoria}</span>
+                  </div>
+                  <div className="flex items-baseline space-x-2 mt-1">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+                      {cuotaBase > 0 ? `$${cuotaBase.toLocaleString('es-AR')}` : '$0'}
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      {cuotaBase > 0 ? '/ mes (Cuota Social Base)' : '(Exento de por vida por Estatuto)'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sm:text-right sm:border-l sm:pl-5 border-slate-200">
+                <span className="text-[11px] text-slate-500 font-semibold block uppercase tracking-wider">Total Mensual Estimado</span>
+                <span className="text-2xl font-black text-[#1A365D] font-mono block">
+                  ${totalMes.toLocaleString('es-AR')}
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  {socio.cuotasAdeudadas > 0 ? `Registra deuda (${socio.cuotasAdeudadas} meses)` : 'Al día • Sin recargos'}
+                </span>
+              </div>
+            </div>
+
+            {/* Breakdown of fees */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 text-xs">
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
+                <span className="text-[10px] text-slate-500 uppercase block font-bold">Cuota Social ({socio.categoria})</span>
+                <span className="text-sm font-extrabold text-slate-900 font-mono mt-0.5 block">
+                  {cuotaBase > 0 ? `$${cuotaBase.toLocaleString('es-AR')}` : '$0'}
+                </span>
+                <span className="text-[10px] text-slate-500">Membresía institucional</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
+                <span className="text-[10px] text-slate-500 uppercase block font-bold">Deportes ({misActividades.length})</span>
+                <span className="text-sm font-extrabold text-slate-900 font-mono mt-0.5 block">
+                  {costoActividades > 0 ? `+$${costoActividades.toLocaleString('es-AR')}` : '$0'}
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  {misActividades.length > 0 ? `${misActividades.length} disciplina(s)` : 'Sin actividades'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
+                <span className="text-[10px] text-slate-500 uppercase block font-bold">Casillero Mensual</span>
+                <span className="text-sm font-extrabold text-slate-900 font-mono mt-0.5 block">
+                  {costoCasillero > 0 ? `+$${costoCasillero.toLocaleString('es-AR')}` : '$0'}
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  {socio.casilleroAsignadoId ? `Locker N° ${socio.casilleroAsignadoId}` : 'Sin casillero'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200/80">
+                <span className="text-[10px] text-emerald-800 uppercase block font-bold">Plan Familiar</span>
+                <span className="text-sm font-extrabold text-emerald-700 font-mono mt-0.5 block">
+                  {descuentoFamiliar > 0 ? `-$${descuentoFamiliar.toLocaleString('es-AR')}` : '$0'}
+                </span>
+                <span className="text-[10px] text-emerald-700">
+                  {hijosCount > 0 ? `${hijosCount} hijo(s) bonificado(s)` : 'Sin bonificación'}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center text-[11px] text-slate-500 gap-2">
+              <span className="flex items-center space-x-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                <span>Modalidad de Cobro: <strong>{zona.nombre}</strong> ({zona.cobradorDefault})</span>
+              </span>
+              <span className="font-medium text-slate-600">
+                Vencimiento regular: 10 de cada mes
+              </span>
+            </div>
+          </div>
 
           {/* Current Enrolled Activities & Lockers */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -318,7 +454,7 @@ export const SocioPortal: React.FC = () => {
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
               <div className="flex items-center space-x-2 mb-3 text-slate-800 font-bold text-xs uppercase tracking-wider">
                 <Users className="w-4 h-4 text-[#C53030]" />
-                <span>Grupo Familiar Asociado (R4)</span>
+                <span>Grupo Familiar Asociado</span>
               </div>
 
               {socio.familiares.length === 0 ? (

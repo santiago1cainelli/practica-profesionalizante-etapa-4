@@ -65,7 +65,7 @@ export const CobranzaZones: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#1A365D] text-white">
               Tesorería & Zonas
             </span>
-            <span className="text-xs text-slate-500 font-medium">Requerimientos R7, R8 y R11</span>
+            <span className="text-xs text-slate-500 font-medium">Gestión de Cobranza Oficial</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-[#1A365D] tracking-tight flex items-center space-x-2">
             <Receipt className="w-6 h-6 text-[#C53030]" />
@@ -199,7 +199,7 @@ export const CobranzaZones: React.FC = () => {
                     <td className="p-3.5 text-slate-600">
                       {cupon.periodoMes}
                       {cupon.montoRecargoMora > 0 && (
-                        <span className="block text-[10px] text-red-600 font-bold">+5% Mora (R11)</span>
+                        <span className="block text-[10px] text-red-600 font-bold">+5% Mora</span>
                       )}
                     </td>
                     <td className="p-3.5 text-right font-mono font-black text-sm text-slate-900">
@@ -242,7 +242,7 @@ export const CobranzaZones: React.FC = () => {
                             <button
                               onClick={() => reemitirCuponConMora(cupon.id)}
                               className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-semibold text-xs transition-colors"
-                              title="Reemitir con 5% Recargo por Mora (R11)"
+                              title="Reemitir con 5% Recargo por Mora"
                             >
                               +5% Mora
                             </button>
@@ -263,7 +263,7 @@ export const CobranzaZones: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="relative w-full max-w-md bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
             <div className="flex items-center justify-between px-6 py-3.5 bg-[#1A365D] text-white border-b-2 border-[#C53030]">
-              <span className="font-bold text-sm tracking-wide">EMITIR NUEVO RECIBO DE CUOTA (R8)</span>
+              <span className="font-bold text-sm tracking-wide">EMITIR NUEVO RECIBO DE CUOTA</span>
               <button onClick={() => setIsEmitModalOpen(false)} className="p-1 text-white/80 hover:text-white rounded">
                 &times;
               </button>
@@ -295,8 +295,8 @@ export const CobranzaZones: React.FC = () => {
                   <li>Cuota Social según categoría (Cadete, Activo, Vitalicio).</li>
                   <li>Aranceles de actividades deportivas en las que esté inscripto.</li>
                   <li>Alquiler de casillero ($3.500) si tiene uno asignado.</li>
-                  <li>Descuento por hijos del Plan Familiar (R4).</li>
-                  <li>5% recargo de mora si adeuda períodos anteriores (R11).</li>
+                  <li>Descuento por hijos del Plan Familiar.</li>
+                  <li>5% recargo de mora si adeuda períodos anteriores.</li>
                 </ul>
               </div>
 

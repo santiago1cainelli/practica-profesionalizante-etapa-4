@@ -67,7 +67,7 @@ export const RendicionCobrador: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-amber-600 text-white">
               Liquidación Semanal
             </span>
-            <span className="text-xs text-slate-500 font-medium">Requerimiento R9 (10% Comisión)</span>
+            <span className="text-xs text-slate-500 font-medium">10% Comisión Oficial</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-[#1A365D] tracking-tight flex items-center space-x-2">
             <FileSpreadsheet className="w-6 h-6 text-amber-600" />
@@ -135,7 +135,7 @@ export const RendicionCobrador: React.FC = () => {
                       <strong className="font-mono">${rend.totalCobrado.toLocaleString('es-AR')}</strong>
                     </div>
                     <div className="flex justify-between text-amber-800 font-bold pt-1 border-t border-slate-200">
-                      <span>Comisión Cobrador (10% R9):</span>
+                      <span>Comisión Cobrador (10%):</span>
                       <span className="font-mono">+${rend.montoComisionCobrador.toLocaleString('es-AR')}</span>
                     </div>
                     <div className="flex justify-between text-[#1A365D] font-black text-sm pt-1 border-t border-slate-300">
@@ -173,7 +173,7 @@ export const RendicionCobrador: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <FileCheck className="w-5 h-5 text-red-400" />
                 <span className="font-bold text-sm tracking-wide">
-                  NUEVA RENDICIÓN SEMANAL — 10% COMISIÓN (R9)
+                  NUEVA RENDICIÓN SEMANAL — 10% COMISIÓN
                 </span>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-1 text-white/80 hover:text-white rounded">
@@ -274,7 +274,7 @@ export const RendicionCobrador: React.FC = () => {
                   <strong className="font-mono">${totalCobradoCalculado.toLocaleString('es-AR')}</strong>
                 </div>
                 <div className="flex justify-between text-amber-900 font-bold">
-                  <span>Comisión del Cobrador (10% s/ recaudación R9):</span>
+                  <span>Comisión del Cobrador (10% s/ recaudación):</span>
                   <span className="font-mono text-sm">${comisionCalculada.toLocaleString('es-AR')}</span>
                 </div>
                 <div className="flex justify-between text-[#1A365D] font-black text-sm pt-2 border-t border-amber-300">
