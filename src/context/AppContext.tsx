@@ -11,6 +11,8 @@ import {
   UserRole,
   SocioCategoria,
   SocioEstado,
+  Cobrador,
+  Instructor,
 } from '../types';
 import {
   INITIAL_SOCIOS,
@@ -18,6 +20,8 @@ import {
   generateInitialLockers,
   INITIAL_CUPONES,
   INITIAL_RENDICIONES,
+  INITIAL_COBRADORES,
+  INITIAL_INSTRUCTORES,
   MOCK_USERS,
   CUOTA_VALORES,
 } from '../data/mockData';
@@ -26,6 +30,8 @@ export type ActiveTab =
   | 'inicio'
   | 'dashboard'
   | 'socios'
+  | 'cobradores'
+  | 'instructores'
   | 'casilleros'
   | 'actividades'
   | 'asistencia'
@@ -59,6 +65,20 @@ interface AppContextType {
   addFamiliar: (socioId: string, familiar: Omit<Familiar, 'id' | 'edad'>) => void;
   removeFamiliar: (socioId: string, familiarId: string) => void;
   regularizarDeudaSocio: (socioId: string) => void;
+
+  // Cobradores CRUD (Solo Admin)
+  cobradores: Cobrador[];
+  addCobrador: (data: Omit<Cobrador, 'id' | 'fechaAlta'>) => boolean;
+  updateCobrador: (id: string, data: Partial<Cobrador>) => void;
+  deleteCobrador: (id: string) => void;
+  toggleCobradorEstado: (id: string) => void;
+
+  // Instructores CRUD (Solo Admin)
+  instructores: Instructor[];
+  addInstructor: (data: Omit<Instructor, 'id' | 'fechaAlta'>) => boolean;
+  updateInstructor: (id: string, data: Partial<Instructor>) => void;
+  deleteInstructor: (id: string) => void;
+  toggleInstructorEstado: (id: string) => void;
 
   // Casilleros
   lockers: Locker[];
@@ -218,6 +238,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ];
   });
 
+  // State Cobradores (CRUD Admin)
+  const [cobradores, setCobradores] = useState<Cobrador[]>(() => {
+    const saved = localStorage.getItem('el_globo_cobradores');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+    }
+    return INITIAL_COBRADORES;
+  });
+
+  // State Instructores (CRUD Admin)
+  const [instructores, setInstructores] = useState<Instructor[]>(() => {
+    const saved = localStorage.getItem('el_globo_instructores');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+    }
+    return INITIAL_INSTRUCTORES;
+  });
+
   // Persistencias
   useEffect(() => {
     localStorage.setItem('el_globo_current_user', JSON.stringify(currentUser));
@@ -246,6 +284,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('el_globo_asistencias', JSON.stringify(asistencias));
   }, [asistencias]);
+
+  useEffect(() => {
+    localStorage.setItem('el_globo_cobradores', JSON.stringify(cobradores));
+  }, [cobradores]);
+
+  useEffect(() => {
+    localStorage.setItem('el_globo_instructores', JSON.stringify(instructores));
+  }, [instructores]);
 
   // Recalcular estado de morosidad
   // Si tiene 2 o más cuotas adeudadas -> SUSPENDIDO_MOROSIDAD
@@ -379,6 +425,143 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
     showToast('info', 'Familiar desvinculado', 'El miembro fue quitado del grupo familiar.');
+  };
+
+  // COBRADORES CRUD (Solo Admin)
+  const addCobrador = (data: Omit<Cobrador, 'id' | 'fechaAlta'>): boolean => {
+    const existeDni = cobradores.some((c) => c.dni.trim() === data.dni.trim());
+    if (existeDni) {
+      showToast('error', 'Error al registrar cobrador', `Ya existe un cobrador registrado con el DNI ${data.dni}.`);
+      return false;
+    }
+    const newCobrador: Cobrador = {
+      ...data,
+      id: `cob-${Date.now()}`,
+      fechaAlta: new Date().toISOString().split('T')[0],
+    };
+    setCobradores((prev) => [newCobrador, ...prev]);
+    showToast('success', 'Cobrador registrado', `${newCobrador.nombreCompleto} asignado a Zona ${newCobrador.zonaAsignada}.`);
+    return true;
+  };
+
+  const updateCobrador = (id: string, data: Partial<Cobrador>) => {
+    setCobradores((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...data } : c))
+    );
+    showToast('success', 'Cobrador actualizado', 'Los datos del cobrador se actualizaron correctamente.');
+  };
+
+  const deleteCobrador = (id: string) => {
+    const cob = cobradores.find((c) => c.id === id);
+    setCobradores((prev) => prev.filter((c) => c.id !== id));
+    showToast('info', 'Cobrador dado de baja', `El cobrador ${cob?.nombreCompleto || ''} ha sido removido del sistema.`);
+  };
+
+  const toggleCobradorEstado = (id: string) => {
+    setCobradores((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        const nuevoEstado = !c.activo;
+        showToast('info', 'Estado modificado', `${c.nombreCompleto} marcado como ${nuevoEstado ? 'Activo' : 'Inactivo'}.`);
+        return { ...c, activo: nuevoEstado };
+      })
+    );
+  };
+
+  // INSTRUCTORES CRUD (Solo Admin)
+  const addInstructor = (data: Omit<Instructor, 'id' | 'fechaAlta'>): boolean => {
+    const existeDni = instructores.some((i) => i.dni.trim() === data.dni.trim());
+    if (existeDni) {
+      showToast('error', 'Error al registrar instructor', `Ya existe un instructor registrado con el DNI ${data.dni}.`);
+      return false;
+    }
+    const newInstructor: Instructor = {
+      ...data,
+      id: `inst-${Date.now()}`,
+      fechaAlta: new Date().toISOString().split('T')[0],
+    };
+    setInstructores((prev) => [newInstructor, ...prev]);
+
+    // Sincronizar en actividades asignadas
+    if (data.disciplinasIds && data.disciplinasIds.length > 0) {
+      setActividades((prev) =>
+        prev.map((a) =>
+          data.disciplinasIds.includes(a.id)
+            ? { ...a, instructorId: newInstructor.id, instructorNombre: newInstructor.nombreCompleto }
+            : a
+        )
+      );
+    }
+
+    showToast('success', 'Instructor registrado', `${newInstructor.nombreCompleto} incorporado al cuerpo docente.`);
+    return true;
+  };
+
+  const updateInstructor = (id: string, data: Partial<Instructor>) => {
+    setInstructores((prev) =>
+      prev.map((inst) => {
+        if (inst.id !== id) return inst;
+        return { ...inst, ...data };
+      })
+    );
+
+    // Sincronizar con actividades deportivas
+    if (data.nombreCompleto !== undefined || data.disciplinasIds !== undefined) {
+      setActividades((prev) =>
+        prev.map((a) => {
+          if (data.disciplinasIds?.includes(a.id)) {
+            return {
+              ...a,
+              instructorId: id,
+              instructorNombre: data.nombreCompleto || a.instructorNombre,
+            };
+          }
+          if (a.instructorId === id && data.disciplinasIds && !data.disciplinasIds.includes(a.id)) {
+            return {
+              ...a,
+              instructorId: 'sin-asignar',
+              instructorNombre: 'A designar',
+            };
+          }
+          if (a.instructorId === id && data.nombreCompleto) {
+            return {
+              ...a,
+              instructorNombre: data.nombreCompleto,
+            };
+          }
+          return a;
+        })
+      );
+    }
+
+    showToast('success', 'Instructor actualizado', 'Los datos del instructor fueron guardados exitosamente.');
+  };
+
+  const deleteInstructor = (id: string) => {
+    const inst = instructores.find((i) => i.id === id);
+    setInstructores((prev) => prev.filter((i) => i.id !== id));
+
+    // Desvincular de actividades
+    setActividades((prev) =>
+      prev.map((a) =>
+        a.instructorId === id
+          ? { ...a, instructorId: 'sin-asignar', instructorNombre: 'A designar' }
+          : a
+      )
+    );
+
+    showToast('info', 'Instructor dado de baja', `${inst?.nombreCompleto || 'El docente'} fue removido de la nómina.`);
+  };
+
+  const toggleInstructorEstado = (id: string) => {
+    setInstructores((prev) =>
+      prev.map((inst) => {
+        if (inst.id !== id) return inst;
+        const nuevoEstado = !inst.activo;
+        showToast('info', 'Estado modificado', `${inst.nombreCompleto} marcado como ${nuevoEstado ? 'Activo' : 'Inactivo'}.`);
+        return { ...inst, activo: nuevoEstado };
+      })
+    );
   };
 
   // CASILLEROS (1 a 100)
@@ -784,6 +967,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addFamiliar,
         removeFamiliar,
         regularizarDeudaSocio,
+        cobradores,
+        addCobrador,
+        updateCobrador,
+        deleteCobrador,
+        toggleCobradorEstado,
+        instructores,
+        addInstructor,
+        updateInstructor,
+        deleteInstructor,
+        toggleInstructorEstado,
         lockers,
         assignLocker,
         releaseLocker,

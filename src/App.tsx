@@ -3,6 +3,8 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './components/Dashboard';
 import { SocioList } from './components/SocioList';
+import { CobradoresAdmin } from './components/CobradoresAdmin';
+import { InstructoresAdmin } from './components/InstructoresAdmin';
 import { CasillerosGrid } from './components/CasillerosGrid';
 import { ActividadesShowcase } from './components/ActividadesShowcase';
 import { AsistenciaTracker } from './components/AsistenciaTracker';
@@ -26,6 +28,10 @@ const AppContent: React.FC = () => {
         return <Dashboard />;
       case 'socios':
         return <SocioList />;
+      case 'cobradores':
+        return <CobradoresAdmin />;
+      case 'instructores':
+        return <InstructoresAdmin />;
       case 'casilleros':
         return <CasillerosGrid />;
       case 'actividades':

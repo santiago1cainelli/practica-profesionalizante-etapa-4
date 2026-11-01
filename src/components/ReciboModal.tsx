@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle, AlertTriangle, Building, CreditCard, DollarSign } from 'lucide-react';
 import { CuponRecibo } from '../types';
 import { useApp } from '../context/AppContext';
@@ -11,25 +12,44 @@ interface ReciboModalProps {
 
 export const ReciboModal: React.FC<ReciboModalProps> = ({ cupon, onClose }) => {
   const { marcarCuponPagado, currentUser, showToast } = useApp();
+  const [mounted, setMounted] = useState(false);
 
-  if (!cupon) return null;
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      document.body.classList.remove('printing-recibo-only');
+    };
+  }, []);
+
+  if (!cupon || !mounted) return null;
 
   const handlePrint = () => {
     try {
       const originalTitle = document.title;
-      // Set descriptive filename for PDF saving or printing
-      document.title = `Recibo_${cupon.numeroComprobante}_${cupon.socioNombre.replace(/\s+/g, '_')}`;
-      
-      // Ensure focus on current window/frame before triggering native browser print
-      window.focus();
-      window.print();
+      const printDocTitle = `Recibo_${cupon.numeroComprobante}_${cupon.socioNombre.replace(/\s+/g, '_')}`;
 
-      // Restore document title after print dialogue
+      // Add print isolation class so only the receipt is visible on paper/PDF
+      document.body.classList.add('printing-recibo-only');
+      document.title = printDocTitle;
+
+      showToast('info', 'Imprimiendo recibo', `Abriendo diálogo de impresión para el comprobante ${cupon.numeroComprobante}...`);
+
+      // Small delay to ensure class and title are applied in DOM before browser print freezes execution
       setTimeout(() => {
-        document.title = originalTitle;
-      }, 1000);
+        try {
+          window.focus();
+          window.print();
+        } catch (error) {
+          console.error('Error al invocar window.print():', error);
+        } finally {
+          setTimeout(() => {
+            document.body.classList.remove('printing-recibo-only');
+            document.title = originalTitle;
+          }, 1200);
+        }
+      }, 70);
     } catch (error) {
-      console.error('Error al imprimir comprobante:', error);
+      console.error('Error general al imprimir comprobante:', error);
       window.print();
     }
   };
@@ -40,7 +60,7 @@ export const ReciboModal: React.FC<ReciboModalProps> = ({ cupon, onClose }) => {
 
   const zonaInfo = ZONAS_NOMBRES[cupon.zonaCobro] || { nombre: `Zona ${cupon.zonaCobro}`, descripcion: '' };
 
-  return (
+  const modalContent = (
     <div
       id="recibo-modal-overlay"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-xs"
@@ -49,7 +69,6 @@ export const ReciboModal: React.FC<ReciboModalProps> = ({ cupon, onClose }) => {
         id="recibo-modal-card"
         className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-300 animate-in fade-in zoom-in-95"
       >
-        
         {/* Header Bar (Hidden during print) */}
         <div
           id="recibo-modal-header"
@@ -68,9 +87,8 @@ export const ReciboModal: React.FC<ReciboModalProps> = ({ cupon, onClose }) => {
           </button>
         </div>
 
-        {/* Printable Area */}
+        {/* Printable Area: Contains purely the official receipt voucher */}
         <div id="recibo-printable-content" className="p-6 bg-white text-slate-800 text-xs sm:text-sm">
-          
           {/* Slip 1: Talón para el Socio */}
           <div className="border border-slate-300 rounded-md p-4 mb-4 bg-slate-50/50 print:bg-white print:border-slate-400">
             <div className="flex justify-between items-start border-b border-slate-200 pb-3 mb-3">
@@ -251,12 +269,13 @@ export const ReciboModal: React.FC<ReciboModalProps> = ({ cupon, onClose }) => {
           <div className="flex items-center space-x-2 ml-auto">
             {/* Primary Print Receipt Button */}
             <button
+              id="btn-imprimir-recibo"
               type="button"
               onClick={handlePrint}
-              className="px-4 py-2 bg-[#1A365D] hover:bg-[#2B6CB0] text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[#1A365D] hover:bg-[#2B6CB0] active:scale-95 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
               title="Imprimir comprobante oficial (función de impresión del navegador)"
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-4 h-4 text-emerald-300" />
               <span>Imprimir Recibo</span>
             </button>
             <button
@@ -271,4 +290,6 @@ export const ReciboModal: React.FC<ReciboModalProps> = ({ cupon, onClose }) => {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

@@ -2,6 +2,12 @@
 
 /* Estilos de Impresión Profesional para Comprobantes y Recibos Oficiales */
 @media print {
+  /* Si el modal de recibo está activo, ocultar #root completamente para imprimir ÚNICAMENTE el recibo */
+  body:has(#recibo-modal-overlay) #root,
+  body.printing-recibo-only #root {
+    display: none !important;
+  }
+
   /* Ocultar elementos de navegación, pie de página y botones de la aplicación */
   header,
   nav,

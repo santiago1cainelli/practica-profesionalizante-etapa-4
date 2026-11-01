@@ -13,14 +13,16 @@ import {
   Clock,
   ArrowRight,
   Activity,
-  Flame
+  Flame,
+  MapPin,
+  Award,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ZONAS_NOMBRES, CUOTA_VALORES } from '../data/mockData';
 import sportsHeroBg from '../assets/images/admin_sports_hero_1789672449602.jpg';
 
 export const Dashboard: React.FC = () => {
-  const { socios, lockers, actividades, cupones, rendiciones, setActiveTab, currentUser } = useApp();
+  const { socios, lockers, actividades, cupones, rendiciones, cobradores, instructores, setActiveTab, currentUser } = useApp();
 
   // Stats calculation
   const totalSocios = socios.length;
@@ -248,7 +250,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-600">
-            <span>Instructores activos: <strong>3</strong></span>
+            <span>Instructores activos: <strong>{instructores.filter((i) => i.activo).length}</strong></span>
             <button
               onClick={() => setActiveTab('actividades')}
               className="text-[#2B6CB0] font-semibold hover:underline"
@@ -256,6 +258,63 @@ export const Dashboard: React.FC = () => {
               Ver vitrina
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Staff Management Section (Admin Only) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Panel Cobradores */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 hover:border-purple-300 transition-all flex items-center justify-between">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
+              <MapPin className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-sm font-bold text-slate-900">Nómina de Cobradores</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
+                  {cobradores.filter((c) => c.activo).length} Activos
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                CRUD de cobradores domiciliarios, asignación de zonas 0-3 y comisiones (10%).
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('cobradores')}
+            className="shrink-0 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-lg transition-colors flex items-center space-x-1"
+          >
+            <span>Gestionar</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Panel Instructores */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 hover:border-teal-300 transition-all flex items-center justify-between">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+              <Award className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-sm font-bold text-slate-900">Cuerpo de Instructores</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800">
+                  {instructores.filter((i) => i.activo).length} Activos
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                CRUD de profesores, legajos deportivos, contratos y asignación de disciplinas.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('instructores')}
+            className="shrink-0 px-3 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition-colors flex items-center space-x-1"
+          >
+            <span>Gestionar</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 

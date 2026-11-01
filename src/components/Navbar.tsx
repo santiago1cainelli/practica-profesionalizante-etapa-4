@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   Info,
   X,
-  LogIn
+  LogIn,
+  MapPin,
+  Award,
 } from 'lucide-react';
 import { useApp, ActiveTab } from '../context/AppContext';
 import { MOCK_USERS, CUOTA_VALORES } from '../data/mockData';
@@ -53,6 +55,8 @@ export const Navbar: React.FC<NavbarProps> = () => {
     { id: 'inicio', label: 'Inicio / Club', icon: Home, roles: ['ADMIN', 'COBRADOR', 'INSTRUCTOR', 'SOCIO', 'PUBLICO'] },
     { id: 'dashboard', label: 'Tablero', icon: LayoutDashboard, roles: ['ADMIN'] },
     { id: 'socios', label: 'Padrón Socios', icon: Users, roles: ['ADMIN'] },
+    { id: 'cobradores', label: 'Cobradores', icon: MapPin, roles: ['ADMIN'] },
+    { id: 'instructores', label: 'Instructores', icon: Award, roles: ['ADMIN'] },
     { id: 'casilleros', label: '100 Casilleros', icon: Grid, roles: ['ADMIN', 'COBRADOR'] },
     { id: 'actividades', label: 'Deportes', icon: Trophy, roles: ['ADMIN', 'INSTRUCTOR', 'SOCIO', 'PUBLICO'] },
     { id: 'asistencia', label: 'Asistencia', icon: ClipboardCheck, roles: ['ADMIN', 'INSTRUCTOR'] },

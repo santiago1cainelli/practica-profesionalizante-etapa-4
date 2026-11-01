@@ -129,3 +129,35 @@ export interface AppUser {
   actividadId?: string; // Para instructores
   socioId?: string; // Para socios
 }
+
+export interface Cobrador {
+  id: string;
+  nombreCompleto: string;
+  dni: string;
+  telefono: string;
+  email: string;
+  direccion?: string;
+  zonaAsignada: number; // 0: Sede, 1: Centro/Norte, 2: Sur/Estación, 3: Este/Costanera
+  porcentajeComision: number; // e.g. 0.10 para 10%
+  activo: boolean;
+  fechaAlta: string;
+  observaciones?: string;
+}
+
+export type ModalidadInstructor = 'PLANTA_PERMANENTE' | 'HONORARIOS' | 'POR_HORA';
+
+export interface Instructor {
+  id: string;
+  nombreCompleto: string;
+  dni: string;
+  telefono: string;
+  email: string;
+  tituloProfesional: string; // ej. "Profesor Nacional de Educación Física"
+  disciplinasIds: string[]; // IDs de Actividades que dicta
+  modalidadContrato: ModalidadInstructor;
+  remuneracionMensual: number; // Sueldo o arancel mensual acordado
+  diasDisponibles: string[]; // ej. ['Lunes', 'Miércoles', 'Viernes']
+  activo: boolean;
+  fechaAlta: string;
+  observaciones?: string;
+}
