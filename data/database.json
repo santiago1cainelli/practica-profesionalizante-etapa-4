@@ -1,0 +1,1250 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-11-02T18:55:37.883Z",
+  "socios": [
+    {
+      "id": "soc-1",
+      "numeroSocio": 1042,
+      "nombreCompleto": "Martín Rossi",
+      "dni": "34892110",
+      "email": "martin.rossi@gmail.com",
+      "telefono": "11-4589-2311",
+      "direccion": "Av. San Martín 1420, Piso 3B",
+      "zonaCobro": 1,
+      "fechaNacimiento": "1989-05-14",
+      "fechaIngreso": "2016-03-10",
+      "edad": 37,
+      "antiguedadAnios": 10,
+      "categoria": "ACTIVO",
+      "estado": "AL_DIA",
+      "cuotasAdeudadas": 0,
+      "esTitularFamilia": true,
+      "familiares": [
+        {
+          "id": "fam-1",
+          "nombreCompleto": "Carla Varela",
+          "dni": "36109445",
+          "parentesco": "CONYUGE",
+          "fechaNacimiento": "1991-08-22",
+          "edad": 35
+        },
+        {
+          "id": "fam-2",
+          "nombreCompleto": "Lucas Rossi",
+          "dni": "53118992",
+          "parentesco": "HIJO",
+          "fechaNacimiento": "2014-11-04",
+          "edad": 11
+        }
+      ],
+      "actividadesIds": [
+        "act-1",
+        "act-2"
+      ],
+      "casilleroAsignadoId": 14
+    },
+    {
+      "id": "soc-2",
+      "numeroSocio": 1043,
+      "nombreCompleto": "Don Alberto Caccia",
+      "dni": "07544219",
+      "email": "alberto.caccia@clubelglobo.org",
+      "telefono": "11-4322-8877",
+      "direccion": "Belgrano 580",
+      "zonaCobro": 0,
+      "fechaNacimiento": "1945-02-18",
+      "fechaIngreso": "1978-04-12",
+      "edad": 81,
+      "antiguedadAnios": 48,
+      "categoria": "VITALICIO",
+      "estado": "AL_DIA",
+      "cuotasAdeudadas": 0,
+      "esTitularFamilia": false,
+      "familiares": [],
+      "actividadesIds": [
+        "act-6"
+      ],
+      "casilleroAsignadoId": 5
+    },
+    {
+      "id": "soc-3",
+      "numeroSocio": 1044,
+      "nombreCompleto": "Tomás Cainelli",
+      "dni": "49887123",
+      "email": "tomas.cainelli@colegio.edu.ar",
+      "telefono": "11-5501-9982",
+      "direccion": "Sarmiento 2190",
+      "zonaCobro": 1,
+      "fechaNacimiento": "2010-09-20",
+      "fechaIngreso": "2021-02-05",
+      "edad": 15,
+      "antiguedadAnios": 5,
+      "categoria": "CADETE",
+      "estado": "AL_DIA",
+      "cuotasAdeudadas": 0,
+      "esTitularFamilia": false,
+      "familiares": [],
+      "actividadesIds": [
+        "act-2",
+        "act-3"
+      ],
+      "casilleroAsignadoId": 22
+    },
+    {
+      "id": "soc-4",
+      "numeroSocio": 1045,
+      "nombreCompleto": "Lucía Lapenta Olmos",
+      "dni": "38992014",
+      "email": "lucia.lapenta@estudiojuridico.com",
+      "telefono": "11-6644-2200",
+      "direccion": "Mitre 830",
+      "zonaCobro": 2,
+      "fechaNacimiento": "1995-11-12",
+      "fechaIngreso": "2019-06-15",
+      "edad": 30,
+      "antiguedadAnios": 7,
+      "categoria": "ACTIVO",
+      "estado": "AL_DIA",
+      "cuotasAdeudadas": 0,
+      "esTitularFamilia": false,
+      "familiares": [],
+      "actividadesIds": [
+        "act-1",
+        "act-4"
+      ],
+      "casilleroAsignadoId": 35
+    },
+    {
+      "id": "soc-5",
+      "numeroSocio": 1046,
+      "nombreCompleto": "Federico Santoro",
+      "dni": "31872654",
+      "email": "federico.santoro@gmail.com",
+      "telefono": "11-3990-1288",
+      "direccion": "Bv. Pellegrini 450",
+      "zonaCobro": 2,
+      "fechaNacimiento": "1985-07-24",
+      "fechaIngreso": "2015-08-10",
+      "edad": 41,
+      "antiguedadAnios": 11,
+      "categoria": "ACTIVO",
+      "estado": "DEUDOR_1_MES",
+      "cuotasAdeudadas": 1,
+      "esTitularFamilia": false,
+      "familiares": [],
+      "actividadesIds": [
+        "act-3"
+      ],
+      "casilleroAsignadoId": 58
+    },
+    {
+      "id": "soc-6",
+      "numeroSocio": 1047,
+      "nombreCompleto": "Claudio Domínguez",
+      "dni": "29881023",
+      "email": "claudio.dominguez@hotmail.com",
+      "telefono": "11-4777-1029",
+      "direccion": "Alberdi 1920",
+      "zonaCobro": 3,
+      "fechaNacimiento": "1982-12-03",
+      "fechaIngreso": "2018-01-14",
+      "edad": 43,
+      "antiguedadAnios": 8,
+      "categoria": "ACTIVO",
+      "estado": "SUSPENDIDO_MOROSIDAD",
+      "cuotasAdeudadas": 2,
+      "esTitularFamilia": false,
+      "familiares": [],
+      "actividadesIds": [
+        "act-1"
+      ],
+      "casilleroAsignadoId": 80
+    },
+    {
+      "id": "soc-7",
+      "numeroSocio": 1048,
+      "nombreCompleto": "Beatriz Solari de Gómez",
+      "dni": "05190223",
+      "email": "beatriz.solari@clubelglobo.org",
+      "telefono": "11-4200-9911",
+      "direccion": "Lavalle 112",
+      "zonaCobro": 0,
+      "fechaNacimiento": "1942-04-10",
+      "fechaIngreso": "1982-05-20",
+      "edad": 84,
+      "antiguedadAnios": 44,
+      "categoria": "VITALICIO",
+      "estado": "AL_DIA",
+      "cuotasAdeudadas": 0,
+      "esTitularFamilia": false,
+      "familiares": [],
+      "actividadesIds": [
+        "act-6"
+      ],
+      "casilleroAsignadoId": 1
+    },
+    {
+      "id": "soc-8",
+      "numeroSocio": 1049,
+      "nombreCompleto": "Joaquín Benítez",
+      "dni": "50124991",
+      "email": "joaquin.benitez@colegio.edu.ar",
+      "telefono": "11-4991-8822",
+      "direccion": "Rivadavia 340",
+      "zonaCobro": 3,
+      "fechaNacimiento": "2011-06-15",
+      "fechaIngreso": "2023-03-01",
+      "edad": 15,
+      "antiguedadAnios": 3,
+      "categoria": "CADETE",
+      "estado": "AL_DIA",
+      "cuotasAdeudadas": 0,
+      "esTitularFamilia": false,
+      "familiares": [],
+      "actividadesIds": [
+        "act-2",
+        "act-5"
+      ]
+    }
+  ],
+  "cobradores": [
+    {
+      "id": "user-cobrador-1",
+      "nombreCompleto": "Roberto Gómez",
+      "dni": "24318992",
+      "telefono": "11-4455-8811",
+      "email": "cobranzas.zona1@clubelglobo.com.ar",
+      "direccion": "Av. Libertador 1205",
+      "zonaAsignada": 1,
+      "porcentajeComision": 0.1,
+      "activo": true,
+      "fechaAlta": "2021-04-10",
+      "observaciones": "Rendición puntual los días lunes. Cobrador principal de Zona Centro."
+    },
+    {
+      "id": "cob-2",
+      "nombreCompleto": "Laura Méndez",
+      "dni": "28914502",
+      "telefono": "11-5522-1984",
+      "email": "cobranzas.zona2@clubelglobo.com.ar",
+      "direccion": "Calle 14 N° 672",
+      "zonaAsignada": 2,
+      "porcentajeComision": 0.1,
+      "activo": true,
+      "fechaAlta": "2022-08-15",
+      "observaciones": "Recorrido en ciclomotor asignado por el club."
+    },
+    {
+      "id": "cob-3",
+      "nombreCompleto": "Carlos Benítez",
+      "dni": "22781440",
+      "telefono": "11-3819-0021",
+      "email": "cobranzas.zona3@clubelglobo.com.ar",
+      "direccion": "Bv. Costanera 410",
+      "zonaAsignada": 3,
+      "porcentajeComision": 0.1,
+      "activo": true,
+      "fechaAlta": "2019-11-01",
+      "observaciones": "Más de 5 años en la institución, alta efectividad en cobranzas barriales."
+    },
+    {
+      "id": "cob-0",
+      "nombreCompleto": "Mariana Beltrán",
+      "dni": "30129877",
+      "telefono": "11-6102-7744",
+      "email": "secretaria.cobranzas@clubelglobo.com.ar",
+      "direccion": "Sede Central (Oficina de Cuotas)",
+      "zonaAsignada": 0,
+      "porcentajeComision": 0,
+      "activo": true,
+      "fechaAlta": "2020-02-01",
+      "observaciones": "Encargada de caja y cobros directos en ventanilla de Secretaría."
+    },
+    {
+      "id": "cob-5",
+      "nombreCompleto": "Fernando Morales",
+      "dni": "26455190",
+      "telefono": "11-4991-3420",
+      "email": "fernando.morales@clubelglobo.com.ar",
+      "direccion": "San Martín 2050",
+      "zonaAsignada": 1,
+      "porcentajeComision": 0.1,
+      "activo": false,
+      "fechaAlta": "2023-01-10",
+      "observaciones": "Licencia temporal médica acordada con Secretaría."
+    }
+  ],
+  "instructores": [
+    {
+      "id": "user-instructor",
+      "nombreCompleto": "Prof. Esteban Morales",
+      "dni": "27654120",
+      "telefono": "11-4899-2345",
+      "email": "deportes@clubelglobo.com.ar",
+      "tituloProfesional": "Prof. Nac. de Educación Física y Guardavidas de la Cruz Roja",
+      "disciplinasIds": [
+        "act-1",
+        "act-2",
+        "act-6"
+      ],
+      "modalidadContrato": "PLANTA_PERMANENTE",
+      "remuneracionMensual": 450000,
+      "diasDisponibles": [
+        "Lunes",
+        "Martes",
+        "Miércoles",
+        "Jueves",
+        "Viernes",
+        "Sábados"
+      ],
+      "activo": true,
+      "fechaAlta": "2018-03-01",
+      "observaciones": "Coordinador general del natatorio climatizado y escuelas formativas de fútbol y tenis."
+    },
+    {
+      "id": "inst-valeria",
+      "nombreCompleto": "Prof. Valeria Fontana",
+      "dni": "32401889",
+      "telefono": "11-5120-7788",
+      "email": "valeria.fontana@clubelglobo.com.ar",
+      "tituloProfesional": "Entrenadora Nivel 3 CABB y DT Federada de Voleibol",
+      "disciplinasIds": [
+        "act-3",
+        "act-4"
+      ],
+      "modalidadContrato": "HONORARIOS",
+      "remuneracionMensual": 380000,
+      "diasDisponibles": [
+        "Lunes",
+        "Martes",
+        "Miércoles",
+        "Jueves",
+        "Viernes"
+      ],
+      "activo": true,
+      "fechaAlta": "2020-07-15",
+      "observaciones": "Entrenadora de los planteles competitivos de básquet y vóley federado en liga zonal."
+    },
+    {
+      "id": "inst-sofia",
+      "nombreCompleto": "Prof. Sofía Roldán",
+      "dni": "35812304",
+      "telefono": "11-4777-6543",
+      "email": "sofia.roldan@clubelglobo.com.ar",
+      "tituloProfesional": "Licenciada en Alto Rendimiento y Gimnasia Artística",
+      "disciplinasIds": [
+        "act-5"
+      ],
+      "modalidadContrato": "POR_HORA",
+      "remuneracionMensual": 290000,
+      "diasDisponibles": [
+        "Lunes",
+        "Miércoles"
+      ],
+      "activo": true,
+      "fechaAlta": "2022-03-10",
+      "observaciones": "Docente a cargo de grupos formativos infantiles de gimnasia artística y aparatos."
+    },
+    {
+      "id": "inst-diego",
+      "nombreCompleto": "Prof. Diego Albarracín",
+      "dni": "33109452",
+      "telefono": "11-6234-9011",
+      "email": "diego.albarracin@clubelglobo.com.ar",
+      "tituloProfesional": "Preparador Físico Universitario y DT Futsal AFA",
+      "disciplinasIds": [],
+      "modalidadContrato": "HONORARIOS",
+      "remuneracionMensual": 220000,
+      "diasDisponibles": [
+        "Martes",
+        "Jueves"
+      ],
+      "activo": false,
+      "fechaAlta": "2023-05-18",
+      "observaciones": "Instructor suplente para torneos de verano y preparación física pre-temporada."
+    }
+  ],
+  "lockers": [
+    {
+      "numero": 1,
+      "estado": "OCUPADO",
+      "socioId": "soc-7",
+      "socioNombre": "Beatriz Solari de Gómez",
+      "socioDni": "05190223",
+      "fechaAsignacion": "2026-02-01",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 2,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 3,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 4,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 5,
+      "estado": "OCUPADO",
+      "socioId": "soc-2",
+      "socioNombre": "Don Alberto Caccia",
+      "socioDni": "07544219",
+      "fechaAsignacion": "2026-02-01",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 6,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 7,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 8,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 9,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 10,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 11,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 12,
+      "estado": "RESERVADO",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 13,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 14,
+      "estado": "OCUPADO",
+      "socioId": "soc-1",
+      "socioNombre": "Martín Rossi",
+      "socioDni": "34892110",
+      "fechaAsignacion": "2026-02-01",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 15,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 16,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 17,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 18,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 19,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 20,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 21,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 22,
+      "estado": "OCUPADO",
+      "socioId": "soc-3",
+      "socioNombre": "Tomás Cainelli",
+      "socioDni": "49887123",
+      "fechaAsignacion": "2026-02-01",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 23,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 24,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 25,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 26,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 27,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 28,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 29,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 30,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 31,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 32,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 33,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 34,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 35,
+      "estado": "OCUPADO",
+      "socioId": "soc-4",
+      "socioNombre": "Lucía Lapenta Olmos",
+      "socioDni": "38992014",
+      "fechaAsignacion": "2026-02-01",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 36,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 37,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 38,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 39,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 40,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 41,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 42,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 43,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 44,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 45,
+      "estado": "RESERVADO",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 46,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 47,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 48,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 49,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 50,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 51,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 52,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 53,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 54,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 55,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 56,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 57,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 58,
+      "estado": "OCUPADO",
+      "socioId": "soc-5",
+      "socioNombre": "Federico Santoro",
+      "socioDni": "31872654",
+      "fechaAsignacion": "2026-02-01",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 59,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 60,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 61,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 62,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 63,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 64,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 65,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 66,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 67,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 68,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 69,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 70,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 71,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 72,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 73,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 74,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 75,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 76,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 77,
+      "estado": "RESERVADO",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 78,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 79,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 80,
+      "estado": "OCUPADO",
+      "socioId": "soc-6",
+      "socioNombre": "Claudio Domínguez",
+      "socioDni": "29881023",
+      "fechaAsignacion": "2026-02-01",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 81,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 82,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 83,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 84,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 85,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 86,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 87,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 88,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 89,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 90,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 91,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 92,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 93,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 94,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 95,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 96,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 97,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 98,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 99,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    },
+    {
+      "numero": 100,
+      "estado": "DISPONIBLE",
+      "costoMensual": 3500
+    }
+  ],
+  "actividades": [
+    {
+      "id": "act-1",
+      "nombre": "Natación Adultos y Juveniles",
+      "categoria": "Acuáticas",
+      "dias": [
+        "Lunes",
+        "Miércoles",
+        "Viernes"
+      ],
+      "horario": "18:00 - 19:30",
+      "instructorId": "user-instructor",
+      "instructorNombre": "Prof. Esteban Morales",
+      "cupoMaximo": 25,
+      "cupoOcupado": 19,
+      "costoMensual": 7500,
+      "lugar": "Natatorio Climatizado Olímpico",
+      "edadMinima": 12,
+      "descripcion": "Entrenamiento técnico, resistencia aeróbica y recreación acuática."
+    },
+    {
+      "id": "act-2",
+      "nombre": "Fútbol Infantil y Juvenil",
+      "categoria": "Fútbol",
+      "dias": [
+        "Martes",
+        "Jueves",
+        "Sábados"
+      ],
+      "horario": "17:30 - 19:00",
+      "instructorId": "user-instructor",
+      "instructorNombre": "Prof. Esteban Morales",
+      "cupoMaximo": 35,
+      "cupoOcupado": 28,
+      "costoMensual": 6000,
+      "lugar": "Cancha Principal Nº 1 - Césped Sintético",
+      "edadMinima": 6,
+      "descripcion": "Escuelita formativa de fútbol, fundamentos tácticos y torneos interclubes."
+    },
+    {
+      "id": "act-3",
+      "nombre": "Básquetbol Formativo y Primera",
+      "categoria": "Básquet",
+      "dias": [
+        "Lunes",
+        "Miércoles",
+        "Viernes"
+      ],
+      "horario": "19:30 - 21:00",
+      "instructorId": "inst-valeria",
+      "instructorNombre": "Prof. Valeria Fontana",
+      "cupoMaximo": 24,
+      "cupoOcupado": 16,
+      "costoMensual": 6500,
+      "lugar": "Microestadio Cubierto \"El Globito\"",
+      "edadMinima": 8,
+      "descripcion": "Técnica individual, dribling, lanzamiento y preparación física."
+    },
+    {
+      "id": "act-4",
+      "nombre": "Voleibol Federado y Recreativo",
+      "categoria": "Vóley",
+      "dias": [
+        "Martes",
+        "Jueves"
+      ],
+      "horario": "19:00 - 20:30",
+      "instructorId": "inst-valeria",
+      "instructorNombre": "Prof. Valeria Fontana",
+      "cupoMaximo": 22,
+      "cupoOcupado": 15,
+      "costoMensual": 5800,
+      "lugar": "Gimnasio N° 2",
+      "edadMinima": 13,
+      "descripcion": "Categorías formativas femenina y masculina con participación en liga local."
+    },
+    {
+      "id": "act-5",
+      "nombre": "Gimnasia Artística y Acrobática",
+      "categoria": "Gimnasia",
+      "dias": [
+        "Lunes",
+        "Miércoles"
+      ],
+      "horario": "16:00 - 17:30",
+      "instructorId": "inst-sofia",
+      "instructorNombre": "Prof. Sofía Roldán",
+      "cupoMaximo": 20,
+      "cupoOcupado": 14,
+      "costoMensual": 6200,
+      "lugar": "Salón de Usos Múltiples",
+      "edadMinima": 5,
+      "descripcion": "Desarrollo motriz, flexibilidad, equilibrio y destreza en aparatos."
+    },
+    {
+      "id": "act-6",
+      "nombre": "Tenis de Campo (Iniciación y Adultos)",
+      "categoria": "Tenis",
+      "dias": [
+        "Martes",
+        "Jueves",
+        "Sábados"
+      ],
+      "horario": "09:00 - 11:00",
+      "instructorId": "user-instructor",
+      "instructorNombre": "Prof. Esteban Morales",
+      "cupoMaximo": 16,
+      "cupoOcupado": 11,
+      "costoMensual": 8500,
+      "lugar": "Canchas de Polvo de Ladrillo 1 y 2",
+      "edadMinima": 10,
+      "descripcion": "Clases grupales con corrección biomecánica y torneos de fin de semana."
+    }
+  ],
+  "cupones": [
+    {
+      "id": "cup-101",
+      "numeroComprobante": "REC-2026-09-1001",
+      "socioId": "soc-1",
+      "socioNombre": "Martín Rossi",
+      "socioDni": "34892110",
+      "zonaCobro": 1,
+      "periodoMes": "Septiembre 2026",
+      "fechaEmision": "2026-09-01",
+      "fechaVencimiento": "2026-09-15",
+      "cuotaSocialBase": 14000,
+      "detalleActividades": [
+        {
+          "nombre": "Natación Adultos",
+          "monto": 7500
+        },
+        {
+          "nombre": "Fútbol Infantil (Lucas Rossi)",
+          "monto": 6000
+        }
+      ],
+      "costoCasillero": 3500,
+      "recargoMoraPorcentaje": 0,
+      "montoRecargoMora": 0,
+      "descuentoFamiliar": 1500,
+      "subtotal": 29500,
+      "totalPagar": 29500,
+      "estadoPago": "PAGADO",
+      "fechaPago": "2026-09-10",
+      "cobradorId": "user-cobrador-1",
+      "metodoPago": "EFECTIVO"
+    },
+    {
+      "id": "cup-102",
+      "numeroComprobante": "REC-2026-09-1002",
+      "socioId": "soc-2",
+      "socioNombre": "Don Alberto Caccia",
+      "socioDni": "07544219",
+      "zonaCobro": 0,
+      "periodoMes": "Septiembre 2026",
+      "fechaEmision": "2026-09-01",
+      "fechaVencimiento": "2026-09-15",
+      "cuotaSocialBase": 0,
+      "detalleActividades": [
+        {
+          "nombre": "Tenis de Campo",
+          "monto": 8500
+        }
+      ],
+      "costoCasillero": 3500,
+      "recargoMoraPorcentaje": 0,
+      "montoRecargoMora": 0,
+      "descuentoFamiliar": 0,
+      "subtotal": 12000,
+      "totalPagar": 12000,
+      "estadoPago": "PAGADO",
+      "fechaPago": "2026-09-05",
+      "cobradorId": "sede-central",
+      "metodoPago": "SEDE_CENTRAL"
+    },
+    {
+      "id": "cup-103",
+      "numeroComprobante": "REC-2026-09-1003",
+      "socioId": "soc-3",
+      "socioNombre": "Tomás Cainelli",
+      "socioDni": "49887123",
+      "zonaCobro": 1,
+      "periodoMes": "Septiembre 2026",
+      "fechaEmision": "2026-09-01",
+      "fechaVencimiento": "2026-09-15",
+      "cuotaSocialBase": 8000,
+      "detalleActividades": [
+        {
+          "nombre": "Fútbol Juvenil",
+          "monto": 6000
+        },
+        {
+          "nombre": "Básquetbol Formativo",
+          "monto": 6500
+        }
+      ],
+      "costoCasillero": 3500,
+      "recargoMoraPorcentaje": 0,
+      "montoRecargoMora": 0,
+      "descuentoFamiliar": 0,
+      "subtotal": 24000,
+      "totalPagar": 24000,
+      "estadoPago": "PENDIENTE"
+    },
+    {
+      "id": "cup-104",
+      "numeroComprobante": "REC-2026-09-1004",
+      "socioId": "soc-4",
+      "socioNombre": "Lucía Lapenta Olmos",
+      "socioDni": "38992014",
+      "zonaCobro": 2,
+      "periodoMes": "Septiembre 2026",
+      "fechaEmision": "2026-09-01",
+      "fechaVencimiento": "2026-09-15",
+      "cuotaSocialBase": 14000,
+      "detalleActividades": [
+        {
+          "nombre": "Natación Adultos",
+          "monto": 7500
+        },
+        {
+          "nombre": "Voleibol Federado",
+          "monto": 5800
+        }
+      ],
+      "costoCasillero": 3500,
+      "recargoMoraPorcentaje": 0,
+      "montoRecargoMora": 0,
+      "descuentoFamiliar": 0,
+      "subtotal": 30800,
+      "totalPagar": 30800,
+      "estadoPago": "PENDIENTE"
+    },
+    {
+      "id": "cup-105",
+      "numeroComprobante": "REC-2026-08-1005",
+      "socioId": "soc-5",
+      "socioNombre": "Federico Santoro",
+      "socioDni": "31872654",
+      "zonaCobro": 2,
+      "periodoMes": "Agosto 2026",
+      "fechaEmision": "2026-08-01",
+      "fechaVencimiento": "2026-08-15",
+      "cuotaSocialBase": 14000,
+      "detalleActividades": [
+        {
+          "nombre": "Básquetbol Primera",
+          "monto": 6500
+        }
+      ],
+      "costoCasillero": 3500,
+      "recargoMoraPorcentaje": 0.05,
+      "montoRecargoMora": 1200,
+      "descuentoFamiliar": 0,
+      "subtotal": 24000,
+      "totalPagar": 25200,
+      "estadoPago": "VENCIDO"
+    },
+    {
+      "id": "cup-106",
+      "numeroComprobante": "REC-2026-07-1006",
+      "socioId": "soc-6",
+      "socioNombre": "Claudio Domínguez",
+      "socioDni": "29881023",
+      "zonaCobro": 3,
+      "periodoMes": "Julio 2026",
+      "fechaEmision": "2026-07-01",
+      "fechaVencimiento": "2026-07-15",
+      "cuotaSocialBase": 14000,
+      "detalleActividades": [
+        {
+          "nombre": "Natación Adultos",
+          "monto": 7500
+        }
+      ],
+      "costoCasillero": 3500,
+      "recargoMoraPorcentaje": 0.05,
+      "montoRecargoMora": 1250,
+      "descuentoFamiliar": 0,
+      "subtotal": 25000,
+      "totalPagar": 26250,
+      "estadoPago": "VENCIDO"
+    },
+    {
+      "id": "cup-107",
+      "numeroComprobante": "REC-2026-08-1007",
+      "socioId": "soc-6",
+      "socioNombre": "Claudio Domínguez",
+      "socioDni": "29881023",
+      "zonaCobro": 3,
+      "periodoMes": "Agosto 2026",
+      "fechaEmision": "2026-08-01",
+      "fechaVencimiento": "2026-08-15",
+      "cuotaSocialBase": 14000,
+      "detalleActividades": [
+        {
+          "nombre": "Natación Adultos",
+          "monto": 7500
+        }
+      ],
+      "costoCasillero": 3500,
+      "recargoMoraPorcentaje": 0.05,
+      "montoRecargoMora": 1250,
+      "descuentoFamiliar": 0,
+      "subtotal": 25000,
+      "totalPagar": 26250,
+      "estadoPago": "VENCIDO"
+    }
+  ],
+  "rendiciones": [
+    {
+      "id": "rend-01",
+      "cobradorId": "user-cobrador-1",
+      "cobradorNombre": "Roberto Gómez",
+      "zonaCobro": 1,
+      "semanaNumero": 36,
+      "periodoFecha": "01 al 07 de Septiembre 2026",
+      "recibosCobradosIds": [
+        "cup-101"
+      ],
+      "totalCobrado": 29500,
+      "porcentajeComision": 0.1,
+      "montoComisionCobrador": 2950,
+      "netoRendidoClub": 26550,
+      "estado": "APROBADA",
+      "fechaRendicion": "2026-09-08"
+    }
+  ],
+  "asistencias": [
+    {
+      "id": "asis-1",
+      "actividadId": "act-1",
+      "fecha": "2026-09-15",
+      "instructorId": "user-instructor",
+      "asistencias": [
+        {
+          "socioId": "soc-1",
+          "socioNombre": "Martín Rossi",
+          "presente": true
+        },
+        {
+          "socioId": "soc-4",
+          "socioNombre": "Lucía Lapenta Olmos",
+          "presente": true
+        },
+        {
+          "socioId": "soc-6",
+          "socioNombre": "Claudio Domínguez",
+          "presente": false
+        }
+      ]
+    }
+  ]
+}

@@ -22,6 +22,8 @@ import {
   LogIn,
   MapPin,
   Award,
+  Database,
+  RefreshCw,
 } from 'lucide-react';
 import { useApp, ActiveTab } from '../context/AppContext';
 import { MOCK_USERS, CUOTA_VALORES } from '../data/mockData';
@@ -32,7 +34,20 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = () => {
-  const { currentUser, quickSwitchUser, activeTab, setActiveTab, toast, closeToast, socios, cupones, rendiciones } = useApp();
+  const {
+    currentUser,
+    quickSwitchUser,
+    activeTab,
+    setActiveTab,
+    toast,
+    closeToast,
+    socios,
+    cupones,
+    rendiciones,
+    isApiConnected,
+    isSyncing,
+    syncWithDatabase,
+  } = useApp();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Socio info when user is a registered member
@@ -96,8 +111,13 @@ export const Navbar: React.FC<NavbarProps> = () => {
                   Fundado 1948
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300 font-light">
-                Sistema de Gestión Integral • Frontend React
+              <p className="text-[11px] text-slate-300 font-light flex items-center space-x-1.5">
+                <span>Gestión Integral</span>
+                <span>•</span>
+                <span className="inline-flex items-center text-emerald-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>
+                  API REST & BD Persistente
+                </span>
               </p>
             </div>
           </div>
@@ -128,6 +148,27 @@ export const Navbar: React.FC<NavbarProps> = () => {
                 </span>
               </div>
             )}
+
+            {/* Database & API Status Badge */}
+            <div
+              className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-md border text-xs transition-colors shadow-xs ${
+                isApiConnected
+                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
+                  : 'bg-amber-950/60 border-amber-500/40 text-amber-200'
+              }`}
+              title={isApiConnected ? 'Base de datos persistente y API REST conectada (/data/database.json)' : 'Conectando a API y base de datos...'}
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-semibold text-[11px]">{isApiConnected ? 'BD Activa' : 'Conectando'}</span>
+              <button
+                onClick={() => syncWithDatabase()}
+                disabled={isSyncing}
+                className="hover:text-white p-0.5 rounded transition-transform"
+                title="Sincronizar con API y Base de Datos"
+              >
+                <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-emerald-300' : 'text-slate-300'}`} />
+              </button>
+            </div>
 
             {/* User Switcher Dropdown */}
             <div className="relative">

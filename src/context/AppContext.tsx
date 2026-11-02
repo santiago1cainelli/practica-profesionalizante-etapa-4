@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   Socio,
   Locker,
@@ -8,11 +8,10 @@ import {
   RendicionLiquidacion,
   AppUser,
   Familiar,
-  UserRole,
-  SocioCategoria,
-  SocioEstado,
   Cobrador,
   Instructor,
+  SocioCategoria,
+  SocioEstado,
 } from '../types';
 import {
   INITIAL_SOCIOS,
@@ -25,6 +24,7 @@ import {
   MOCK_USERS,
   CUOTA_VALORES,
 } from '../data/mockData';
+import { api } from '../services/api';
 
 export type ActiveTab =
   | 'inicio'
@@ -56,6 +56,12 @@ interface AppContextType {
   toast: ToastMessage | null;
   showToast: (type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => void;
   closeToast: () => void;
+
+  // API & Database status
+  isApiConnected: boolean;
+  isSyncing: boolean;
+  syncWithDatabase: () => Promise<void>;
+  resetDatabaseToDefaults: () => Promise<void>;
   
   // Socios
   socios: Socio[];
@@ -114,7 +120,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Current User
+  // Current user
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
     const saved = localStorage.getItem('el_globo_current_user');
     if (saved) {
@@ -126,200 +132,119 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => {
-    const id = Date.now().toString();
-    setToast({ id, type, title, description });
-    setTimeout(() => {
-      setToast((prev) => (prev?.id === id ? null : prev));
-    }, 4500);
-  };
+  // API State
+  const [isApiConnected, setIsApiConnected] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  const closeToast = () => setToast(null);
+  // Entities state
+  const [socios, setSocios] = useState<Socio[]>(INITIAL_SOCIOS);
+  const [cobradores, setCobradores] = useState<Cobrador[]>(INITIAL_COBRADORES);
+  const [instructores, setInstructores] = useState<Instructor[]>(INITIAL_INSTRUCTORES);
+  const [lockers, setLockers] = useState<Locker[]>(() => generateInitialLockers(INITIAL_SOCIOS));
+  const [actividades, setActividades] = useState<Actividad[]>(INITIAL_ACTIVIDADES);
+  const [cupones, setCupones] = useState<CuponRecibo[]>(INITIAL_CUPONES);
+  const [rendiciones, setRendiciones] = useState<RendicionLiquidacion[]>(INITIAL_RENDICIONES);
+  const [asistencias, setAsistencias] = useState<AsistenciaRegistro[]>([
+    {
+      id: 'asis-1',
+      actividadId: 'act-1',
+      fecha: '2026-09-15',
+      instructorId: 'user-instructor',
+      asistencias: [
+        { socioId: 'soc-1', socioNombre: 'Martín Rossi', presente: true },
+        { socioId: 'soc-4', socioNombre: 'Lucía Lapenta Olmos', presente: true },
+        { socioId: 'soc-6', socioNombre: 'Claudio Domínguez', presente: false },
+      ],
+    },
+  ]);
 
-  // Helper de cálculo automático de categoría según fecha de nacimiento y fecha de ingreso
-  const calcularCategoria = (fechaNacimiento: string, fechaIngreso: string) => {
-    const hoy = new Date();
-    const nac = new Date(fechaNacimiento);
-    const ing = new Date(fechaIngreso);
+  const showToast = useCallback((type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => {
+    setToast({
+      id: `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      type,
+      title,
+      description,
+    });
+  }, []);
 
-    let edad = hoy.getFullYear() - nac.getFullYear();
-    const m = hoy.getMonth() - nac.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) {
-      edad--;
+  const closeToast = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  // Sincronizar datos con la base de datos y API
+  const syncWithDatabase = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const fullDb = await api.getFullDatabase();
+      if (fullDb) {
+        if (Array.isArray(fullDb.socios)) setSocios(fullDb.socios);
+        if (Array.isArray(fullDb.cobradores)) setCobradores(fullDb.cobradores);
+        if (Array.isArray(fullDb.instructores)) setInstructores(fullDb.instructores);
+        if (Array.isArray(fullDb.lockers)) setLockers(fullDb.lockers);
+        if (Array.isArray(fullDb.actividades)) setActividades(fullDb.actividades);
+        if (Array.isArray(fullDb.cupones)) setCupones(fullDb.cupones);
+        if (Array.isArray(fullDb.rendiciones)) setRendiciones(fullDb.rendiciones);
+        if (Array.isArray(fullDb.asistencias)) setAsistencias(fullDb.asistencias);
+        setIsApiConnected(true);
+      }
+    } catch (err: any) {
+      console.warn('[AppContext] No se pudo sincronizar con la API backend:', err.message);
+      setIsApiConnected(false);
+    } finally {
+      setIsSyncing(false);
     }
-    if (isNaN(edad) || edad < 0) edad = 0;
+  }, []);
 
-    let antiguedadAnios = hoy.getFullYear() - ing.getFullYear();
-    const mIng = hoy.getMonth() - ing.getMonth();
-    if (mIng < 0 || (mIng === 0 && hoy.getDate() < ing.getDate())) {
-      antiguedadAnios--;
-    }
-    if (isNaN(antiguedadAnios) || antiguedadAnios < 0) antiguedadAnios = 0;
+  // Cargar datos reales de la base de datos al iniciar la aplicación
+  useEffect(() => {
+    syncWithDatabase();
+  }, [syncWithDatabase]);
 
-    // Reglas estatutarias del Club:
-    // 1. Vitalicio: > 30 años ininterrumpidos
-    // 2. Cadete: < 18 años
-    // 3. Activo: >= 18 años
-    let categoria: SocioCategoria = 'ACTIVO';
-    if (antiguedadAnios > 30) {
-      categoria = 'VITALICIO';
-    } else if (edad < 18) {
-      categoria = 'CADETE';
-    } else {
-      categoria = 'ACTIVO';
-    }
-
-    return { categoria, edad, antiguedadAnios };
-  };
-
-  // State Socios
-  const [socios, setSocios] = useState<Socio[]>(() => {
-    const saved = localStorage.getItem('el_globo_socios');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return INITIAL_SOCIOS;
-  });
-
-  // State Lockers
-  const [lockers, setLockers] = useState<Locker[]>(() => {
-    const saved = localStorage.getItem('el_globo_lockers');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return generateInitialLockers(INITIAL_SOCIOS);
-  });
-
-  // State Actividades
-  const [actividades, setActividades] = useState<Actividad[]>(() => {
-    const saved = localStorage.getItem('el_globo_actividades');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return INITIAL_ACTIVIDADES;
-  });
-
-  // State Cupones
-  const [cupones, setCupones] = useState<CuponRecibo[]>(() => {
-    const saved = localStorage.getItem('el_globo_cupones');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return INITIAL_CUPONES;
-  });
-
-  // State Rendiciones
-  const [rendiciones, setRendiciones] = useState<RendicionLiquidacion[]>(() => {
-    const saved = localStorage.getItem('el_globo_rendiciones');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return INITIAL_RENDICIONES;
-  });
-
-  // State Asistencia
-  const [asistencias, setAsistencias] = useState<AsistenciaRegistro[]>(() => {
-    const saved = localStorage.getItem('el_globo_asistencias');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return [
-      {
-        id: 'asis-1',
-        actividadId: 'act-1',
-        fecha: '2026-09-15',
-        instructorId: 'user-instructor',
-        asistencias: [
-          { socioId: 'soc-1', socioNombre: 'Martín Rossi', presente: true },
-          { socioId: 'soc-4', socioNombre: 'Lucía Lapenta Olmos', presente: true },
-          { socioId: 'soc-6', socioNombre: 'Claudio Domínguez', presente: false },
-        ],
-      },
-    ];
-  });
-
-  // State Cobradores (CRUD Admin)
-  const [cobradores, setCobradores] = useState<Cobrador[]>(() => {
-    const saved = localStorage.getItem('el_globo_cobradores');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return INITIAL_COBRADORES;
-  });
-
-  // State Instructores (CRUD Admin)
-  const [instructores, setInstructores] = useState<Instructor[]>(() => {
-    const saved = localStorage.getItem('el_globo_instructores');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
-    }
-    return INITIAL_INSTRUCTORES;
-  });
-
-  // Persistencias
+  // Persistir usuario logueado en sesión
   useEffect(() => {
     localStorage.setItem('el_globo_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
-  useEffect(() => {
-    localStorage.setItem('el_globo_socios', JSON.stringify(socios));
-  }, [socios]);
+  const resetDatabaseToDefaults = async () => {
+    try {
+      setIsSyncing(true);
+      await api.resetDatabase();
+      await syncWithDatabase();
+      showToast('info', 'Base de datos restaurada', 'Se restablecieron todos los datos originales del sistema.');
+    } catch (err: any) {
+      showToast('error', 'Error al reiniciar', err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('el_globo_lockers', JSON.stringify(lockers));
-  }, [lockers]);
+  // Cálculo de Categoría según Estatuto del Club El Globo
+  const calcularCategoria = (fechaNacimiento: string, fechaIngreso: string) => {
+    const hoy = new Date();
+    const nac = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    const m = hoy.getMonth() - nac.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+    if (isNaN(edad) || edad < 0) edad = 0;
 
-  useEffect(() => {
-    localStorage.setItem('el_globo_actividades', JSON.stringify(actividades));
-  }, [actividades]);
+    const ing = new Date(fechaIngreso);
+    let antiguedad = hoy.getFullYear() - ing.getFullYear();
+    const mIng = hoy.getMonth() - ing.getMonth();
+    if (mIng < 0 || (mIng === 0 && hoy.getDate() < ing.getDate())) antiguedad--;
+    if (isNaN(antiguedad) || antiguedad < 0) antiguedad = 0;
 
-  useEffect(() => {
-    localStorage.setItem('el_globo_cupones', JSON.stringify(cupones));
-  }, [cupones]);
+    let categoria: SocioCategoria = 'ACTIVO';
+    if (edad < 18) {
+      categoria = 'CADETE';
+    } else if (antiguedad >= 30) {
+      categoria = 'VITALICIO';
+    }
 
-  useEffect(() => {
-    localStorage.setItem('el_globo_rendiciones', JSON.stringify(rendiciones));
-  }, [rendiciones]);
-
-  useEffect(() => {
-    localStorage.setItem('el_globo_asistencias', JSON.stringify(asistencias));
-  }, [asistencias]);
-
-  useEffect(() => {
-    localStorage.setItem('el_globo_cobradores', JSON.stringify(cobradores));
-  }, [cobradores]);
-
-  useEffect(() => {
-    localStorage.setItem('el_globo_instructores', JSON.stringify(instructores));
-  }, [instructores]);
-
-  // Recalcular estado de morosidad
-  // Si tiene 2 o más cuotas adeudadas -> SUSPENDIDO_MOROSIDAD
-  const refreshMorosidadStatus = (currentSocios: Socio[], currentCupones: CuponRecibo[]) => {
-    return currentSocios.map((socio) => {
-      const impagos = currentCupones.filter(
-        (c) => c.socioId === socio.id && (c.estadoPago === 'PENDIENTE' || c.estadoPago === 'VENCIDO')
-      );
-      const cantImpagos = impagos.length;
-      let nuevoEstado: SocioEstado = 'AL_DIA';
-
-      if (cantImpagos >= 2) {
-        nuevoEstado = 'SUSPENDIDO_MOROSIDAD';
-      } else if (cantImpagos === 1) {
-        nuevoEstado = 'DEUDOR_1_MES';
-      }
-
-      return {
-        ...socio,
-        cuotasAdeudadas: cantImpagos,
-        estado: nuevoEstado,
-      };
-    });
+    return { categoria, edad, antiguedadAnios: antiguedad };
   };
 
   // SOCIOS CRUD
   const addSocio = (data: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>): boolean => {
-    // Validar DNI único
     const existeDni = socios.some((s) => s.dni.trim() === data.dni.trim());
     if (existeDni) {
       showToast('error', 'Error al registrar', `Ya existe un socio registrado con el DNI ${data.dni}.`);
@@ -343,8 +268,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       actividadesIds: data.actividadesIds || [],
     };
 
+    // Optimistic update
     setSocios((prev) => [newSocio, ...prev]);
-    showToast('success', 'Socio registrado', `N° ${nuevoNumero} - ${newSocio.nombreCompleto} (${categoria}) registrado con éxito.`);
+
+    // Async API call to persist in database
+    api.addSocio(data)
+      .then((savedSocio) => {
+        setSocios((prev) => prev.map((s) => (s.id === newSocio.id ? savedSocio : s)));
+        showToast('success', 'Socio registrado en Base de Datos', `N° ${savedSocio.numeroSocio} - ${savedSocio.nombreCompleto} (${savedSocio.categoria}) guardado.`);
+      })
+      .catch((err) => {
+        console.error('Error al guardar socio en API:', err);
+        showToast('warning', 'Guardado local', `Guardado en memoria. Error en persistencia: ${err.message}`);
+      });
+
     return true;
   };
 
@@ -362,20 +299,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       })
     );
-    showToast('success', 'Padrón actualizado', 'Los datos del socio fueron actualizados correctamente.');
+
+    api.updateSocio(id, data)
+      .then((updated) => {
+        setSocios((prev) => prev.map((s) => (s.id === id ? updated : s)));
+        showToast('success', 'Padrón actualizado', 'Los datos del socio fueron persistidos en la base de datos.');
+      })
+      .catch((err) => {
+        showToast('error', 'Error al actualizar socio', err.message);
+      });
   };
 
   const deleteSocio = (id: string) => {
     const socio = socios.find((s) => s.id === id);
     if (!socio) return;
 
-    // Liberar casillero si tenía
     if (socio.casilleroAsignadoId) {
       releaseLocker(socio.casilleroAsignadoId);
     }
 
     setSocios((prev) => prev.filter((s) => s.id !== id));
-    showToast('info', 'Socio dado de baja', `El socio ${socio.nombreCompleto} ha sido removido del padrón.`);
+
+    api.deleteSocio(id)
+      .then(() => {
+        showToast('info', 'Socio dado de baja', `El socio ${socio.nombreCompleto} ha sido removido de la base de datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al eliminar socio', err.message);
+      });
   };
 
   const addFamiliar = (socioId: string, familiarData: Omit<Familiar, 'id' | 'edad'>) => {
@@ -386,7 +337,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
     if (isNaN(edad) || edad < 0) edad = 0;
 
-    // Si es hijo, validar regla de negocio: menor de 18 años
     if ((familiarData.parentesco === 'HIJO' || familiarData.parentesco === 'HIJA') && edad >= 18) {
       showToast('warning', 'Validación Plan Familiar', 'Los hijos mayores de 18 años deben asociarse individualmente como categoría Activo.');
       return;
@@ -409,7 +359,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    showToast('success', 'Familiar vinculado', `${familiarData.nombreCompleto} vinculado al grupo familiar del socio.`);
+    api.addFamiliar(socioId, familiarData)
+      .then(() => {
+        showToast('success', 'Familiar vinculado', `${familiarData.nombreCompleto} registrado en la base de datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al registrar familiar', err.message);
+      });
   };
 
   const removeFamiliar = (socioId: string, familiarId: string) => {
@@ -424,7 +380,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       })
     );
-    showToast('info', 'Familiar desvinculado', 'El miembro fue quitado del grupo familiar.');
+
+    api.removeFamiliar(socioId, familiarId)
+      .then(() => {
+        showToast('info', 'Familiar desvinculado', 'El miembro fue quitado de la base de datos.');
+      })
+      .catch((err) => {
+        showToast('error', 'Error al desvincular familiar', err.message);
+      });
+  };
+
+  const regularizarDeudaSocio = (socioId: string) => {
+    setCupones((prev) =>
+      prev.map((c) =>
+        c.socioId === socioId && c.estadoPago !== 'PAGADO'
+          ? {
+              ...c,
+              estadoPago: 'PAGADO',
+              fechaPago: new Date().toISOString().split('T')[0],
+              metodoPago: 'SEDE_CENTRAL',
+              cobradorId: 'sede-central',
+            }
+          : c
+      )
+    );
+
+    setSocios((prev) =>
+      prev.map((s) =>
+        s.id === socioId
+          ? {
+              ...s,
+              estado: 'AL_DIA',
+              cuotasAdeudadas: 0,
+            }
+          : s
+      )
+    );
+
+    api.regularizarDeuda(socioId)
+      .then(() => {
+        showToast('success', 'Deuda Regularizada', 'Socio al día en la base de datos. Se rehabilitan los accesos.');
+      })
+      .catch((err) => {
+        showToast('error', 'Error en regularización', err.message);
+      });
   };
 
   // COBRADORES CRUD (Solo Admin)
@@ -440,7 +439,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fechaAlta: new Date().toISOString().split('T')[0],
     };
     setCobradores((prev) => [newCobrador, ...prev]);
-    showToast('success', 'Cobrador registrado', `${newCobrador.nombreCompleto} asignado a Zona ${newCobrador.zonaAsignada}.`);
+
+    api.addCobrador(data)
+      .then((saved) => {
+        setCobradores((prev) => prev.map((c) => (c.id === newCobrador.id ? saved : c)));
+        showToast('success', 'Cobrador registrado', `${saved.nombreCompleto} persistido en Base de Datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al registrar cobrador', err.message);
+      });
+
     return true;
   };
 
@@ -448,24 +456,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCobradores((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...data } : c))
     );
-    showToast('success', 'Cobrador actualizado', 'Los datos del cobrador se actualizaron correctamente.');
+
+    api.updateCobrador(id, data)
+      .then((updated) => {
+        setCobradores((prev) => prev.map((c) => (c.id === id ? updated : c)));
+        showToast('success', 'Cobrador actualizado', 'Datos guardados en base de datos.');
+      })
+      .catch((err) => {
+        showToast('error', 'Error al actualizar', err.message);
+      });
   };
 
   const deleteCobrador = (id: string) => {
     const cob = cobradores.find((c) => c.id === id);
     setCobradores((prev) => prev.filter((c) => c.id !== id));
-    showToast('info', 'Cobrador dado de baja', `El cobrador ${cob?.nombreCompleto || ''} ha sido removido del sistema.`);
+
+    api.deleteCobrador(id)
+      .then(() => {
+        showToast('info', 'Cobrador dado de baja', `El cobrador ${cob?.nombreCompleto || ''} ha sido removido de la base de datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al eliminar', err.message);
+      });
   };
 
   const toggleCobradorEstado = (id: string) => {
+    const target = cobradores.find((c) => c.id === id);
+    if (!target) return;
+    const nuevoEstado = !target.activo;
+
     setCobradores((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        const nuevoEstado = !c.activo;
-        showToast('info', 'Estado modificado', `${c.nombreCompleto} marcado como ${nuevoEstado ? 'Activo' : 'Inactivo'}.`);
-        return { ...c, activo: nuevoEstado };
-      })
+      prev.map((c) => (c.id === id ? { ...c, activo: nuevoEstado } : c))
     );
+
+    api.updateCobrador(id, { activo: nuevoEstado })
+      .then(() => {
+        showToast('info', 'Estado modificado', `${target.nombreCompleto} marcado como ${nuevoEstado ? 'Activo' : 'Inactivo'}.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al cambiar estado', err.message);
+      });
   };
 
   // INSTRUCTORES CRUD (Solo Admin)
@@ -482,86 +512,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setInstructores((prev) => [newInstructor, ...prev]);
 
-    // Sincronizar en actividades asignadas
-    if (data.disciplinasIds && data.disciplinasIds.length > 0) {
-      setActividades((prev) =>
-        prev.map((a) =>
-          data.disciplinasIds.includes(a.id)
-            ? { ...a, instructorId: newInstructor.id, instructorNombre: newInstructor.nombreCompleto }
-            : a
-        )
-      );
-    }
+    api.addInstructor(data)
+      .then((saved) => {
+        setInstructores((prev) => prev.map((i) => (i.id === newInstructor.id ? saved : i)));
+        showToast('success', 'Instructor registrado', `${saved.nombreCompleto} guardado en Base de Datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al guardar instructor', err.message);
+      });
 
-    showToast('success', 'Instructor registrado', `${newInstructor.nombreCompleto} incorporado al cuerpo docente.`);
     return true;
   };
 
   const updateInstructor = (id: string, data: Partial<Instructor>) => {
     setInstructores((prev) =>
-      prev.map((inst) => {
-        if (inst.id !== id) return inst;
-        return { ...inst, ...data };
-      })
+      prev.map((inst) => (inst.id === id ? { ...inst, ...data } : inst))
     );
 
-    // Sincronizar con actividades deportivas
-    if (data.nombreCompleto !== undefined || data.disciplinasIds !== undefined) {
-      setActividades((prev) =>
-        prev.map((a) => {
-          if (data.disciplinasIds?.includes(a.id)) {
-            return {
-              ...a,
-              instructorId: id,
-              instructorNombre: data.nombreCompleto || a.instructorNombre,
-            };
-          }
-          if (a.instructorId === id && data.disciplinasIds && !data.disciplinasIds.includes(a.id)) {
-            return {
-              ...a,
-              instructorId: 'sin-asignar',
-              instructorNombre: 'A designar',
-            };
-          }
-          if (a.instructorId === id && data.nombreCompleto) {
-            return {
-              ...a,
-              instructorNombre: data.nombreCompleto,
-            };
-          }
-          return a;
-        })
-      );
-    }
-
-    showToast('success', 'Instructor actualizado', 'Los datos del instructor fueron guardados exitosamente.');
+    api.updateInstructor(id, data)
+      .then((saved) => {
+        setInstructores((prev) => prev.map((inst) => (inst.id === id ? saved : inst)));
+        syncWithDatabase();
+        showToast('success', 'Instructor actualizado', 'Cambios guardados en la base de datos.');
+      })
+      .catch((err) => {
+        showToast('error', 'Error al actualizar instructor', err.message);
+      });
   };
 
   const deleteInstructor = (id: string) => {
     const inst = instructores.find((i) => i.id === id);
     setInstructores((prev) => prev.filter((i) => i.id !== id));
 
-    // Desvincular de actividades
-    setActividades((prev) =>
-      prev.map((a) =>
-        a.instructorId === id
-          ? { ...a, instructorId: 'sin-asignar', instructorNombre: 'A designar' }
-          : a
-      )
-    );
-
-    showToast('info', 'Instructor dado de baja', `${inst?.nombreCompleto || 'El docente'} fue removido de la nómina.`);
+    api.deleteInstructor(id)
+      .then(() => {
+        syncWithDatabase();
+        showToast('info', 'Instructor dado de baja', `${inst?.nombreCompleto || 'El docente'} fue removido de la base de datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al eliminar instructor', err.message);
+      });
   };
 
   const toggleInstructorEstado = (id: string) => {
+    const target = instructores.find((i) => i.id === id);
+    if (!target) return;
+    const nuevoEstado = !target.activo;
+
     setInstructores((prev) =>
-      prev.map((inst) => {
-        if (inst.id !== id) return inst;
-        const nuevoEstado = !inst.activo;
-        showToast('info', 'Estado modificado', `${inst.nombreCompleto} marcado como ${nuevoEstado ? 'Activo' : 'Inactivo'}.`);
-        return { ...inst, activo: nuevoEstado };
-      })
+      prev.map((inst) => (inst.id === id ? { ...inst, activo: nuevoEstado } : inst))
     );
+
+    api.updateInstructor(id, { activo: nuevoEstado })
+      .then(() => {
+        showToast('info', 'Estado modificado', `${target.nombreCompleto} marcado como ${nuevoEstado ? 'Activo' : 'Inactivo'}.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al cambiar estado', err.message);
+      });
   };
 
   // CASILLEROS (1 a 100)
@@ -573,39 +581,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (socio.estado === 'SUSPENDIDO_MOROSIDAD') {
-      showToast('error', 'Acción denegada por Morosidad', `El socio ${socio.nombreCompleto} está suspendido por adeudar 2 o más cuotas. Debe regularizar su deuda en secretaría.`);
+      showToast('error', 'Acción denegada por Morosidad', `El socio ${socio.nombreCompleto} está suspendido por adeudar 2 o más cuotas.`);
       return false;
     }
 
-    // Regla: Asignación ÚNICA de casillero por socio
     if (socio.casilleroAsignadoId && socio.casilleroAsignadoId !== lockerNumber) {
-      showToast('error', 'Límite de casillero alcanzado', `El socio ya cuenta con el casillero N° ${socio.casilleroAsignadoId} asignado. Máximo 1 casillero por socio.`);
+      showToast('error', 'Límite alcanzado', `El socio ya cuenta con el casillero N° ${socio.casilleroAsignadoId} asignado.`);
       return false;
     }
 
-    // Actualizar locker
+    // Optimistic update
     setLockers((prev) =>
-      prev.map((l) => {
-        if (l.numero === lockerNumber) {
-          return {
-            ...l,
-            estado: 'OCUPADO',
-            socioId: socio.id,
-            socioNombre: socio.nombreCompleto,
-            socioDni: socio.dni,
-            fechaAsignacion: new Date().toISOString().split('T')[0],
-          };
-        }
-        return l;
-      })
+      prev.map((l) =>
+        l.numero === lockerNumber
+          ? {
+              ...l,
+              estado: 'OCUPADO',
+              socioId: socio.id,
+              socioNombre: socio.nombreCompleto,
+              socioDni: socio.dni,
+              fechaAsignacion: new Date().toISOString().split('T')[0],
+            }
+          : l
+      )
     );
-
-    // Actualizar socio
     setSocios((prev) =>
       prev.map((s) => (s.id === socioId ? { ...s, casilleroAsignadoId: lockerNumber } : s))
     );
 
-    showToast('success', 'Casillero asignado', `Casillero N° ${lockerNumber} asignado exitosamente a ${socio.nombreCompleto}.`);
+    api.assignLocker(lockerNumber, socioId)
+      .then(() => {
+        showToast('success', 'Casillero asignado', `Casillero N° ${lockerNumber} asignado a ${socio.nombreCompleto} en BD.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al asignar casillero', err.message);
+      });
+
     return true;
   };
 
@@ -634,47 +645,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    showToast('info', 'Casillero liberado', `El casillero N° ${lockerNumber} quedó disponible.`);
+    api.releaseLocker(lockerNumber)
+      .then(() => {
+        showToast('info', 'Casillero liberado', `El casillero N° ${lockerNumber} quedó disponible en BD.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al liberar casillero', err.message);
+      });
   };
 
   const reserveLocker = (lockerNumber: number) => {
     setLockers((prev) =>
-      prev.map((l) => {
-        if (l.numero !== lockerNumber) return l;
-        const nuevoEstado = l.estado === 'RESERVADO' ? 'DISPONIBLE' : 'RESERVADO';
-        return {
-          ...l,
-          estado: nuevoEstado,
-        };
-      })
+      prev.map((l) =>
+        l.numero === lockerNumber
+          ? { ...l, estado: l.estado === 'RESERVADO' ? 'DISPONIBLE' : 'RESERVADO' }
+          : l
+      )
     );
+
+    api.reserveLocker(lockerNumber)
+      .then(() => {
+        showToast('info', 'Estado de Casillero', `Casillero N° ${lockerNumber} actualizado en BD.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al reservar casillero', err.message);
+      });
   };
 
   // ACTIVIDADES
   const enrollSocioInActividad = (socioId: string, actividadId: string): boolean => {
-    // Regla de Permisos RBAC:
-    // 1. El invitado NO tiene que poder inscribir socios a actividades
     if (currentUser.role === 'PUBLICO') {
-      showToast('error', 'Acceso denegado', 'Los invitados no tienen permitido inscribir socios a las actividades.');
+      showToast('error', 'Acceso denegado', 'Los visitantes no tienen permitido inscribir socios.');
       return false;
     }
-
-    // 2. El socio SOLO debe de poder inscribirse a sí mismo en las actividades
-    if (currentUser.role === 'SOCIO') {
-      if (currentUser.socioId && socioId !== currentUser.socioId) {
-        showToast('error', 'Permiso denegado', 'Como socio, únicamente tienes permitido inscribirte a ti mismo en las actividades.');
-        return false;
-      }
+    if (currentUser.role === 'SOCIO' && currentUser.socioId && socioId !== currentUser.socioId) {
+      showToast('error', 'Permiso denegado', 'Como socio únicamente puedes inscribirte a ti mismo.');
+      return false;
     }
 
     const socio = socios.find((s) => s.id === socioId);
     const actividad = actividades.find((a) => a.id === actividadId);
-
     if (!socio || !actividad) return false;
 
-    // Regla: Control de morosidad bloquea actividades
     if (socio.estado === 'SUSPENDIDO_MOROSIDAD') {
-      showToast('error', 'Bloqueo por Morosidad', `El socio ${socio.nombreCompleto} se encuentra suspendido. Regularice su estado contable para inscribirse a deportes.`);
+      showToast('error', 'Bloqueo por Morosidad', `El socio se encuentra suspendido. Regularice su deuda.`);
       return false;
     }
 
@@ -684,52 +698,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (actividad.cupoOcupado >= actividad.cupoMaximo) {
-      showToast('warning', 'Cupo agotado', `La actividad ${actividad.nombre} no posee cupos disponibles.`);
+      showToast('warning', 'Cupo agotado', `La actividad no tiene cupos disponibles.`);
       return false;
     }
 
-    // Actualizar socio
     setSocios((prev) =>
       prev.map((s) => (s.id === socioId ? { ...s, actividadesIds: [...s.actividadesIds, actividadId] } : s))
     );
-
-    // Actualizar actividad cupo
     setActividades((prev) =>
       prev.map((a) => (a.id === actividadId ? { ...a, cupoOcupado: a.cupoOcupado + 1 } : a))
     );
 
-    showToast('success', 'Inscripción confirmada', `Inscripto a ${actividad.nombre} exitosamente.`);
+    api.enrollActividad(socioId, actividadId)
+      .then(() => {
+        showToast('success', 'Inscripción confirmada', `Inscripto a ${actividad.nombre} en la base de datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error en inscripción', err.message);
+      });
+
     return true;
   };
 
   const unenrollSocioFromActividad = (socioId: string, actividadId: string) => {
-    // Regla de Permisos RBAC:
-    // 1. El invitado no puede gestionar inscripciones
     if (currentUser.role === 'PUBLICO') {
-      showToast('error', 'Acceso denegado', 'Los invitados no pueden gestionar actividades.');
+      showToast('error', 'Acceso denegado', 'Los visitantes no pueden desinscribir socios.');
+      return;
+    }
+    if (currentUser.role === 'SOCIO' && currentUser.socioId && socioId !== currentUser.socioId) {
+      showToast('error', 'Permiso denegado', 'Solo puedes desinscribirte de tus propias actividades.');
       return;
     }
 
-    // 2. El socio solo puede gestionar sus propias actividades
-    if (currentUser.role === 'SOCIO') {
-      if (currentUser.socioId && socioId !== currentUser.socioId) {
-        showToast('error', 'Permiso denegado', 'Como socio, únicamente puedes desinscribirte de tus propias actividades.');
-        return;
-      }
-    }
-
-    const actividad = actividades.find((a) => a.id === actividadId);
     setSocios((prev) =>
       prev.map((s) =>
         s.id === socioId ? { ...s, actividadesIds: s.actividadesIds.filter((id) => id !== actividadId) } : s
       )
     );
-
     setActividades((prev) =>
       prev.map((a) => (a.id === actividadId ? { ...a, cupoOcupado: Math.max(0, a.cupoOcupado - 1) } : a))
     );
 
-    showToast('info', 'Baja de actividad', `Se dio de baja la inscripción a ${actividad?.nombre || 'la actividad'}.`);
+    api.unenrollActividad(socioId, actividadId)
+      .then(() => {
+        showToast('info', 'Baja de actividad', `Se dio de baja la inscripción en la base de datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al desinscribir', err.message);
+      });
   };
 
   // ASISTENCIAS
@@ -743,172 +759,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return [registro, ...prev];
     });
-    showToast('success', 'Asistencia registrada', `Planilla de asistencia del ${registro.fecha} guardada correctamente.`);
+
+    api.saveAsistencia(registro)
+      .then(() => {
+        showToast('success', 'Asistencia registrada', `Planilla del ${registro.fecha} guardada en BD.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al guardar asistencia', err.message);
+      });
   };
 
   // CUPONES & RECIBOS
   const generarCuponMesActual = (socioId: string) => {
-    const socio = socios.find((s) => s.id === socioId);
-    if (!socio) return;
-
-    // Calcular cuota social según categoría
-    let cuotaSocialBase = CUOTA_VALORES.ACTIVO;
-    if (socio.categoria === 'CADETE') cuotaSocialBase = CUOTA_VALORES.CADETE;
-    if (socio.categoria === 'VITALICIO') cuotaSocialBase = CUOTA_VALORES.VITALICIO;
-
-    // Actividades del socio
-    const detalleActividades = socio.actividadesIds
-      .map((actId) => {
-        const act = actividades.find((a) => a.id === actId);
-        return act ? { nombre: act.nombre, monto: act.costoMensual } : null;
+    api.generarCupon(socioId)
+      .then((nuevoCupon) => {
+        setCupones((prev) => [nuevoCupon, ...prev]);
+        syncWithDatabase();
+        showToast('success', 'Recibo emitido', `Cupón ${nuevoCupon.numeroComprobante} guardado en BD. Total: $${nuevoCupon.totalPagar.toLocaleString('es-AR')}`);
       })
-      .filter(Boolean) as { nombre: string; monto: number }[];
-
-    const costoActividades = detalleActividades.reduce((sum, a) => sum + a.monto, 0);
-    const costoCasillero = socio.casilleroAsignadoId ? CUOTA_VALORES.CASILLERO_MENSUAL : 0;
-
-    // Descuento grupo familiar: si tiene hijos vinculados
-    const hijosCount = socio.familiares.filter((f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
-    const descuentoFamiliar = hijosCount * CUOTA_VALORES.DESCUENTO_FAMILIAR_POR_HIJO;
-
-    const subtotal = Math.max(0, cuotaSocialBase + costoActividades + costoCasillero - descuentoFamiliar);
-
-    // Regla estatutaria: 5% recargo por mora si ya tiene cuotas impagas
-    const tieneMora = socio.cuotasAdeudadas > 0;
-    const recargoMoraPorcentaje = tieneMora ? CUOTA_VALORES.RECARGO_MORA_PORCENTAJE : 0;
-    const montoRecargoMora = tieneMora ? Math.round(subtotal * CUOTA_VALORES.RECARGO_MORA_PORCENTAJE) : 0;
-    const totalPagar = subtotal + montoRecargoMora;
-
-    const hoy = new Date();
-    const periodoMes = hoy.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
-    const fechaEmision = hoy.toISOString().split('T')[0];
-    const vencimiento = new Date(hoy.getFullYear(), hoy.getMonth(), 15).toISOString().split('T')[0];
-
-    const nuevoCupon: CuponRecibo = {
-      id: `cup-${Date.now()}`,
-      numeroComprobante: `REC-${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`,
-      socioId: socio.id,
-      socioNombre: socio.nombreCompleto,
-      socioDni: socio.dni,
-      zonaCobro: socio.zonaCobro,
-      periodoMes: periodoMes.charAt(0).toUpperCase() + periodoMes.slice(1),
-      fechaEmision,
-      fechaVencimiento: vencimiento,
-      cuotaSocialBase,
-      detalleActividades,
-      costoCasillero,
-      recargoMoraPorcentaje,
-      montoRecargoMora,
-      descuentoFamiliar,
-      subtotal,
-      totalPagar,
-      estadoPago: 'PENDIENTE',
-    };
-
-    setCupones((prev) => [nuevoCupon, ...prev]);
-
-    // Actualizar socios con refresco de morosidad
-    setSocios((prev) => refreshMorosidadStatus(prev, [nuevoCupon, ...cupones]));
-
-    showToast('success', 'Recibo emitido', `Cupón ${nuevoCupon.numeroComprobante} generado para ${socio.nombreCompleto}. Total: $${totalPagar.toLocaleString('es-AR')}`);
+      .catch((err) => {
+        showToast('error', 'Error al generar recibo', err.message);
+      });
   };
 
   const marcarCuponPagado = (cuponId: string, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => {
-    const fechaPago = new Date().toISOString().split('T')[0];
-    let updatedCupones: CuponRecibo[] = [];
-
-    setCupones((prev) => {
-      updatedCupones = prev.map((c) =>
-        c.id === cuponId
-          ? {
-              ...c,
-              estadoPago: 'PAGADO',
-              fechaPago,
-              metodoPago,
-              cobradorId: cobradorId || (currentUser.role === 'COBRADOR' ? currentUser.id : 'sede-central'),
-            }
-          : c
-      );
-      return updatedCupones;
-    });
-
-    // Actualizar morosidad de socios
-    setTimeout(() => {
-      setSocios((prev) => refreshMorosidadStatus(prev, updatedCupones));
-    }, 50);
-
-    showToast('success', 'Pago Registrado', `El recibo ha sido cancelado exitosamente mediante ${metodoPago.replace('_', ' ')}.`);
-  };
-
-  // Reemisión de cupones con 5% de recargo
-  const reemitirCuponConMora = (cuponId: string) => {
-    let targetCupon: CuponRecibo | undefined;
-    setCupones((prev) =>
-      prev.map((c) => {
-        if (c.id !== cuponId) return c;
-        targetCupon = c;
-        const subtotal = c.subtotal;
-        const montoRecargoMora = Math.round(subtotal * CUOTA_VALORES.RECARGO_MORA_PORCENTAJE); // 5%
-        const totalPagar = subtotal + montoRecargoMora;
-
-        return {
-          ...c,
-          recargoMoraPorcentaje: 0.05,
-          montoRecargoMora,
-          totalPagar,
-          estadoPago: 'VENCIDO',
-        };
+    api.pagarCupon(cuponId, metodoPago, cobradorId || (currentUser.role === 'COBRADOR' ? currentUser.id : 'sede-central'))
+      .then((updated) => {
+        setCupones((prev) => prev.map((c) => (c.id === cuponId ? updated : c)));
+        syncWithDatabase();
+        showToast('success', 'Pago Registrado', `Recibo pagado vía ${metodoPago.replace('_', ' ')} y asentado en Base de Datos.`);
       })
-    );
-
-    showToast('warning', 'Cupón Reemitido con 5% Mora', `Se aplicó el recargo estatutario del 5% al recibo de ${targetCupon?.socioNombre || 'socio'}.`);
+      .catch((err) => {
+        showToast('error', 'Error al registrar pago', err.message);
+      });
   };
 
-  // Regularizar deuda total de un socio en secretaría
-  const regularizarDeudaSocio = (socioId: string) => {
-    const fechaPago = new Date().toISOString().split('T')[0];
-    let updatedCupones: CuponRecibo[] = [];
-
-    setCupones((prev) => {
-      updatedCupones = prev.map((c) =>
-        c.socioId === socioId && c.estadoPago !== 'PAGADO'
-          ? {
-              ...c,
-              estadoPago: 'PAGADO',
-              fechaPago,
-              metodoPago: 'SEDE_CENTRAL',
-              cobradorId: 'sede-central',
-            }
-          : c
-      );
-      return updatedCupones;
-    });
-
-    setSocios((prev) =>
-      prev.map((s) =>
-        s.id === socioId
-          ? {
-              ...s,
-              estado: 'AL_DIA',
-              cuotasAdeudadas: 0,
-            }
-          : s
-      )
-    );
-
-    showToast('success', 'Deuda Regularizada', 'El socio ha regularizado todas sus obligaciones. Se rehabilitan los accesos a actividades y casilleros.');
+  const reemitirCuponConMora = (cuponId: string) => {
+    api.moraCupon(cuponId)
+      .then((updated) => {
+        setCupones((prev) => prev.map((c) => (c.id === cuponId ? updated : c)));
+        showToast('warning', 'Cupón Reemitido con 5% Mora', `Recargo del 5% aplicado en Base de Datos.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al aplicar mora', err.message);
+      });
   };
 
-  // RENDICIONES SEMANALES DE COBRADORES (10% de comisión)
+  // RENDICIONES
   const crearRendicionSemanal = (zonaCobro: number, cobradorId: string, cobradorNombre: string, cuponesIds: string[]) => {
     const cuponesRendidos = cupones.filter((c) => cuponesIds.includes(c.id));
     const totalCobrado = cuponesRendidos.reduce((acc, c) => acc + c.totalPagar, 0);
-    const montoComisionCobrador = Math.round(totalCobrado * CUOTA_VALORES.COMISION_COBRADOR_PORCENTAJE); // 10%
+    const montoComisionCobrador = Math.round(totalCobrado * CUOTA_VALORES.COMISION_COBRADOR_PORCENTAJE);
     const netoRendidoClub = totalCobrado - montoComisionCobrador;
-
     const hoy = new Date();
-    const nuevaRendicion: RendicionLiquidacion = {
-      id: `rend-${Date.now()}`,
+
+    const payload = {
       cobradorId,
       cobradorNombre,
       zonaCobro,
@@ -919,26 +824,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       porcentajeComision: 0.10,
       montoComisionCobrador,
       netoRendidoClub,
-      estado: 'PENDIENTE_SECRETARIA',
-      fechaRendicion: hoy.toISOString().split('T')[0],
+      estado: 'PENDIENTE_SECRETARIA' as const,
     };
 
-    setRendiciones((prev) => [nuevaRendicion, ...prev]);
-    showToast('success', 'Rendición Semanal Enviada', `Liquidación generada con 10% comisión ($${montoComisionCobrador.toLocaleString('es-AR')}). Pendiente de aprobación por Secretaría.`);
+    api.addRendicion(payload)
+      .then((nuevaRendicion) => {
+        setRendiciones((prev) => [nuevaRendicion, ...prev]);
+        showToast('success', 'Rendición Semanal Enviada', `Liquidación generada con 10% comisión ($${montoComisionCobrador.toLocaleString('es-AR')}) en BD.`);
+      })
+      .catch((err) => {
+        showToast('error', 'Error al crear rendición', err.message);
+      });
   };
 
   const aprobarRendicion = (rendicionId: string) => {
-    setRendiciones((prev) =>
-      prev.map((r) => (r.id === rendicionId ? { ...r, estado: 'APROBADA' } : r))
-    );
-    showToast('success', 'Rendición Aprobada', 'La liquidación fue validada contablemente por Tesorería del Club.');
+    api.aprobarRendicion(rendicionId)
+      .then((aprobada) => {
+        setRendiciones((prev) => prev.map((r) => (r.id === rendicionId ? aprobada : r)));
+        showToast('success', 'Rendición Aprobada', 'Liquidación validada contablemente en BD.');
+      })
+      .catch((err) => {
+        showToast('error', 'Error al aprobar liquidación', err.message);
+      });
   };
 
   const quickSwitchUser = (userId: string) => {
     const found = MOCK_USERS.find((u) => u.id === userId);
     if (found) {
       setCurrentUser(found);
-      // Auto switch tabs to a meaningful view for that role
       if (found.role === 'ADMIN') setActiveTab('dashboard');
       else if (found.role === 'COBRADOR') setActiveTab('cobranza');
       else if (found.role === 'INSTRUCTOR') setActiveTab('asistencia');
@@ -960,6 +873,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast,
         showToast,
         closeToast,
+        isApiConnected,
+        isSyncing,
+        syncWithDatabase,
+        resetDatabaseToDefaults,
         socios,
         addSocio,
         updateSocio,
