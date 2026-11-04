@@ -5,7 +5,6 @@ import {
   UserX,
   Plus,
   Search,
-  Filter,
   Phone,
   Mail,
   Edit2,
@@ -14,20 +13,27 @@ import {
   XCircle,
   AlertTriangle,
   Award,
-  Calendar,
   ShieldAlert,
   ArrowLeft,
   X,
   Briefcase,
   DollarSign,
-  Clock,
   BookOpen,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Instructor, ModalidadInstructor } from '../types';
 
 export const InstructoresAdmin: React.FC = () => {
-  const { currentUser, setActiveTab, instructores, actividades, addInstructor, updateInstructor, deleteInstructor, toggleInstructorEstado } = useApp();
+  const {
+    currentUser,
+    setActiveTab,
+    instructores,
+    actividades,
+    addInstructor,
+    updateInstructor,
+    deleteInstructor,
+    toggleInstructorEstado,
+  } = useApp();
 
   // Filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,7 +80,7 @@ export const InstructoresAdmin: React.FC = () => {
   const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
 
   // Control de Acceso Estricto RBAC: Solo ADMINISTRADOR
-  if (currentUser.role !== 'ADMIN') {
+  if (currentUser?.role !== 'ADMIN') {
     return (
       <div className="bg-white rounded-xl shadow-md border border-red-200 p-8 text-center max-w-2xl mx-auto my-12 animate-in fade-in">
         <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -86,8 +92,16 @@ export const InstructoresAdmin: React.FC = () => {
         </p>
         <div className="flex justify-center gap-3">
           <button
-            onClick={() => setActiveTab(currentUser.role === 'PUBLICO' ? 'inicio' : currentUser.role === 'SOCIO' ? 'portal_socio' : 'dashboard')}
-            className="flex items-center space-x-2 px-5 py-2.5 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+            onClick={() =>
+              setActiveTab(
+                currentUser?.role === 'PUBLICO'
+                  ? 'inicio'
+                  : currentUser?.role === 'SOCIO'
+                  ? 'portal_socio'
+                  : 'dashboard'
+              )
+            }
+            className="flex items-center space-x-2 px-5 py-2.5 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-sm cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Volver a la pantalla principal</span>
@@ -97,26 +111,34 @@ export const InstructoresAdmin: React.FC = () => {
     );
   }
 
-  // Filtrado de Instructores
+  // Filtrado de Instructores desde la API / BD
   const filteredInstructores = useMemo(() => {
     return instructores.filter((inst) => {
+      const nombreNorm = inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
+      const dniNorm = inst.dni || '';
+      const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || '';
+      const emailNorm = inst.email || '';
+      const telNorm = inst.telefono || '';
+      const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
+
       const matchSearch =
-        inst.nombreCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inst.dni.includes(searchTerm) ||
-        inst.tituloProfesional.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inst.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inst.telefono.includes(searchTerm);
+        nombreNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dniNorm.includes(searchTerm) ||
+        tituloNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emailNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        telNorm.includes(searchTerm);
 
       const matchDisciplina =
-        filtroDisciplina === 'TODAS' || inst.disciplinasIds.includes(filtroDisciplina);
+        filtroDisciplina === 'TODAS' || disciplinasArr.includes(String(filtroDisciplina));
 
       const matchModalidad =
         filtroModalidad === 'TODAS' || inst.modalidadContrato === filtroModalidad;
 
+      const isActivo = inst.activo ?? true;
       const matchEstado =
         filtroEstado === 'TODOS' ||
-        (filtroEstado === 'ACTIVOS' && inst.activo) ||
-        (filtroEstado === 'INACTIVOS' && !inst.activo);
+        (filtroEstado === 'ACTIVOS' && isActivo) ||
+        (filtroEstado === 'INACTIVOS' && !isActivo);
 
       return matchSearch && matchDisciplina && matchModalidad && matchEstado;
     });
@@ -124,8 +146,10 @@ export const InstructoresAdmin: React.FC = () => {
 
   // KPIs
   const totalInstructores = instructores.length;
-  const activosCount = instructores.filter((i) => i.activo).length;
-  const disciplinasAsignadasCount = new Set(instructores.flatMap((i) => i.disciplinasIds)).size;
+  const activosCount = instructores.filter((i) => (i.activo ?? true)).length;
+  const disciplinasAsignadasCount = new Set(
+    instructores.flatMap((i) => i.disciplinasIds || (i as any).actividadesIds || [])
+  ).size;
 
   const handleOpenCreateModal = () => {
     setEditingInstructor(null);
@@ -148,17 +172,20 @@ export const InstructoresAdmin: React.FC = () => {
 
   const handleOpenEditModal = (inst: Instructor) => {
     setEditingInstructor(inst);
+    const nombreNorm = inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
+    const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
+
     setFormData({
-      nombreCompleto: inst.nombreCompleto,
-      dni: inst.dni,
-      telefono: inst.telefono,
-      email: inst.email,
-      tituloProfesional: inst.tituloProfesional,
-      disciplinasIds: inst.disciplinasIds,
-      modalidadContrato: inst.modalidadContrato,
-      remuneracionMensual: inst.remuneracionMensual,
-      diasDisponibles: inst.diasDisponibles,
-      activo: inst.activo,
+      nombreCompleto: nombreNorm,
+      dni: inst.dni || '',
+      telefono: inst.telefono || '',
+      email: inst.email || '',
+      tituloProfesional: inst.tituloProfesional || (inst as any).especialidad || '',
+      disciplinasIds: disciplinasArr,
+      modalidadContrato: inst.modalidadContrato || 'PLANTA_PERMANENTE',
+      remuneracionMensual: Number(inst.remuneracionMensual || (inst as any).montoMensual || 0),
+      diasDisponibles: inst.diasDisponibles || ['Lunes', 'Miércoles', 'Viernes'],
+      activo: inst.activo ?? true,
       observaciones: inst.observaciones || '',
     });
     setFormErrors({});
@@ -190,37 +217,45 @@ export const InstructoresAdmin: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    const partesNombre = formData.nombreCompleto.trim().split(' ');
+    const nombre = partesNombre[0];
+    const apellido = partesNombre.slice(1).join(' ') || partesNombre[0];
+
     const payload = {
+      nombre,
+      apellido,
       nombreCompleto: formData.nombreCompleto.trim(),
       dni: formData.dni.replace(/\D/g, ''),
       telefono: formData.telefono.trim(),
       email: formData.email.trim(),
       tituloProfesional: formData.tituloProfesional.trim(),
+      especialidad: formData.tituloProfesional.trim(),
       disciplinasIds: formData.disciplinasIds,
+      actividadesIds: formData.disciplinasIds,
       modalidadContrato: formData.modalidadContrato,
       remuneracionMensual: Number(formData.remuneracionMensual),
+      montoMensual: Number(formData.remuneracionMensual),
       diasDisponibles: formData.diasDisponibles,
       activo: formData.activo,
       observaciones: formData.observaciones.trim() || undefined,
     };
 
     if (editingInstructor) {
-      updateInstructor(editingInstructor.id, payload);
+      await updateInstructor(String(editingInstructor.id), payload as any);
     } else {
-      const ok = addInstructor(payload);
-      if (!ok) return;
+      await addInstructor(payload as any);
     }
 
     setIsModalOpen(false);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (instructorToDelete) {
-      deleteInstructor(instructorToDelete.id);
+      await deleteInstructor(String(instructorToDelete.id));
       setInstructorToDelete(null);
     }
   };
@@ -256,7 +291,7 @@ export const InstructoresAdmin: React.FC = () => {
       case 'POR_HORA':
         return { label: 'Arancel por Hora', color: 'bg-amber-100 text-amber-800 border-amber-200' };
       default:
-        return { label: mod, color: 'bg-slate-100 text-slate-800 border-slate-200' };
+        return { label: mod || 'Planta Permanente', color: 'bg-slate-100 text-slate-800 border-slate-200' };
     }
   };
 
@@ -272,14 +307,14 @@ export const InstructoresAdmin: React.FC = () => {
             <div>
               <div className="flex items-center space-x-2">
                 <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-                  Gestión de Instructores
+                  Gestión de Instructores BD
                 </h1>
                 <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200 uppercase">
                   Módulo Administrador
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Alta, baja, actualización y asignación de disciplinas deportivas del cuerpo docente del Club El Globo
+                Alta, baja, actualización y asignación de disciplinas deportivas persistidas en la BD de MySQL
               </p>
             </div>
           </div>
@@ -287,7 +322,7 @@ export const InstructoresAdmin: React.FC = () => {
 
         <button
           onClick={handleOpenCreateModal}
-          className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#C53030] hover:bg-[#9B2C2C] text-white text-xs font-bold rounded-lg shadow-sm transition-all transform active:scale-95"
+          className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#C53030] hover:bg-[#9B2C2C] text-white text-xs font-bold rounded-lg shadow-sm transition-all transform active:scale-95 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Registrar Nuevo Instructor</span>
@@ -300,7 +335,7 @@ export const InstructoresAdmin: React.FC = () => {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cuerpo Docente</p>
             <p className="text-2xl font-black text-slate-800 mt-1">{totalInstructores}</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Instructores en nómina</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Instructores en nómina BD</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
             <Award className="w-6 h-6" />
@@ -365,7 +400,7 @@ export const InstructoresAdmin: React.FC = () => {
             >
               <option value="TODAS">Todas las Disciplinas</option>
               {actividades.map((act) => (
-                <option key={act.id} value={act.id}>
+                <option key={act.id} value={String(act.id)}>
                   {act.nombre}
                 </option>
               ))}
@@ -409,7 +444,7 @@ export const InstructoresAdmin: React.FC = () => {
                 setFiltroModalidad('TODAS');
                 setFiltroEstado('TODOS');
               }}
-              className="px-2 py-1.5 text-[11px] text-slate-500 hover:text-slate-800 underline"
+              className="px-2 py-1.5 text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
             >
               Limpiar filtros
             </button>
@@ -437,14 +472,20 @@ export const InstructoresAdmin: React.FC = () => {
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
                     <UserX className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                    <p className="font-semibold">No se encontraron instructores con los filtros seleccionados.</p>
+                    <p className="font-semibold">No se encontraron instructores registrados en la BD con los filtros seleccionados.</p>
                   </td>
                 </tr>
               ) : (
                 filteredInstructores.map((inst) => {
+                  const nombreNorm = inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
+                  const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || 'Instructor';
+                  const remuNorm = Number(inst.remuneracionMensual || (inst as any).montoMensual || 0);
+                  const isActivo = inst.activo ?? true;
                   const modBadge = getModalidadLabel(inst.modalidadContrato);
+
+                  const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
                   const actividadesAsignadas = actividades.filter((a) =>
-                    inst.disciplinasIds.includes(a.id)
+                    disciplinasArr.includes(String(a.id))
                   );
 
                   return (
@@ -452,16 +493,16 @@ export const InstructoresAdmin: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="flex items-start space-x-3">
                           <div className="w-9 h-9 rounded-full bg-teal-800 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                            {inst.nombreCompleto.replace('Prof. ', '').charAt(0)}
+                            {nombreNorm.replace('Prof. ', '').charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 text-sm leading-tight">{inst.nombreCompleto}</p>
+                            <p className="font-bold text-slate-900 text-sm leading-tight">{nombreNorm}</p>
                             <p className="text-[11px] text-teal-700 font-medium flex items-center space-x-1 mt-0.5">
                               <BookOpen className="w-3 h-3 shrink-0" />
-                              <span>{inst.tituloProfesional}</span>
+                              <span>{tituloNorm}</span>
                             </p>
                             <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              DNI: {inst.dni} • Ingreso: {inst.fechaAlta}
+                              DNI: {inst.dni || 'N/A'} • Legajo ID: #{inst.id}
                             </p>
                           </div>
                         </div>
@@ -488,11 +529,11 @@ export const InstructoresAdmin: React.FC = () => {
                         <div className="space-y-1">
                           <div className="flex items-center space-x-1.5 text-[11px]">
                             <Phone className="w-3 h-3 text-slate-400" />
-                            <span>{inst.telefono}</span>
+                            <span>{inst.telefono || 'Sin registrar'}</span>
                           </div>
                           <div className="flex items-center space-x-1.5 text-[11px] text-slate-500">
                             <Mail className="w-3 h-3 text-slate-400" />
-                            <span className="truncate max-w-[170px]">{inst.email}</span>
+                            <span className="truncate max-w-[170px]">{inst.email || 'Sin registrar'}</span>
                           </div>
                         </div>
                       </td>
@@ -506,14 +547,14 @@ export const InstructoresAdmin: React.FC = () => {
                           </span>
                           <div className="text-[11px] font-mono font-bold text-slate-700 flex items-center space-x-1">
                             <DollarSign className="w-3 h-3 text-emerald-600" />
-                            <span>${inst.remuneracionMensual.toLocaleString('es-AR')}/mes</span>
+                            <span>${remuNorm.toLocaleString('es-AR')}/mes</span>
                           </div>
                         </div>
                       </td>
 
                       <td className="py-3.5 px-4">
                         <div className="flex flex-wrap gap-1 max-w-[170px]">
-                          {inst.diasDisponibles.map((dia) => (
+                          {(inst.diasDisponibles || ['Lunes', 'Miércoles', 'Viernes']).map((dia) => (
                             <span
                               key={dia}
                               className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200"
@@ -526,15 +567,15 @@ export const InstructoresAdmin: React.FC = () => {
 
                       <td className="py-3.5 px-4 text-center">
                         <button
-                          onClick={() => toggleInstructorEstado(inst.id)}
-                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
-                            inst.activo
+                          onClick={() => toggleInstructorEstado(String(inst.id))}
+                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors cursor-pointer ${
+                            isActivo
                               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                               : 'bg-red-100 text-red-800 hover:bg-red-200'
                           }`}
                           title="Click para alternar estado activo/inactivo"
                         >
-                          {inst.activo ? (
+                          {isActivo ? (
                             <>
                               <CheckCircle className="w-3 h-3" />
                               <span>Activo</span>
@@ -552,15 +593,15 @@ export const InstructoresAdmin: React.FC = () => {
                         <div className="flex items-center justify-end space-x-1">
                           <button
                             onClick={() => handleOpenEditModal(inst)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
                             title="Editar legajo del instructor"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setInstructorToDelete(inst)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Eliminar instructor del cuerpo técnico"
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                            title="Eliminar instructor de la BD"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -584,27 +625,27 @@ export const InstructoresAdmin: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Trophy className="w-5 h-5 text-white" />
                 <h3 className="font-black text-sm uppercase tracking-wider">
-                  {editingInstructor ? 'Editar Legajo de Instructor' : 'Registrar Nuevo Instructor'}
+                  {editingInstructor ? `Editar Legajo #${editingInstructor.id}` : 'Registrar Nuevo Instructor en BD'}
                 </h3>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-white/70 hover:text-white p-1 rounded transition-colors"
+                className="text-white/70 hover:text-white p-1 rounded transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
               {/* Nombre Completo */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nombre y Apellido <span className="text-red-500">*</span>
+                  Nombre y Apellido Completo <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="ej. Prof. Valeria Fontana"
+                  placeholder="ej. Valeria Fontana"
                   value={formData.nombreCompleto}
                   onChange={(e) => setFormData({ ...formData, nombreCompleto: e.target.value })}
                   className={`w-full px-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] ${
@@ -659,7 +700,7 @@ export const InstructoresAdmin: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="ej. 11-5120-7788"
+                    placeholder="ej. 011 15-5120-7788"
                     value={formData.telefono}
                     onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
                     className={`w-full px-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] ${
@@ -690,14 +731,12 @@ export const InstructoresAdmin: React.FC = () => {
               {/* Asignación de Disciplinas Deportivas */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Disciplinas / Actividades Deportivas que Dicta
+                  Disciplinas / Actividades Deportivas
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  Selecciona las disciplinas que estarán bajo la responsabilidad de este docente:
-                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 max-h-36 overflow-y-auto">
                   {actividades.map((act) => {
-                    const isChecked = formData.disciplinasIds.includes(act.id);
+                    const actIdStr = String(act.id);
+                    const isChecked = formData.disciplinasIds.includes(actIdStr);
                     return (
                       <label
                         key={act.id}
@@ -708,7 +747,7 @@ export const InstructoresAdmin: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => toggleDisciplina(act.id)}
+                          onChange={() => toggleDisciplina(actIdStr)}
                           className="rounded border-slate-300 text-[#1A365D] focus:ring-[#1A365D]"
                         />
                         <span className="truncate">{act.nombre}</span>
@@ -773,7 +812,7 @@ export const InstructoresAdmin: React.FC = () => {
                         key={dia}
                         type="button"
                         onClick={() => toggleDia(dia)}
-                        className={`px-2.5 py-1 text-xs rounded-md font-semibold transition-colors border ${
+                        className={`px-2.5 py-1 text-xs rounded-md font-semibold transition-colors border cursor-pointer ${
                           isSelected
                             ? 'bg-[#1A365D] text-white border-[#1A365D]'
                             : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
@@ -796,7 +835,7 @@ export const InstructoresAdmin: React.FC = () => {
                   className="rounded border-slate-300 text-[#1A365D] focus:ring-[#1A365D]"
                 />
                 <label htmlFor="instructorActivo" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                  Instructor habilitado y activo en nómina
+                  Instructor habilitado y activo en nómina de la BD
                 </label>
               </div>
 
@@ -807,7 +846,7 @@ export const InstructoresAdmin: React.FC = () => {
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Detalles sobre acreditaciones deportivas, seguros y trayectoria..."
+                  placeholder="Detalles sobre acreditaciones deportivas y seguros..."
                   value={formData.observaciones}
                   onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D]"
@@ -819,15 +858,15 @@ export const InstructoresAdmin: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                  className="px-5 py-2 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
                 >
-                  {editingInstructor ? 'Guardar Cambios' : 'Confirmar Alta'}
+                  {editingInstructor ? 'Guardar Cambios en BD' : 'Confirmar Alta en BD'}
                 </button>
               </div>
             </form>
@@ -842,24 +881,30 @@ export const InstructoresAdmin: React.FC = () => {
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-black text-slate-800 mb-1">¿Eliminar Instructor?</h3>
+            <h3 className="text-base font-black text-slate-800 mb-1">¿Eliminar Instructor de la BD?</h3>
             <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-              ¿Estás seguro de que deseas dar de baja a <strong>{instructorToDelete.nombreCompleto}</strong>?
-              Se desvinculará automáticamente de las actividades deportivas asociadas.
+              ¿Estás seguro de que deseas eliminar el registro de{' '}
+              <strong>
+                {instructorToDelete.nombreCompleto ||
+                  `${(instructorToDelete as any).nombre || ''} ${
+                    (instructorToDelete as any).apellido || ''
+                  }`}
+              </strong>
+              ? La acción eliminará el legajo de la base de datos de MySQL.
             </p>
 
             <div className="flex items-center justify-center space-x-3">
               <button
                 onClick={() => setInstructorToDelete(null)}
-                className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
               >
-                Sí, Eliminar de Nómina
+                Sí, Eliminar de la BD
               </button>
             </div>
           </div>

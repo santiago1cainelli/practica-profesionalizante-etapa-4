@@ -1,28 +1,27 @@
 import React, { useState } from 'react';
 import {
   FileSpreadsheet,
-  DollarSign,
-  CheckCircle2,
-  Clock,
-  Send,
   PlusCircle,
-  AlertCircle,
   FileCheck,
   ShieldCheck
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ZONAS_NOMBRES, CUOTA_VALORES } from '../data/mockData';
 
 export const RendicionCobrador: React.FC = () => {
-  const { rendiciones, cupones, crearRendicionSemanal, aprobarRendicion, currentUser } = useApp();
+  const { rendiciones, cupones, cobradores, crearRendicionSemanal, aprobarRendicion, currentUser } = useApp();
 
-  const [selectedZona, setSelectedZona] = useState<number>(currentUser.zonaAsignada || 1);
+  const [selectedZona, setSelectedZona] = useState<number>(currentUser?.zonaAsignada || 1);
   const [selectedCuponesIds, setSelectedCuponesIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Obtener el cobrador asignado a la zona seleccionada en la BD
+  const cobradorActual = cobradores.find((c) => Number(c.zona) === Number(selectedZona));
+  const porcentajeComision = cobradorActual ? (cobradorActual.comisionPorcentaje / 100) : 0.10; // 10% por defecto
+
   // Cupones pagados de la zona elegida que aún no estén en una rendición aprobada
   const cuponesDeLaZona = cupones.filter(
-    (c) => c.zonaCobro === selectedZona && c.estadoPago === 'PAGADO'
+    (c) => Number(c.zona || (c as any).zonaCobro) === Number(selectedZona) && 
+           (c.estado === 'PAGADO' || (c as any).estadoPago === 'PAGADO')
   );
 
   const toggleSelectCupon = (id: string) => {
@@ -35,26 +34,35 @@ export const RendicionCobrador: React.FC = () => {
     if (selectedCuponesIds.length === cuponesDeLaZona.length) {
       setSelectedCuponesIds([]);
     } else {
-      setSelectedCuponesIds(cuponesDeLaZona.map((c) => c.id));
+      setSelectedCuponesIds(cuponesDeLaZona.map((c) => String(c.id)));
     }
   };
 
   const totalCobradoCalculado = cuponesDeLaZona
-    .filter((c) => selectedCuponesIds.includes(c.id))
-    .reduce((acc, c) => acc + c.totalPagar, 0);
+    .filter((c) => selectedCuponesIds.includes(String(c.id)))
+    .reduce((acc, c) => acc + Number((c as any).totalPagar || c.montoTotal || 0), 0);
 
-  const comisionCalculada = Math.round(totalCobradoCalculado * CUOTA_VALORES.COMISION_COBRADOR_PORCENTAJE); // 10%
+  const comisionCalculada = Math.round(totalCobradoCalculado * porcentajeComision);
   const netoClub = totalCobradoCalculado - comisionCalculada;
 
-  const handleCrearRendicion = (e: React.FormEvent) => {
+  const handleCrearRendicion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedCuponesIds.length === 0) return;
 
-    const cobradorNombre = ZONAS_NOMBRES[selectedZona]?.cobradorDefault || currentUser.nombreCompleto;
-    crearRendicionSemanal(selectedZona, currentUser.id, cobradorNombre, selectedCuponesIds);
+    const cobradorNombre = cobradorActual
+      ? `${cobradorActual.nombre} ${cobradorActual.apellido}`
+      : (currentUser?.nombreCompleto || 'Cobrador de Zona');
+
+    await crearRendicionSemanal(selectedZona, String(currentUser?.id || ''), cobradorNombre, selectedCuponesIds);
 
     setSelectedCuponesIds([]);
     setIsModalOpen(false);
+  };
+
+  const getNombreZona = (zonaCobro: number) => {
+    if (zonaCobro === 0) return 'Zona 0 - Sede Central';
+    const c = cobradores.find((cob) => Number(cob.zona) === Number(zonaCobro));
+    return c ? `Zona ${zonaCobro} - ${c.nombre} ${c.apellido}` : `Zona ${zonaCobro}`;
   };
 
   return (
@@ -87,7 +95,7 @@ export const RendicionCobrador: React.FC = () => {
         </button>
       </div>
 
-      {/* Historical Rendiciones List */}
+      {/* Lista de Rendiciones */}
       <div className="space-y-4">
         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
           Planillas de Rendición y Liquidación Emitidas
@@ -96,7 +104,11 @@ export const RendicionCobrador: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {rendiciones.map((rend) => {
             const isAprobada = rend.estado === 'APROBADA';
-            const zona = ZONAS_NOMBRES[rend.zonaCobro];
+            const zonaNombre = getNombreZona(rend.zonaCobro || 0);
+            const cobradoBruto = Number(rend.montoRecaudado || (rend as any).totalCobrado || 0);
+            const comisionMonto = Number(rend.comisionCalculada || (rend as any).montoComisionCobrador || 0);
+            const netoClubMonto = Number(rend.montoNeto || (rend as any).netoRendidoClub || 0);
+            const cantidadCupones = rend.recibosCobradosIds ? rend.recibosCobradosIds.length : 0;
 
             return (
               <div
@@ -106,7 +118,7 @@ export const RendicionCobrador: React.FC = () => {
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                      SEMANA N° {rend.semanaNumero}
+                      RENDICIÓN N° {rend.id}
                     </span>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -118,39 +130,39 @@ export const RendicionCobrador: React.FC = () => {
                   </div>
 
                   <h4 className="text-base font-bold text-slate-900 leading-snug">
-                    {rend.cobradorNombre}
+                    {rend.cobradorNombre || `Cobrador ID: ${rend.cobradorId}`}
                   </h4>
                   <p className="text-xs text-slate-500 mb-3">
-                    {zona?.nombre || `Zona ${rend.zonaCobro}`} • Período: {rend.periodoFecha}
+                    {zonaNombre} • Período: {rend.semanaInicio ? `${rend.semanaInicio} al ${rend.semanaFin}` : (rend as any).periodoFecha}
                   </p>
 
-                  {/* Financial Breakdown */}
+                  {/* Desglose Financiero */}
                   <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-1.5 text-xs mb-3">
                     <div className="flex justify-between text-slate-700">
                       <span>Total Cupones Rendidos:</span>
-                      <strong>{rend.recibosCobradosIds.length} comprobantes</strong>
+                      <strong>{cantidadCupones} comprobantes</strong>
                     </div>
                     <div className="flex justify-between text-slate-700">
                       <span>Monto Bruto Cobrado:</span>
-                      <strong className="font-mono">${rend.totalCobrado.toLocaleString('es-AR')}</strong>
+                      <strong className="font-mono">${cobradoBruto.toLocaleString('es-AR')}</strong>
                     </div>
                     <div className="flex justify-between text-amber-800 font-bold pt-1 border-t border-slate-200">
-                      <span>Comisión Cobrador (10%):</span>
-                      <span className="font-mono">+${rend.montoComisionCobrador.toLocaleString('es-AR')}</span>
+                      <span>Comisión Cobrador:</span>
+                      <span className="font-mono">+${comisionMonto.toLocaleString('es-AR')}</span>
                     </div>
                     <div className="flex justify-between text-[#1A365D] font-black text-sm pt-1 border-t border-slate-300">
                       <span>Neto a Rendir al Club:</span>
-                      <span className="font-mono">${rend.netoRendidoClub.toLocaleString('es-AR')}</span>
+                      <span className="font-mono">${netoClubMonto.toLocaleString('es-AR')}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Footer action */}
                 <div className="pt-2 flex justify-between items-center border-t border-slate-100 text-[11px] text-slate-500">
-                  <span>Fecha: {rend.fechaRendicion}</span>
-                  {!isAprobada && currentUser.role === 'ADMIN' && (
+                  <span>Fecha: {rend.fechaRendicion ? rend.fechaRendicion.slice(0, 10) : 'N/A'}</span>
+                  {!isAprobada && currentUser?.role === 'ADMIN' && (
                     <button
-                      onClick={() => aprobarRendicion(rend.id)}
+                      onClick={() => aprobarRendicion(String(rend.id))}
                       className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-xs transition-colors flex items-center space-x-1"
                     >
                       <ShieldCheck className="w-3.5 h-3.5" />
@@ -164,7 +176,7 @@ export const RendicionCobrador: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal: New Rendición Creator */}
+      {/* Modal: Nueva Rendición */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs overflow-y-auto">
           <div className="relative w-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
@@ -173,7 +185,7 @@ export const RendicionCobrador: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <FileCheck className="w-5 h-5 text-red-400" />
                 <span className="font-bold text-sm tracking-wide">
-                  NUEVA RENDICIÓN SEMANAL — 10% COMISIÓN
+                  NUEVA RENDICIÓN SEMANAL DE COBRADOR (BD)
                 </span>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-1 text-white/80 hover:text-white rounded">
@@ -195,10 +207,12 @@ export const RendicionCobrador: React.FC = () => {
                     }}
                     className="w-full px-3 py-2 border border-slate-300 rounded text-xs bg-white focus:outline-none"
                   >
-                    <option value="1">Zona 1 - Centro & Barrio Norte (Roberto Gómez)</option>
-                    <option value="2">Zona 2 - Sur & Estación (Laura Méndez)</option>
-                    <option value="3">Zona 3 - Este & Costanera (Carlos Benítez)</option>
-                    <option value="0">Zona 0 - Sede Central (Cobranza Ventanilla)</option>
+                    <option value="0">Zona 0 - Sede Central (Ventanilla)</option>
+                    {cobradores.map((c) => (
+                      <option key={c.id} value={c.zona}>
+                        Zona {c.zona} - {c.nombre} {c.apellido}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -209,13 +223,17 @@ export const RendicionCobrador: React.FC = () => {
                   <input
                     type="text"
                     readOnly
-                    value={ZONAS_NOMBRES[selectedZona]?.cobradorDefault || currentUser.nombreCompleto}
+                    value={
+                      cobradorActual
+                        ? `${cobradorActual.nombre} ${cobradorActual.apellido}`
+                        : (currentUser?.nombreCompleto || 'Cobrador de Zona')
+                    }
                     className="w-full px-3 py-2 border border-slate-200 bg-slate-100 rounded text-xs text-slate-600 font-semibold"
                   />
                 </div>
               </div>
 
-              {/* Select cupones checklist */}
+              {/* Lista de cupones para selección */}
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -239,7 +257,10 @@ export const RendicionCobrador: React.FC = () => {
                 ) : (
                   <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg p-2 bg-slate-50">
                     {cuponesDeLaZona.map((c) => {
-                      const isChecked = selectedCuponesIds.includes(c.id);
+                      const cuponIdStr = String(c.id);
+                      const isChecked = selectedCuponesIds.includes(cuponIdStr);
+                      const monto = Number((c as any).totalPagar || c.montoTotal || 0);
+
                       return (
                         <label
                           key={c.id}
@@ -249,16 +270,20 @@ export const RendicionCobrador: React.FC = () => {
                             <input
                               type="checkbox"
                               checked={isChecked}
-                              onChange={() => toggleSelectCupon(c.id)}
+                              onChange={() => toggleSelectCupon(cuponIdStr)}
                               className="w-4 h-4 text-amber-600 rounded focus:ring-0"
                             />
                             <div>
-                              <strong className="text-slate-900 block">{c.socioNombre}</strong>
-                              <span className="text-[11px] text-slate-500 font-mono">{c.numeroComprobante} • {c.periodoMes}</span>
+                              <strong className="text-slate-900 block">
+                                {(c as any).socioNombre || `Socio ID: ${c.socioId}`}
+                              </strong>
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                {(c as any).numeroComprobante || `CUP-${c.id}`} • {c.periodo || (c as any).periodoMes}
+                              </span>
                             </div>
                           </div>
                           <span className="font-mono font-bold text-slate-800">
-                            ${c.totalPagar.toLocaleString('es-AR')}
+                            ${monto.toLocaleString('es-AR')}
                           </span>
                         </label>
                       );
@@ -267,14 +292,14 @@ export const RendicionCobrador: React.FC = () => {
                 )}
               </div>
 
-              {/* Automatic 10% Commission Calculation Box */}
+              {/* Cálculo dinámico de comisión */}
               <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-lg space-y-2 text-xs">
                 <div className="flex justify-between text-slate-700">
                   <span>Total Bruto Seleccionado ({selectedCuponesIds.length} cupones):</span>
                   <strong className="font-mono">${totalCobradoCalculado.toLocaleString('es-AR')}</strong>
                 </div>
                 <div className="flex justify-between text-amber-900 font-bold">
-                  <span>Comisión del Cobrador (10% s/ recaudación):</span>
+                  <span>Comisión del Cobrador ({(porcentajeComision * 100)}%):</span>
                   <span className="font-mono text-sm">${comisionCalculada.toLocaleString('es-AR')}</span>
                 </div>
                 <div className="flex justify-between text-[#1A365D] font-black text-sm pt-2 border-t border-amber-300">
@@ -296,7 +321,7 @@ export const RendicionCobrador: React.FC = () => {
                   disabled={selectedCuponesIds.length === 0}
                   className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 text-white rounded text-xs font-bold transition-colors shadow-xs"
                 >
-                  Emitir y Enviar Rendición
+                  Emitir y Enviar Rendición a BD
                 </button>
               </div>
             </form>

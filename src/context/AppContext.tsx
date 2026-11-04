@@ -11,20 +11,8 @@ import {
   Cobrador,
   Instructor,
   SocioCategoria,
-  SocioEstado,
 } from '../types';
-import {
-  INITIAL_SOCIOS,
-  INITIAL_ACTIVIDADES,
-  generateInitialLockers,
-  INITIAL_CUPONES,
-  INITIAL_RENDICIONES,
-  INITIAL_COBRADORES,
-  INITIAL_INSTRUCTORES,
-  MOCK_USERS,
-  CUOTA_VALORES,
-} from '../data/mockData';
-import { api } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 export type ActiveTab =
   | 'inicio'
@@ -49,7 +37,7 @@ interface ToastMessage {
 }
 
 interface AppContextType {
-  currentUser: AppUser;
+  currentUser: AppUser | null;
   setCurrentUser: (user: AppUser) => void;
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
@@ -61,56 +49,58 @@ interface AppContextType {
   isApiConnected: boolean;
   isSyncing: boolean;
   syncWithDatabase: () => Promise<void>;
-  resetDatabaseToDefaults: () => Promise<void>;
   
+  // Usuarios de BD
+  usersList: AppUser[];
+
   // Socios
   socios: Socio[];
-  addSocio: (data: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>) => boolean;
-  updateSocio: (id: string, data: Partial<Socio>) => void;
-  deleteSocio: (id: string) => void;
-  addFamiliar: (socioId: string, familiar: Omit<Familiar, 'id' | 'edad'>) => void;
-  removeFamiliar: (socioId: string, familiarId: string) => void;
-  regularizarDeudaSocio: (socioId: string) => void;
+  addSocio: (data: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>) => Promise<boolean>;
+  updateSocio: (id: string, data: Partial<Socio>) => Promise<void>;
+  deleteSocio: (id: string) => Promise<void>;
+  addFamiliar: (socioId: string, familiar: Omit<Familiar, 'id' | 'edad'>) => Promise<void>;
+  removeFamiliar: (socioId: string, familiarId: string) => Promise<void>;
+  regularizarDeudaSocio: (socioId: string) => Promise<void>;
 
-  // Cobradores CRUD (Solo Admin)
+  // Cobradores CRUD
   cobradores: Cobrador[];
-  addCobrador: (data: Omit<Cobrador, 'id' | 'fechaAlta'>) => boolean;
-  updateCobrador: (id: string, data: Partial<Cobrador>) => void;
-  deleteCobrador: (id: string) => void;
-  toggleCobradorEstado: (id: string) => void;
+  addCobrador: (data: Omit<Cobrador, 'id' | 'fechaAlta'>) => Promise<boolean>;
+  updateCobrador: (id: string, data: Partial<Cobrador>) => Promise<void>;
+  deleteCobrador: (id: string) => Promise<void>;
+  toggleCobradorEstado: (id: string) => Promise<void>;
 
-  // Instructores CRUD (Solo Admin)
+  // Instructores CRUD
   instructores: Instructor[];
-  addInstructor: (data: Omit<Instructor, 'id' | 'fechaAlta'>) => boolean;
-  updateInstructor: (id: string, data: Partial<Instructor>) => void;
-  deleteInstructor: (id: string) => void;
-  toggleInstructorEstado: (id: string) => void;
+  addInstructor: (data: Omit<Instructor, 'id' | 'fechaAlta'>) => Promise<boolean>;
+  updateInstructor: (id: string, data: Partial<Instructor>) => Promise<void>;
+  deleteInstructor: (id: string) => Promise<void>;
+  toggleInstructorEstado: (id: string) => Promise<void>;
 
   // Casilleros
   lockers: Locker[];
-  assignLocker: (lockerNumber: number, socioId: string) => boolean;
-  releaseLocker: (lockerNumber: number) => void;
-  reserveLocker: (lockerNumber: number) => void;
+  assignLocker: (lockerNumber: number, socioId: string) => Promise<boolean>;
+  releaseLocker: (lockerNumber: number) => Promise<void>;
+  reserveLocker: (lockerNumber: number) => Promise<void>;
 
   // Actividades
   actividades: Actividad[];
-  enrollSocioInActividad: (socioId: string, actividadId: string) => boolean;
-  unenrollSocioFromActividad: (socioId: string, actividadId: string) => void;
+  enrollSocioInActividad: (socioId: string, actividadId: string) => Promise<boolean>;
+  unenrollSocioFromActividad: (socioId: string, actividadId: string) => Promise<void>;
 
   // Asistencias
   asistencias: AsistenciaRegistro[];
-  saveAsistencia: (registro: AsistenciaRegistro) => void;
+  saveAsistencia: (registro: AsistenciaRegistro) => Promise<void>;
 
   // Cupones y Cobranza
   cupones: CuponRecibo[];
-  generarCuponMesActual: (socioId: string) => void;
-  marcarCuponPagado: (cuponId: string, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => void;
-  reemitirCuponConMora: (cuponId: string) => void;
+  generarCuponMesActual: (socioId: string) => Promise<void>;
+  marcarCuponPagado: (cuponId: string, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => Promise<void>;
+  reemitirCuponConMora: (cuponId: string) => Promise<void>;
 
   // Rendiciones
   rendiciones: RendicionLiquidacion[];
-  crearRendicionSemanal: (zonaCobro: number, cobradorId: string, cobradorNombre: string, cuponesIds: string[]) => void;
-  aprobarRendicion: (rendicionId: string) => void;
+  crearRendicionSemanal: (zonaCobro: number, cobradorId: string, cobradorNombre: string, cuponesIds: string[]) => Promise<void>;
+  aprobarRendicion: (rendicionId: string) => Promise<void>;
 
   // Helpers
   calcularCategoria: (fechaNacimiento: string, fechaIngreso: string) => { categoria: SocioCategoria; edad: number; antiguedadAnios: number };
@@ -120,47 +110,47 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Current user
-  const [currentUser, setCurrentUser] = useState<AppUser>(() => {
+  // Instancias del hook useApi
+  const usersApi = useApi('/users');
+  const sociosApi = useApi('/socios');
+  const cobradoresApi = useApi('/cobradores');
+  const instructoresApi = useApi('/instructores');
+  const casillerosApi = useApi('/casilleros');
+  const actividadesApi = useApi('/actividades');
+  const cuponesApi = useApi('/cupones');
+  const rendicionesApi = useApi('/rendiciones');
+  const asistenciasApi = useApi('/asistencias');
+
+  // Usuario activo en sesión
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
     const saved = localStorage.getItem('el_globo_current_user');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
-    return MOCK_USERS[0]; // Admin por defecto
+    return null;
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  // API State
+  // Estados de conexión
   const [isApiConnected, setIsApiConnected] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Entities state
-  const [socios, setSocios] = useState<Socio[]>(INITIAL_SOCIOS);
-  const [cobradores, setCobradores] = useState<Cobrador[]>(INITIAL_COBRADORES);
-  const [instructores, setInstructores] = useState<Instructor[]>(INITIAL_INSTRUCTORES);
-  const [lockers, setLockers] = useState<Locker[]>(() => generateInitialLockers(INITIAL_SOCIOS));
-  const [actividades, setActividades] = useState<Actividad[]>(INITIAL_ACTIVIDADES);
-  const [cupones, setCupones] = useState<CuponRecibo[]>(INITIAL_CUPONES);
-  const [rendiciones, setRendiciones] = useState<RendicionLiquidacion[]>(INITIAL_RENDICIONES);
-  const [asistencias, setAsistencias] = useState<AsistenciaRegistro[]>([
-    {
-      id: 'asis-1',
-      actividadId: 'act-1',
-      fecha: '2026-09-15',
-      instructorId: 'user-instructor',
-      asistencias: [
-        { socioId: 'soc-1', socioNombre: 'Martín Rossi', presente: true },
-        { socioId: 'soc-4', socioNombre: 'Lucía Lapenta Olmos', presente: true },
-        { socioId: 'soc-6', socioNombre: 'Claudio Domínguez', presente: false },
-      ],
-    },
-  ]);
+  // Estados de datos (solamente poblados desde la base de datos)
+  const [usersList, setUsersList] = useState<AppUser[]>([]);
+  const [socios, setSocios] = useState<Socio[]>([]);
+  const [cobradores, setCobradores] = useState<Cobrador[]>([]);
+  const [instructores, setInstructores] = useState<Instructor[]>([]);
+  const [lockers, setLockers] = useState<Locker[]>([]);
+  const [actividades, setActividades] = useState<Actividad[]>([]);
+  const [cupones, setCupones] = useState<CuponRecibo[]>([]);
+  const [rendiciones, setRendiciones] = useState<RendicionLiquidacion[]>([]);
+  const [asistencias, setAsistencias] = useState<AsistenciaRegistro[]>([]);
 
   const showToast = useCallback((type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => {
     setToast({
-      id: `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       type,
       title,
       description,
@@ -171,54 +161,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToast(null);
   }, []);
 
-  // Sincronizar datos con la base de datos y API
+  // Carga paralela de datos de BD mediante la API de NestJS
   const syncWithDatabase = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const fullDb = await api.getFullDatabase();
-      if (fullDb) {
-        if (Array.isArray(fullDb.socios)) setSocios(fullDb.socios);
-        if (Array.isArray(fullDb.cobradores)) setCobradores(fullDb.cobradores);
-        if (Array.isArray(fullDb.instructores)) setInstructores(fullDb.instructores);
-        if (Array.isArray(fullDb.lockers)) setLockers(fullDb.lockers);
-        if (Array.isArray(fullDb.actividades)) setActividades(fullDb.actividades);
-        if (Array.isArray(fullDb.cupones)) setCupones(fullDb.cupones);
-        if (Array.isArray(fullDb.rendiciones)) setRendiciones(fullDb.rendiciones);
-        if (Array.isArray(fullDb.asistencias)) setAsistencias(fullDb.asistencias);
-        setIsApiConnected(true);
+      const [
+        usersData,
+        sociosData,
+        cobradoresData,
+        instructoresData,
+        casillerosData,
+        actividadesData,
+        cuponesData,
+        rendicionesData,
+        asistenciasData,
+      ] = await Promise.all([
+        usersApi.get().catch(() => []),
+        sociosApi.get().catch(() => []),
+        cobradoresApi.get().catch(() => []),
+        instructoresApi.get().catch(() => []),
+        casillerosApi.get().catch(() => []),
+        actividadesApi.get().catch(() => []),
+        cuponesApi.get().catch(() => []),
+        rendicionesApi.get().catch(() => []),
+        asistenciasApi.get().catch(() => []),
+      ]);
+
+      if (Array.isArray(usersData)) {
+        setUsersList(usersData);
+        // Si no hay usuario en localStorage, se establece el primero traído desde la BD
+        if (!currentUser && usersData.length > 0) {
+          setCurrentUser(usersData[0]);
+        }
       }
+      if (Array.isArray(sociosData)) setSocios(sociosData);
+      if (Array.isArray(cobradoresData)) setCobradores(cobradoresData);
+      if (Array.isArray(instructoresData)) setInstructores(instructoresData);
+      if (Array.isArray(casillerosData)) setLockers(casillerosData);
+      if (Array.isArray(actividadesData)) setActividades(actividadesData);
+      if (Array.isArray(cuponesData)) setCupones(cuponesData);
+      if (Array.isArray(rendicionesData)) setRendiciones(rendicionesData);
+      if (Array.isArray(asistenciasData)) setAsistencias(asistenciasData);
+
+      setIsApiConnected(true);
     } catch (err: any) {
-      console.warn('[AppContext] No se pudo sincronizar con la API backend:', err.message);
+      console.error('[AppContext] Error conectando con la BD:', err);
       setIsApiConnected(false);
+      showToast('error', 'Error de BD', 'No se pudo conectar a la base de datos.');
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [currentUser]);
 
-  // Cargar datos reales de la base de datos al iniciar la aplicación
   useEffect(() => {
     syncWithDatabase();
   }, [syncWithDatabase]);
 
-  // Persistir usuario logueado en sesión
   useEffect(() => {
-    localStorage.setItem('el_globo_current_user', JSON.stringify(currentUser));
+    if (currentUser) {
+      localStorage.setItem('el_globo_current_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('el_globo_current_user');
+    }
   }, [currentUser]);
 
-  const resetDatabaseToDefaults = async () => {
-    try {
-      setIsSyncing(true);
-      await api.resetDatabase();
-      await syncWithDatabase();
-      showToast('info', 'Base de datos restaurada', 'Se restablecieron todos los datos originales del sistema.');
-    } catch (err: any) {
-      showToast('error', 'Error al reiniciar', err.message);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Cálculo de Categoría según Estatuto del Club El Globo
+  // Reglas de negocio para Socios
   const calcularCategoria = (fechaNacimiento: string, fechaIngreso: string) => {
     const hoy = new Date();
     const nac = new Date(fechaNacimiento);
@@ -243,623 +250,325 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { categoria, edad, antiguedadAnios: antiguedad };
   };
 
-  // SOCIOS CRUD
-  const addSocio = (data: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>): boolean => {
-    const existeDni = socios.some((s) => s.dni.trim() === data.dni.trim());
-    if (existeDni) {
+  // SOCIOS CRUD BD
+  const addSocio = async (data: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>): Promise<boolean> => {
+    if (socios.some((s) => s.dni.trim() === data.dni.trim())) {
       showToast('error', 'Error al registrar', `Ya existe un socio registrado con el DNI ${data.dni}.`);
       return false;
     }
 
     const { categoria, edad, antiguedadAnios } = calcularCategoria(data.fechaNacimiento, data.fechaIngreso);
-    const maxNum = socios.reduce((max, s) => Math.max(max, s.numeroSocio), 1000);
-    const nuevoNumero = maxNum + 1;
-
-    const newSocio: Socio = {
+    const payload = {
       ...data,
-      id: `soc-${Date.now()}`,
-      numeroSocio: nuevoNumero,
       edad,
       antiguedadAnios,
       categoria,
-      estado: 'AL_DIA',
-      cuotasAdeudadas: 0,
-      familiares: data.familiares || [],
-      actividadesIds: data.actividadesIds || [],
+      estado: 'ACTIVO',
     };
 
-    // Optimistic update
-    setSocios((prev) => [newSocio, ...prev]);
-
-    // Async API call to persist in database
-    api.addSocio(data)
-      .then((savedSocio) => {
-        setSocios((prev) => prev.map((s) => (s.id === newSocio.id ? savedSocio : s)));
-        showToast('success', 'Socio registrado en Base de Datos', `N° ${savedSocio.numeroSocio} - ${savedSocio.nombreCompleto} (${savedSocio.categoria}) guardado.`);
-      })
-      .catch((err) => {
-        console.error('Error al guardar socio en API:', err);
-        showToast('warning', 'Guardado local', `Guardado en memoria. Error en persistencia: ${err.message}`);
-      });
-
-    return true;
-  };
-
-  const updateSocio = (id: string, data: Partial<Socio>) => {
-    setSocios((prev) =>
-      prev.map((s) => {
-        if (s.id !== id) return s;
-        const updated = { ...s, ...data };
-        const { categoria, edad, antiguedadAnios } = calcularCategoria(updated.fechaNacimiento, updated.fechaIngreso);
-        return {
-          ...updated,
-          categoria,
-          edad,
-          antiguedadAnios,
-        };
-      })
-    );
-
-    api.updateSocio(id, data)
-      .then((updated) => {
-        setSocios((prev) => prev.map((s) => (s.id === id ? updated : s)));
-        showToast('success', 'Padrón actualizado', 'Los datos del socio fueron persistidos en la base de datos.');
-      })
-      .catch((err) => {
-        showToast('error', 'Error al actualizar socio', err.message);
-      });
-  };
-
-  const deleteSocio = (id: string) => {
-    const socio = socios.find((s) => s.id === id);
-    if (!socio) return;
-
-    if (socio.casilleroAsignadoId) {
-      releaseLocker(socio.casilleroAsignadoId);
-    }
-
-    setSocios((prev) => prev.filter((s) => s.id !== id));
-
-    api.deleteSocio(id)
-      .then(() => {
-        showToast('info', 'Socio dado de baja', `El socio ${socio.nombreCompleto} ha sido removido de la base de datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al eliminar socio', err.message);
-      });
-  };
-
-  const addFamiliar = (socioId: string, familiarData: Omit<Familiar, 'id' | 'edad'>) => {
-    const hoy = new Date();
-    const nac = new Date(familiarData.fechaNacimiento);
-    let edad = hoy.getFullYear() - nac.getFullYear();
-    const m = hoy.getMonth() - nac.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
-    if (isNaN(edad) || edad < 0) edad = 0;
-
-    if ((familiarData.parentesco === 'HIJO' || familiarData.parentesco === 'HIJA') && edad >= 18) {
-      showToast('warning', 'Validación Plan Familiar', 'Los hijos mayores de 18 años deben asociarse individualmente como categoría Activo.');
-      return;
-    }
-
-    const newFam: Familiar = {
-      ...familiarData,
-      id: `fam-${Date.now()}`,
-      edad,
-    };
-
-    setSocios((prev) =>
-      prev.map((s) => {
-        if (s.id !== socioId) return s;
-        return {
-          ...s,
-          esTitularFamilia: true,
-          familiares: [...s.familiares, newFam],
-        };
-      })
-    );
-
-    api.addFamiliar(socioId, familiarData)
-      .then(() => {
-        showToast('success', 'Familiar vinculado', `${familiarData.nombreCompleto} registrado en la base de datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al registrar familiar', err.message);
-      });
-  };
-
-  const removeFamiliar = (socioId: string, familiarId: string) => {
-    setSocios((prev) =>
-      prev.map((s) => {
-        if (s.id !== socioId) return s;
-        const newFamList = s.familiares.filter((f) => f.id !== familiarId);
-        return {
-          ...s,
-          familiares: newFamList,
-          esTitularFamilia: newFamList.length > 0,
-        };
-      })
-    );
-
-    api.removeFamiliar(socioId, familiarId)
-      .then(() => {
-        showToast('info', 'Familiar desvinculado', 'El miembro fue quitado de la base de datos.');
-      })
-      .catch((err) => {
-        showToast('error', 'Error al desvincular familiar', err.message);
-      });
-  };
-
-  const regularizarDeudaSocio = (socioId: string) => {
-    setCupones((prev) =>
-      prev.map((c) =>
-        c.socioId === socioId && c.estadoPago !== 'PAGADO'
-          ? {
-              ...c,
-              estadoPago: 'PAGADO',
-              fechaPago: new Date().toISOString().split('T')[0],
-              metodoPago: 'SEDE_CENTRAL',
-              cobradorId: 'sede-central',
-            }
-          : c
-      )
-    );
-
-    setSocios((prev) =>
-      prev.map((s) =>
-        s.id === socioId
-          ? {
-              ...s,
-              estado: 'AL_DIA',
-              cuotasAdeudadas: 0,
-            }
-          : s
-      )
-    );
-
-    api.regularizarDeuda(socioId)
-      .then(() => {
-        showToast('success', 'Deuda Regularizada', 'Socio al día en la base de datos. Se rehabilitan los accesos.');
-      })
-      .catch((err) => {
-        showToast('error', 'Error en regularización', err.message);
-      });
-  };
-
-  // COBRADORES CRUD (Solo Admin)
-  const addCobrador = (data: Omit<Cobrador, 'id' | 'fechaAlta'>): boolean => {
-    const existeDni = cobradores.some((c) => c.dni.trim() === data.dni.trim());
-    if (existeDni) {
-      showToast('error', 'Error al registrar cobrador', `Ya existe un cobrador registrado con el DNI ${data.dni}.`);
+    try {
+      const nuevoSocio = await sociosApi.create(payload);
+      setSocios((prev) => [nuevoSocio, ...prev]);
+      showToast('success', 'Socio registrado', `${nuevoSocio.nombre || nuevoSocio.nombreCompleto} guardado en BD.`);
+      return true;
+    } catch (err: any) {
+      showToast('error', 'Error en BD', err.message);
       return false;
     }
-    const newCobrador: Cobrador = {
-      ...data,
-      id: `cob-${Date.now()}`,
-      fechaAlta: new Date().toISOString().split('T')[0],
-    };
-    setCobradores((prev) => [newCobrador, ...prev]);
-
-    api.addCobrador(data)
-      .then((saved) => {
-        setCobradores((prev) => prev.map((c) => (c.id === newCobrador.id ? saved : c)));
-        showToast('success', 'Cobrador registrado', `${saved.nombreCompleto} persistido en Base de Datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al registrar cobrador', err.message);
-      });
-
-    return true;
   };
 
-  const updateCobrador = (id: string, data: Partial<Cobrador>) => {
-    setCobradores((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...data } : c))
-    );
-
-    api.updateCobrador(id, data)
-      .then((updated) => {
-        setCobradores((prev) => prev.map((c) => (c.id === id ? updated : c)));
-        showToast('success', 'Cobrador actualizado', 'Datos guardados en base de datos.');
-      })
-      .catch((err) => {
-        showToast('error', 'Error al actualizar', err.message);
-      });
-  };
-
-  const deleteCobrador = (id: string) => {
-    const cob = cobradores.find((c) => c.id === id);
-    setCobradores((prev) => prev.filter((c) => c.id !== id));
-
-    api.deleteCobrador(id)
-      .then(() => {
-        showToast('info', 'Cobrador dado de baja', `El cobrador ${cob?.nombreCompleto || ''} ha sido removido de la base de datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al eliminar', err.message);
-      });
-  };
-
-  const toggleCobradorEstado = (id: string) => {
-    const target = cobradores.find((c) => c.id === id);
-    if (!target) return;
-    const nuevoEstado = !target.activo;
-
-    setCobradores((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, activo: nuevoEstado } : c))
-    );
-
-    api.updateCobrador(id, { activo: nuevoEstado })
-      .then(() => {
-        showToast('info', 'Estado modificado', `${target.nombreCompleto} marcado como ${nuevoEstado ? 'Activo' : 'Inactivo'}.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al cambiar estado', err.message);
-      });
-  };
-
-  // INSTRUCTORES CRUD (Solo Admin)
-  const addInstructor = (data: Omit<Instructor, 'id' | 'fechaAlta'>): boolean => {
-    const existeDni = instructores.some((i) => i.dni.trim() === data.dni.trim());
-    if (existeDni) {
-      showToast('error', 'Error al registrar instructor', `Ya existe un instructor registrado con el DNI ${data.dni}.`);
-      return false;
+  const updateSocio = async (id: string, data: Partial<Socio>) => {
+    try {
+      const actualizado = await sociosApi.update(id, data);
+      setSocios((prev) => prev.map((s) => (String(s.id) === String(id) ? actualizado : s)));
+      showToast('success', 'Padrón actualizado', 'Datos actualizados en BD.');
+    } catch (err: any) {
+      showToast('error', 'Error al actualizar', err.message);
     }
-    const newInstructor: Instructor = {
-      ...data,
-      id: `inst-${Date.now()}`,
-      fechaAlta: new Date().toISOString().split('T')[0],
-    };
-    setInstructores((prev) => [newInstructor, ...prev]);
-
-    api.addInstructor(data)
-      .then((saved) => {
-        setInstructores((prev) => prev.map((i) => (i.id === newInstructor.id ? saved : i)));
-        showToast('success', 'Instructor registrado', `${saved.nombreCompleto} guardado en Base de Datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al guardar instructor', err.message);
-      });
-
-    return true;
   };
 
-  const updateInstructor = (id: string, data: Partial<Instructor>) => {
-    setInstructores((prev) =>
-      prev.map((inst) => (inst.id === id ? { ...inst, ...data } : inst))
-    );
-
-    api.updateInstructor(id, data)
-      .then((saved) => {
-        setInstructores((prev) => prev.map((inst) => (inst.id === id ? saved : inst)));
-        syncWithDatabase();
-        showToast('success', 'Instructor actualizado', 'Cambios guardados en la base de datos.');
-      })
-      .catch((err) => {
-        showToast('error', 'Error al actualizar instructor', err.message);
-      });
-  };
-
-  const deleteInstructor = (id: string) => {
-    const inst = instructores.find((i) => i.id === id);
-    setInstructores((prev) => prev.filter((i) => i.id !== id));
-
-    api.deleteInstructor(id)
-      .then(() => {
-        syncWithDatabase();
-        showToast('info', 'Instructor dado de baja', `${inst?.nombreCompleto || 'El docente'} fue removido de la base de datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al eliminar instructor', err.message);
-      });
-  };
-
-  const toggleInstructorEstado = (id: string) => {
-    const target = instructores.find((i) => i.id === id);
-    if (!target) return;
-    const nuevoEstado = !target.activo;
-
-    setInstructores((prev) =>
-      prev.map((inst) => (inst.id === id ? { ...inst, activo: nuevoEstado } : inst))
-    );
-
-    api.updateInstructor(id, { activo: nuevoEstado })
-      .then(() => {
-        showToast('info', 'Estado modificado', `${target.nombreCompleto} marcado como ${nuevoEstado ? 'Activo' : 'Inactivo'}.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al cambiar estado', err.message);
-      });
-  };
-
-  // CASILLEROS (1 a 100)
-  const assignLocker = (lockerNumber: number, socioId: string): boolean => {
-    const socio = socios.find((s) => s.id === socioId);
-    if (!socio) {
-      showToast('error', 'Error', 'Socio no encontrado.');
-      return false;
+  const deleteSocio = async (id: string) => {
+    try {
+      await sociosApi.remove(id);
+      setSocios((prev) => prev.filter((s) => String(s.id) !== String(id)));
+      showToast('info', 'Socio eliminado', 'Registro eliminado de la BD.');
+    } catch (err: any) {
+      showToast('error', 'Error al eliminar', err.message);
     }
-
-    if (socio.estado === 'SUSPENDIDO_MOROSIDAD') {
-      showToast('error', 'Acción denegada por Morosidad', `El socio ${socio.nombreCompleto} está suspendido por adeudar 2 o más cuotas.`);
-      return false;
-    }
-
-    if (socio.casilleroAsignadoId && socio.casilleroAsignadoId !== lockerNumber) {
-      showToast('error', 'Límite alcanzado', `El socio ya cuenta con el casillero N° ${socio.casilleroAsignadoId} asignado.`);
-      return false;
-    }
-
-    // Optimistic update
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.numero === lockerNumber
-          ? {
-              ...l,
-              estado: 'OCUPADO',
-              socioId: socio.id,
-              socioNombre: socio.nombreCompleto,
-              socioDni: socio.dni,
-              fechaAsignacion: new Date().toISOString().split('T')[0],
-            }
-          : l
-      )
-    );
-    setSocios((prev) =>
-      prev.map((s) => (s.id === socioId ? { ...s, casilleroAsignadoId: lockerNumber } : s))
-    );
-
-    api.assignLocker(lockerNumber, socioId)
-      .then(() => {
-        showToast('success', 'Casillero asignado', `Casillero N° ${lockerNumber} asignado a ${socio.nombreCompleto} en BD.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al asignar casillero', err.message);
-      });
-
-    return true;
   };
 
-  const releaseLocker = (lockerNumber: number) => {
-    const locker = lockers.find((l) => l.numero === lockerNumber);
-    if (!locker) return;
-
-    if (locker.socioId) {
+  const addFamiliar = async (socioId: string, familiarData: Omit<Familiar, 'id' | 'edad'>) => {
+    try {
+      const familiarCreado = await useApi(`/socios/${socioId}/familiares`).create(familiarData);
       setSocios((prev) =>
-        prev.map((s) => (s.id === locker.socioId ? { ...s, casilleroAsignadoId: undefined } : s))
+        prev.map((s) => (String(s.id) === String(socioId) ? { ...s, familiares: [...(s.familiares || []), familiarCreado] } : s))
       );
+      showToast('success', 'Familiar registrado', `${familiarData.nombre} vinculado en BD.`);
+    } catch (err: any) {
+      showToast('error', 'Error al agregar familiar', err.message);
     }
-
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.numero === lockerNumber
-          ? {
-              ...l,
-              estado: 'DISPONIBLE',
-              socioId: undefined,
-              socioNombre: undefined,
-              socioDni: undefined,
-              fechaAsignacion: undefined,
-            }
-          : l
-      )
-    );
-
-    api.releaseLocker(lockerNumber)
-      .then(() => {
-        showToast('info', 'Casillero liberado', `El casillero N° ${lockerNumber} quedó disponible en BD.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al liberar casillero', err.message);
-      });
   };
 
-  const reserveLocker = (lockerNumber: number) => {
-    setLockers((prev) =>
-      prev.map((l) =>
-        l.numero === lockerNumber
-          ? { ...l, estado: l.estado === 'RESERVADO' ? 'DISPONIBLE' : 'RESERVADO' }
-          : l
-      )
-    );
-
-    api.reserveLocker(lockerNumber)
-      .then(() => {
-        showToast('info', 'Estado de Casillero', `Casillero N° ${lockerNumber} actualizado en BD.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al reservar casillero', err.message);
-      });
+  const removeFamiliar = async (socioId: string, familiarId: string) => {
+    try {
+      await useApi(`/socios/${socioId}/familiares`).remove(familiarId);
+      setSocios((prev) =>
+        prev.map((s) => {
+          if (String(s.id) !== String(socioId)) return s;
+          return { ...s, familiares: (s.familiares || []).filter((f) => String(f.id) !== String(familiarId)) };
+        })
+      );
+      showToast('info', 'Familiar desvinculado');
+    } catch (err: any) {
+      showToast('error', 'Error al desvincular familiar', err.message);
+    }
   };
 
-  // ACTIVIDADES
-  const enrollSocioInActividad = (socioId: string, actividadId: string): boolean => {
-    if (currentUser.role === 'PUBLICO') {
-      showToast('error', 'Acceso denegado', 'Los visitantes no tienen permitido inscribir socios.');
+  const regularizarDeudaSocio = async (socioId: string) => {
+    try {
+      await useApi(`/socios/${socioId}/regularizar`).create({});
+      await syncWithDatabase();
+      showToast('success', 'Deuda regularizada', 'Socio habilitado en BD.');
+    } catch (err: any) {
+      showToast('error', 'Error al regularizar', err.message);
+    }
+  };
+
+  // COBRADORES CRUD BD
+  const addCobrador = async (data: Omit<Cobrador, 'id' | 'fechaAlta'>): Promise<boolean> => {
+    try {
+      const nuevo = await cobradoresApi.create(data);
+      setCobradores((prev) => [nuevo, ...prev]);
+      showToast('success', 'Cobrador guardado', `Cobrador de Zona ${nuevo.zona} guardado en BD.`);
+      return true;
+    } catch (err: any) {
+      showToast('error', 'Error en BD', err.message);
       return false;
     }
-    if (currentUser.role === 'SOCIO' && currentUser.socioId && socioId !== currentUser.socioId) {
-      showToast('error', 'Permiso denegado', 'Como socio únicamente puedes inscribirte a ti mismo.');
+  };
+
+  const updateCobrador = async (id: string, data: Partial<Cobrador>) => {
+    try {
+      const actualizado = await cobradoresApi.update(id, data);
+      setCobradores((prev) => prev.map((c) => (String(c.id) === String(id) ? actualizado : c)));
+      showToast('success', 'Cobrador actualizado');
+    } catch (err: any) {
+      showToast('error', 'Error al actualizar', err.message);
+    }
+  };
+
+  const deleteCobrador = async (id: string) => {
+    try {
+      await cobradoresApi.remove(id);
+      setCobradores((prev) => prev.filter((c) => String(c.id) !== String(id)));
+      showToast('info', 'Cobrador eliminado');
+    } catch (err: any) {
+      showToast('error', 'Error al eliminar', err.message);
+    }
+  };
+
+  const toggleCobradorEstado = async (id: string) => {
+    const target = cobradores.find((c) => String(c.id) === String(id));
+    if (!target) return;
+    try {
+      const nuevoEstado = !target.activo;
+      await cobradoresApi.update(id, { activo: nuevoEstado });
+      setCobradores((prev) => prev.map((c) => (String(c.id) === String(id) ? { ...c, activo: nuevoEstado } : c)));
+      showToast('info', 'Estado actualizado');
+    } catch (err: any) {
+      showToast('error', 'Error al actualizar estado', err.message);
+    }
+  };
+
+  // INSTRUCTORES CRUD BD
+  const addInstructor = async (data: Omit<Instructor, 'id' | 'fechaAlta'>): Promise<boolean> => {
+    try {
+      const nuevo = await instructoresApi.create(data);
+      setInstructores((prev) => [nuevo, ...prev]);
+      showToast('success', 'Instructor guardado');
+      return true;
+    } catch (err: any) {
+      showToast('error', 'Error al registrar instructor', err.message);
       return false;
     }
+  };
 
-    const socio = socios.find((s) => s.id === socioId);
-    const actividad = actividades.find((a) => a.id === actividadId);
-    if (!socio || !actividad) return false;
+  const updateInstructor = async (id: string, data: Partial<Instructor>) => {
+    try {
+      const actualizado = await instructoresApi.update(id, data);
+      setInstructores((prev) => prev.map((i) => (String(i.id) === String(id) ? actualizado : i)));
+      showToast('success', 'Instructor actualizado');
+    } catch (err: any) {
+      showToast('error', 'Error al actualizar instructor', err.message);
+    }
+  };
 
-    if (socio.estado === 'SUSPENDIDO_MOROSIDAD') {
-      showToast('error', 'Bloqueo por Morosidad', `El socio se encuentra suspendido. Regularice su deuda.`);
+  const deleteInstructor = async (id: string) => {
+    try {
+      await instructoresApi.remove(id);
+      setInstructores((prev) => prev.filter((i) => String(i.id) !== String(id)));
+      showToast('info', 'Instructor eliminado');
+    } catch (err: any) {
+      showToast('error', 'Error al eliminar instructor', err.message);
+    }
+  };
+
+  const toggleInstructorEstado = async (id: string) => {
+    const target = instructores.find((i) => String(i.id) === String(id));
+    if (!target) return;
+    try {
+      const nuevoEstado = !target.activo;
+      await instructoresApi.update(id, { activo: nuevoEstado });
+      setInstructores((prev) => prev.map((i) => (String(i.id) === String(id) ? { ...i, activo: nuevoEstado } : i)));
+      showToast('info', 'Estado actualizado');
+    } catch (err: any) {
+      showToast('error', 'Error al actualizar estado', err.message);
+    }
+  };
+
+  // CASILLEROS BD
+  const assignLocker = async (lockerNumber: number, socioId: string): Promise<boolean> => {
+    try {
+      const casilleroActualizado = await useApi(`/casilleros/${lockerNumber}/asignar`).create({ socioId });
+      setLockers((prev) => prev.map((l) => (l.numero === lockerNumber ? casilleroActualizado : l)));
+      showToast('success', 'Casillero asignado');
+      return true;
+    } catch (err: any) {
+      showToast('error', 'Error al asignar casillero', err.message);
       return false;
     }
+  };
 
-    if (socio.actividadesIds.includes(actividadId)) {
-      showToast('info', 'Ya inscripto', `El socio ya está inscripto en ${actividad.nombre}.`);
+  const releaseLocker = async (lockerNumber: number) => {
+    try {
+      const casilleroLiberado = await useApi(`/casilleros/${lockerNumber}/liberar`).create({});
+      setLockers((prev) => prev.map((l) => (l.numero === lockerNumber ? casilleroLiberado : l)));
+      showToast('info', 'Casillero liberado');
+    } catch (err: any) {
+      showToast('error', 'Error al liberar casillero', err.message);
+    }
+  };
+
+  const reserveLocker = async (lockerNumber: number) => {
+    try {
+      const res = await casillerosApi.update(lockerNumber, { reservado: true });
+      setLockers((prev) => prev.map((l) => (l.numero === lockerNumber ? res : l)));
+      showToast('info', 'Casillero reservado');
+    } catch (err: any) {
+      showToast('error', 'Error al reservar casillero', err.message);
+    }
+  };
+
+  // ACTIVIDADES Y INSCRIPCIONES BD
+  const enrollSocioInActividad = async (socioId: string, actividadId: string): Promise<boolean> => {
+    try {
+      await useApi('/inscripciones').create({ socioId, actividadId });
+      await syncWithDatabase();
+      showToast('success', 'Inscripción confirmada');
+      return true;
+    } catch (err: any) {
+      showToast('error', 'Error en inscripción', err.message);
       return false;
     }
+  };
 
-    if (actividad.cupoOcupado >= actividad.cupoMaximo) {
-      showToast('warning', 'Cupo agotado', `La actividad no tiene cupos disponibles.`);
-      return false;
+  const unenrollSocioFromActividad = async (socioId: string, actividadId: string) => {
+    try {
+      await useApi(`/inscripciones/socio/${socioId}/actividad/${actividadId}`).remove('');
+      await syncWithDatabase();
+      showToast('info', 'Inscripción cancelada');
+    } catch (err: any) {
+      showToast('error', 'Error al cancelar inscripción', err.message);
     }
-
-    setSocios((prev) =>
-      prev.map((s) => (s.id === socioId ? { ...s, actividadesIds: [...s.actividadesIds, actividadId] } : s))
-    );
-    setActividades((prev) =>
-      prev.map((a) => (a.id === actividadId ? { ...a, cupoOcupado: a.cupoOcupado + 1 } : a))
-    );
-
-    api.enrollActividad(socioId, actividadId)
-      .then(() => {
-        showToast('success', 'Inscripción confirmada', `Inscripto a ${actividad.nombre} en la base de datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error en inscripción', err.message);
-      });
-
-    return true;
   };
 
-  const unenrollSocioFromActividad = (socioId: string, actividadId: string) => {
-    if (currentUser.role === 'PUBLICO') {
-      showToast('error', 'Acceso denegado', 'Los visitantes no pueden desinscribir socios.');
-      return;
+  // ASISTENCIAS BD
+  const saveAsistencia = async (registro: AsistenciaRegistro) => {
+    try {
+      const guardada = await asistenciasApi.create(registro);
+      setAsistencias((prev) => [guardada, ...prev.filter((a) => a.id !== guardada.id)]);
+      showToast('success', 'Asistencia guardada');
+    } catch (err: any) {
+      showToast('error', 'Error al registrar asistencia', err.message);
     }
-    if (currentUser.role === 'SOCIO' && currentUser.socioId && socioId !== currentUser.socioId) {
-      showToast('error', 'Permiso denegado', 'Solo puedes desinscribirte de tus propias actividades.');
-      return;
+  };
+
+  // CUPONES Y COBRANZAS BD
+  const generarCuponMesActual = async (socioId: string) => {
+    try {
+      const cuponNuevo = await useApi(`/cupones/generar/${socioId}`).create({});
+      setCupones((prev) => [cuponNuevo, ...prev]);
+      showToast('success', 'Recibo generado en BD');
+    } catch (err: any) {
+      showToast('error', 'Error al generar recibo', err.message);
     }
-
-    setSocios((prev) =>
-      prev.map((s) =>
-        s.id === socioId ? { ...s, actividadesIds: s.actividadesIds.filter((id) => id !== actividadId) } : s
-      )
-    );
-    setActividades((prev) =>
-      prev.map((a) => (a.id === actividadId ? { ...a, cupoOcupado: Math.max(0, a.cupoOcupado - 1) } : a))
-    );
-
-    api.unenrollActividad(socioId, actividadId)
-      .then(() => {
-        showToast('info', 'Baja de actividad', `Se dio de baja la inscripción en la base de datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al desinscribir', err.message);
-      });
   };
 
-  // ASISTENCIAS
-  const saveAsistencia = (registro: AsistenciaRegistro) => {
-    setAsistencias((prev) => {
-      const idx = prev.findIndex((r) => r.actividadId === registro.actividadId && r.fecha === registro.fecha);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = registro;
-        return copy;
-      }
-      return [registro, ...prev];
-    });
-
-    api.saveAsistencia(registro)
-      .then(() => {
-        showToast('success', 'Asistencia registrada', `Planilla del ${registro.fecha} guardada en BD.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al guardar asistencia', err.message);
+  const marcarCuponPagado = async (cuponId: string, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => {
+    try {
+      const cuponPagado = await cuponesApi.update(cuponId, {
+        estado: 'PAGADO',
+        metodoPago,
+        cobradorId,
+        fechaPago: new Date().toISOString(),
       });
+      setCupones((prev) => prev.map((c) => (String(c.id) === String(cuponId) ? cuponPagado : c)));
+      showToast('success', 'Pago registrado en BD');
+    } catch (err: any) {
+      showToast('error', 'Error al asentar pago', err.message);
+    }
   };
 
-  // CUPONES & RECIBOS
-  const generarCuponMesActual = (socioId: string) => {
-    api.generarCupon(socioId)
-      .then((nuevoCupon) => {
-        setCupones((prev) => [nuevoCupon, ...prev]);
-        syncWithDatabase();
-        showToast('success', 'Recibo emitido', `Cupón ${nuevoCupon.numeroComprobante} guardado en BD. Total: $${nuevoCupon.totalPagar.toLocaleString('es-AR')}`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al generar recibo', err.message);
-      });
+  const reemitirCuponConMora = async (cuponId: string) => {
+    try {
+      const cuponActualizado = await useApi(`/cupones/${cuponId}/mora`).create({});
+      setCupones((prev) => prev.map((c) => (String(c.id) === String(cuponId) ? cuponActualizado : c)));
+      showToast('warning', 'Mora aplicada en BD');
+    } catch (err: any) {
+      showToast('error', 'Error al aplicar mora', err.message);
+    }
   };
 
-  const marcarCuponPagado = (cuponId: string, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => {
-    api.pagarCupon(cuponId, metodoPago, cobradorId || (currentUser.role === 'COBRADOR' ? currentUser.id : 'sede-central'))
-      .then((updated) => {
-        setCupones((prev) => prev.map((c) => (c.id === cuponId ? updated : c)));
-        syncWithDatabase();
-        showToast('success', 'Pago Registrado', `Recibo pagado vía ${metodoPago.replace('_', ' ')} y asentado en Base de Datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al registrar pago', err.message);
+  // RENDICIONES BD
+  const crearRendicionSemanal = async (zonaCobro: number, cobradorId: string, cobradorNombre: string, cuponesIds: string[]) => {
+    try {
+      const rendicion = await rendicionesApi.create({
+        zonaCobro,
+        cobradorId,
+        cobradorNombre,
+        cuponesIds,
       });
+      setRendiciones((prev) => [rendicion, ...prev]);
+      showToast('success', 'Rendición creada');
+    } catch (err: any) {
+      showToast('error', 'Error al generar rendición', err.message);
+    }
   };
 
-  const reemitirCuponConMora = (cuponId: string) => {
-    api.moraCupon(cuponId)
-      .then((updated) => {
-        setCupones((prev) => prev.map((c) => (c.id === cuponId ? updated : c)));
-        showToast('warning', 'Cupón Reemitido con 5% Mora', `Recargo del 5% aplicado en Base de Datos.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al aplicar mora', err.message);
-      });
+  const aprobarRendicion = async (rendicionId: string) => {
+    try {
+      const aprobada = await rendicionesApi.update(rendicionId, { estado: 'APROBADA' });
+      setRendiciones((prev) => prev.map((r) => (String(r.id) === String(rendicionId) ? aprobada : r)));
+      showToast('success', 'Rendición Aprobada');
+    } catch (err: any) {
+      showToast('error', 'Error al aprobar rendición', err.message);
+    }
   };
 
-  // RENDICIONES
-  const crearRendicionSemanal = (zonaCobro: number, cobradorId: string, cobradorNombre: string, cuponesIds: string[]) => {
-    const cuponesRendidos = cupones.filter((c) => cuponesIds.includes(c.id));
-    const totalCobrado = cuponesRendidos.reduce((acc, c) => acc + c.totalPagar, 0);
-    const montoComisionCobrador = Math.round(totalCobrado * CUOTA_VALORES.COMISION_COBRADOR_PORCENTAJE);
-    const netoRendidoClub = totalCobrado - montoComisionCobrador;
-    const hoy = new Date();
-
-    const payload = {
-      cobradorId,
-      cobradorNombre,
-      zonaCobro,
-      semanaNumero: 38,
-      periodoFecha: `Semana en curso (${hoy.toLocaleDateString('es-AR')})`,
-      recibosCobradosIds: cuponesIds,
-      totalCobrado,
-      porcentajeComision: 0.10,
-      montoComisionCobrador,
-      netoRendidoClub,
-      estado: 'PENDIENTE_SECRETARIA' as const,
-    };
-
-    api.addRendicion(payload)
-      .then((nuevaRendicion) => {
-        setRendiciones((prev) => [nuevaRendicion, ...prev]);
-        showToast('success', 'Rendición Semanal Enviada', `Liquidación generada con 10% comisión ($${montoComisionCobrador.toLocaleString('es-AR')}) en BD.`);
-      })
-      .catch((err) => {
-        showToast('error', 'Error al crear rendición', err.message);
-      });
-  };
-
-  const aprobarRendicion = (rendicionId: string) => {
-    api.aprobarRendicion(rendicionId)
-      .then((aprobada) => {
-        setRendiciones((prev) => prev.map((r) => (r.id === rendicionId ? aprobada : r)));
-        showToast('success', 'Rendición Aprobada', 'Liquidación validada contablemente en BD.');
-      })
-      .catch((err) => {
-        showToast('error', 'Error al aprobar liquidación', err.message);
-      });
-  };
-
+  // Cambio de usuario exclusivamente desde el listado obtenido de la BD
   const quickSwitchUser = (userId: string) => {
-    const found = MOCK_USERS.find((u) => u.id === userId);
-    if (found) {
-      setCurrentUser(found);
-      if (found.role === 'ADMIN') setActiveTab('dashboard');
-      else if (found.role === 'COBRADOR') setActiveTab('cobranza');
-      else if (found.role === 'INSTRUCTOR') setActiveTab('asistencia');
-      else if (found.role === 'SOCIO') setActiveTab('portal_socio');
-      else if (found.role === 'PUBLICO') setActiveTab('inicio');
+    const foundUser = usersList.find((u) => String(u.id) === String(userId));
+    if (foundUser) {
+      setCurrentUser(foundUser);
+      if (foundUser.role === 'ADMIN') setActiveTab('dashboard');
+      else if (foundUser.role === 'COBRADOR') setActiveTab('cobranza');
+      else if (foundUser.role === 'INSTRUCTOR') setActiveTab('asistencia');
+      else if (foundUser.role === 'SOCIO') setActiveTab('portal_socio');
       else setActiveTab('inicio');
 
-      showToast('info', 'Sesión cambiada', `Conectado como ${found.nombreCompleto} [${found.role}]`);
+      showToast('info', 'Sesión cambiada', `Usuario activo: ${foundUser.nombreCompleto || foundUser.email}`);
+    } else {
+      showToast('error', 'Usuario no encontrado', 'El usuario solicitado no existe en la base de datos.');
     }
   };
 
@@ -876,7 +585,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isApiConnected,
         isSyncing,
         syncWithDatabase,
-        resetDatabaseToDefaults,
+        usersList,
         socios,
         addSocio,
         updateSocio,
@@ -922,7 +631,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
+    throw new Error('useApp debe ser utilizado dentro de un AppProvider');
   }
   return context;
 };

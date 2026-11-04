@@ -1,14 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardCheck,
-  Calendar,
   UserCheck,
   UserX,
   Save,
-  CheckCircle,
-  AlertCircle,
-  Users,
-  Trophy
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AsistenciaRegistro } from '../types';
@@ -16,66 +11,81 @@ import { AsistenciaRegistro } from '../types';
 export const AsistenciaTracker: React.FC = () => {
   const { actividades, socios, asistencias, saveAsistencia, currentUser } = useApp();
 
-  // Pick initial activity
-  const defaultActId = currentUser.actividadId || actividades[0]?.id || '';
+  // Seleccionar actividad inicial respetando la asignación del instructor o la lista de la BD
+  const defaultActId = currentUser?.actividadId || (actividades.length > 0 ? String(actividades[0].id) : '');
   const [selectedActId, setSelectedActId] = useState<string>(defaultActId);
   const [fecha, setFecha] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  const currentActividad = actividades.find((a) => a.id === selectedActId);
-  const enrolledSocios = socios.filter((s) => s.actividadesIds.includes(selectedActId));
+  // Sincronizar selectedActId cuando carguen las actividades de la BD por primera vez
+  useEffect(() => {
+    if (!selectedActId && actividades.length > 0) {
+      setSelectedActId(String(actividades[0].id));
+    }
+  }, [actividades, selectedActId]);
 
-  // Find existing attendance for this date & activity or default all to present
-  const existingRegistro = asistencias.find(
-    (a) => a.actividadId === selectedActId && a.fecha === fecha
-  );
+  const currentActividad = actividades.find((a) => String(a.id) === String(selectedActId));
 
-  const [attendanceState, setAttendanceState] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    enrolledSocios.forEach((s) => {
-      const match = existingRegistro?.asistencias.find((item) => item.socioId === s.id);
-      initial[s.id] = match ? match.presente : true;
-    });
-    return initial;
+  // Filtrar socios inscriptos en la actividad seleccionada considerando arrays o strings provenientes de la BD
+  const enrolledSocios = socios.filter((s) => {
+    const actIds = s.actividadesIds || (s as any).actividades || [];
+    if (Array.isArray(actIds)) {
+      return actIds.some((id) => String(id) === String(selectedActId));
+    }
+    return String(actIds) === String(selectedActId);
   });
 
-  // Re-sync attendance map when activity or date changes
-  React.useEffect(() => {
+  // Buscar registro de asistencia existente en el estado global para la fecha y actividad dada
+  const existingRegistro = asistencias.find(
+    (a) => String(a.actividadId) === String(selectedActId) && a.fecha === fecha
+  );
+
+  const [attendanceState, setAttendanceState] = useState<Record<string, boolean>>({});
+
+  // Sincronizar el mapa de asistencias cuando cambia la actividad, la fecha o la lista de asistencias
+  useEffect(() => {
     const existing = asistencias.find(
-      (a) => a.actividadId === selectedActId && a.fecha === fecha
+      (a) => String(a.actividadId) === String(selectedActId) && a.fecha === fecha
     );
     const updated: Record<string, boolean> = {};
-    enrolledSocios.forEach((s) => {
-      const match = existing?.asistencias.find((item) => item.socioId === s.id);
-      updated[s.id] = match !== undefined ? match.presente : true;
-    });
-    setAttendanceState(updated);
-  }, [selectedActId, fecha, asistencias]);
 
-  const toggleAttendance = (socioId: string) => {
+    enrolledSocios.forEach((s) => {
+      const socioIdStr = String(s.id);
+      const match = existing?.asistencias?.find((item) => String(item.socioId) === socioIdStr);
+      updated[socioIdStr] = match !== undefined ? match.presente : true;
+    });
+
+    setAttendanceState(updated);
+  }, [selectedActId, fecha, asistencias, socios]);
+
+  const toggleAttendance = (socioId: string | number) => {
+    const key = String(socioId);
     setAttendanceState((prev) => ({
       ...prev,
-      [socioId]: !prev[socioId],
+      [key]: !prev[key],
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!currentActividad) return;
 
-    const asistenciasList = enrolledSocios.map((s) => ({
-      socioId: s.id,
-      socioNombre: s.nombreCompleto,
-      presente: attendanceState[s.id] ?? false,
-    }));
+    const asistenciasList = enrolledSocios.map((s) => {
+      const nombreSocioNorm = s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim();
+      return {
+        socioId: String(s.id),
+        socioNombre: nombreSocioNorm,
+        presente: attendanceState[String(s.id)] ?? false,
+      };
+    });
 
     const nuevoRegistro: AsistenciaRegistro = {
       id: existingRegistro?.id || `asis-${Date.now()}`,
-      actividadId: selectedActId,
+      actividadId: String(selectedActId),
       fecha,
-      instructorId: currentUser.id,
+      instructorId: String(currentUser?.id || ''),
       asistencias: asistenciasList,
     };
 
-    saveAsistencia(nuevoRegistro);
+    await saveAsistencia(nuevoRegistro);
   };
 
   const presentesCount = Object.values(attendanceState).filter(Boolean).length;
@@ -90,7 +100,7 @@ export const AsistenciaTracker: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-teal-600 text-white">
-              Panel del Instructor
+              Panel del Instructor BD
             </span>
             <span className="text-xs text-slate-500 font-medium">Control Diario de Presentismo</span>
           </div>
@@ -103,7 +113,7 @@ export const AsistenciaTracker: React.FC = () => {
           </p>
         </div>
 
-        {/* Date and Activity Pickers */}
+        {/* Seleccionadores de Actividad y Fecha */}
         <div className="flex flex-wrap items-center gap-2">
           <div>
             <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Disciplina:</label>
@@ -112,11 +122,18 @@ export const AsistenciaTracker: React.FC = () => {
               onChange={(e) => setSelectedActId(e.target.value)}
               className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none"
             >
-              {actividades.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombre} ({a.instructorNombre})
-                </option>
-              ))}
+              {actividades.length === 0 ? (
+                <option value="">Cargando disciplinas...</option>
+              ) : (
+                actividades.map((a) => {
+                  const nombreProf = a.instructorNombre || (a as any).instructor?.nombreCompleto || 'Instructor';
+                  return (
+                    <option key={a.id} value={String(a.id)}>
+                      {a.nombre} ({nombreProf})
+                    </option>
+                  );
+                })
+              )}
             </select>
           </div>
 
@@ -132,15 +149,19 @@ export const AsistenciaTracker: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Attendance List */}
+      {/* Lista Principal de Asistencia */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         
-        {/* Activity Banner */}
+        {/* Banner de la Actividad */}
         <div className="bg-slate-50 p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h3 className="text-base font-bold text-slate-900">{currentActividad?.nombre}</h3>
+            <h3 className="text-base font-bold text-slate-900">
+              {currentActividad?.nombre || 'Seleccione una disciplina'}
+            </h3>
             <p className="text-xs text-slate-500">
-              Profesor: <strong>{currentActividad?.instructorNombre}</strong> • {currentActividad?.dias.join(', ')} ({currentActividad?.horario} hs)
+              Profesor: <strong>{currentActividad?.instructorNombre || (currentActividad as any)?.instructor?.nombreCompleto || 'Sin asignar'}</strong>
+              {currentActividad?.dias ? ` • ${Array.isArray(currentActividad.dias) ? currentActividad.dias.join(', ') : currentActividad.dias}` : ''} 
+              {currentActividad?.horario ? ` (${currentActividad.horario} hs)` : ''}
             </p>
           </div>
 
@@ -152,15 +173,18 @@ export const AsistenciaTracker: React.FC = () => {
           </div>
         </div>
 
-        {/* Members List */}
+        {/* Lista de Socios Inscriptos */}
         {enrolledSocios.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-xs">
-            No hay socios inscriptos en esta actividad actualmente.
+            No hay socios inscriptos en esta actividad en la base de datos actualmente.
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
             {enrolledSocios.map((socio) => {
-              const isPresente = attendanceState[socio.id] ?? false;
+              const socioIdStr = String(socio.id);
+              const isPresente = attendanceState[socioIdStr] ?? false;
+              const nombreSocioNorm = socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+              const numSocioNorm = socio.numeroSocio || socio.id;
 
               return (
                 <div
@@ -169,18 +193,20 @@ export const AsistenciaTracker: React.FC = () => {
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-full bg-slate-100 font-bold text-slate-700 flex items-center justify-center text-xs">
-                      {socio.numeroSocio}
+                      {numSocioNorm}
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">{socio.nombreCompleto}</h4>
-                      <p className="text-[11px] text-slate-500">DNI: {socio.dni} • Cat: {socio.categoria}</p>
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">{nombreSocioNorm}</h4>
+                      <p className="text-[11px] text-slate-500">
+                        DNI: {socio.dni} • Cat: {socio.categoria}
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => toggleAttendance(socio.id)}
-                      className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                      className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
                         isPresente
                           ? 'bg-teal-600 text-white shadow-xs'
                           : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -196,15 +222,15 @@ export const AsistenciaTracker: React.FC = () => {
           </div>
         )}
 
-        {/* Footer with Save Action */}
+        {/* Guardar Planilla */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
           <button
             onClick={handleSave}
             disabled={enrolledSocios.length === 0}
-            className="px-5 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold transition-colors shadow-xs flex items-center space-x-2"
+            className="px-5 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold transition-colors shadow-xs flex items-center space-x-2 cursor-pointer disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            <span>Guardar Planilla de Asistencia</span>
+            <span>Guardar Planilla de Asistencia en BD</span>
           </button>
         </div>
       </div>

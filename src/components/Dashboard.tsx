@@ -7,10 +7,6 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   TrendingUp,
-  UserCheck,
-  Building,
-  CheckCircle,
-  Clock,
   ArrowRight,
   Activity,
   Flame,
@@ -18,40 +14,63 @@ import {
   Award,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ZONAS_NOMBRES, CUOTA_VALORES } from '../data/mockData';
 import sportsHeroBg from '../assets/images/admin_sports_hero_1789672449602.jpg';
 
 export const Dashboard: React.FC = () => {
   const { socios, lockers, actividades, cupones, rendiciones, cobradores, instructores, setActiveTab, currentUser } = useApp();
 
-  // Stats calculation
+  // Cálculo de estadísticas desde el padrón de la BD
   const totalSocios = socios.length;
   const cadetes = socios.filter((s) => s.categoria === 'CADETE').length;
   const activos = socios.filter((s) => s.categoria === 'ACTIVO').length;
   const vitalicios = socios.filter((s) => s.categoria === 'VITALICIO').length;
 
   const morosos = socios.filter((s) => s.estado === 'SUSPENDIDO_MOROSIDAD');
-  const deudores1Mes = socios.filter((s) => s.estado === 'DEUDOR_1_MES');
 
+  // Métricas de casilleros desde la BD
   const lockersOcupados = lockers.filter((l) => l.estado === 'OCUPADO').length;
   const lockersDisponibles = lockers.filter((l) => l.estado === 'DISPONIBLE').length;
 
+  // Métricas financieras calculadas desde los cupones reales de la API
   const totalRecaudadoMes = cupones
     .filter((c) => c.estadoPago === 'PAGADO')
-    .reduce((acc, c) => acc + c.totalPagar, 0);
+    .reduce((acc, c) => acc + Number(c.totalPagar || (c as any).montoTotal || (c as any).monto || 0), 0);
 
   const totalPendienteMes = cupones
     .filter((c) => c.estadoPago === 'PENDIENTE' || c.estadoPago === 'VENCIDO')
-    .reduce((acc, c) => acc + c.totalPagar, 0);
+    .reduce((acc, c) => acc + Number(c.totalPagar || (c as any).montoTotal || (c as any).monto || 0), 0);
 
-  const rendicionesPendientes = rendiciones.filter((r) => r.estado === 'PENDIENTE_SECRETARIA');
+  // Mapeo dinámico de Zonas de Cobranza basado en la nómina de cobradores en la BD
+  const zonasMap = [0, 1, 2, 3].map((zonaNum) => {
+    if (zonaNum === 0) {
+      return {
+        num: 0,
+        nombre: 'Zona 0 - Sede Central',
+        descripcion: 'Ventanilla de Tesorería y Cobranza Presencial',
+        cobrador: 'Ventanilla Central',
+      };
+    }
+    const cobradorAsignado = cobradores.find((c) => Number(c.zona) === zonaNum);
+    const nombreCobrador = cobradorAsignado
+      ? cobradorAsignado.nombreCompleto || `${cobradorAsignado.nombre} ${cobradorAsignado.apellido}`
+      : 'Sin asignar';
+
+    return {
+      num: zonaNum,
+      nombre: `Zona ${zonaNum} - ${nombreCobrador.split(' ')[0]}`,
+      descripcion: `Radio de cobranza domiciliaria asignado a ${nombreCobrador}`,
+      cobrador: nombreCobrador,
+    };
+  });
+
+  const nombreUsuario = currentUser?.nombreCompleto || `${currentUser?.nombre || ''} ${currentUser?.apellido || ''}`.trim() || 'Administrador';
 
   return (
     <div className="space-y-6">
       
-      {/* Sports Hero Banner - Administrator */}
+      {/* Banner Principal de Deportes / Administrador */}
       <div className="relative rounded-2xl overflow-hidden shadow-xl border border-slate-700/50">
-        {/* Background Sports Image */}
+        {/* Imagen de fondo */}
         <div className="absolute inset-0 z-0">
           <img
             src={sportsHeroBg}
@@ -59,24 +78,22 @@ export const Dashboard: React.FC = () => {
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover object-center transform scale-100"
           />
-          {/* Sports atmospheric gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/85 to-[#1A365D]/70 mix-blend-multiply" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-          {/* Red and blue ambient flare */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-red-600/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
         </div>
 
-        {/* Hero Content */}
+        {/* Contenido Hero */}
         <div className="relative z-10 p-6 sm:p-8 text-white flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div className="max-w-2xl">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#C53030] text-white shadow-sm flex items-center space-x-1">
                 <Flame className="w-3 h-3" />
-                <span>Panel Administrativo</span>
+                <span>Panel Administrativo BD</span>
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white/15 backdrop-blur-xs text-slate-200 border border-white/20">
-                Temporada 2026 • 6 Disciplinas Activas
+                Temporada Activa • {actividades.length} Disciplinas Registradas
               </span>
             </div>
 
@@ -85,19 +102,19 @@ export const Dashboard: React.FC = () => {
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-200 mt-2 leading-relaxed max-w-2xl">
-              Bienvenido, <strong>{currentUser.nombreCompleto}</strong>. Gestión centralizada de padrón de socios, 
-              control de disciplinas deportivas federadas, matriz de 100 casilleros y cobranza por zonas (0 a 3).
+              Bienvenido, <strong>{nombreUsuario}</strong>. Gestión centralizada de padrón de socios, 
+              control de disciplinas deportivas federadas, matriz de 100 casilleros y cobranza por zonas en tiempo real.
             </p>
 
-            {/* Micro badges for key sports metrics */}
+            {/* Micro badges métricas */}
             <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-300">
               <div className="flex items-center space-x-1.5 bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-md border border-white/10">
                 <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{actividades.length} Actividades Federadas</span>
+                <span>{actividades.length} Actividades Registradas</span>
               </div>
               <div className="flex items-center space-x-1.5 bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-md border border-white/10">
                 <Users className="w-3.5 h-3.5 text-blue-400" />
-                <span>{totalSocios} Socios en Padrón</span>
+                <span>{totalSocios} Socios en Padrón BD</span>
               </div>
               <div className="flex items-center space-x-1.5 bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-md border border-white/10">
                 <Grid className="w-3.5 h-3.5 text-amber-400" />
@@ -106,25 +123,25 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Action Buttons */}
+          {/* Botones de Acción Rápida */}
           <div className="flex flex-wrap lg:flex-col gap-2 w-full sm:w-auto shrink-0">
             <button
               onClick={() => setActiveTab('socios')}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-white hover:bg-slate-100 text-[#1A365D] font-bold text-xs rounded-lg shadow-md transition-all flex items-center justify-center space-x-2"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-white hover:bg-slate-100 text-[#1A365D] font-bold text-xs rounded-lg shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
             >
               <Users className="w-4 h-4 text-[#C53030]" />
               <span>Gestionar Padrón</span>
             </button>
             <button
               onClick={() => setActiveTab('actividades')}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-900/80 hover:bg-slate-900 text-white border border-white/20 font-bold text-xs rounded-lg shadow-md transition-all flex items-center justify-center space-x-2"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-900/80 hover:bg-slate-900 text-white border border-white/20 font-bold text-xs rounded-lg shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
             >
               <Trophy className="w-4 h-4 text-amber-400" />
               <span>Disciplinas & Horarios</span>
             </button>
             <button
               onClick={() => setActiveTab('cobranza')}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-xs rounded-lg shadow-md transition-all flex items-center justify-center space-x-2"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-xs rounded-lg shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
             >
               <Receipt className="w-4 h-4" />
               <span>Cobranza por Zonas</span>
@@ -133,7 +150,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Critical Alert Banner if there are Suspended Delinquent Members */}
+      {/* Alerta de Morosidad Crítica */}
       {morosos.length > 0 && (
         <div className="bg-red-50 border-l-4 border-[#C53030] p-4 rounded-r-lg shadow-xs flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center space-x-3">
@@ -145,13 +162,13 @@ export const Dashboard: React.FC = () => {
                 Alerta de Morosidad Crítica: {morosos.length} {morosos.length === 1 ? 'socio suspendido' : 'socios suspendidos'}
               </h3>
               <p className="text-xs text-red-700">
-                Socios con 2 o más cuotas consecutivas adeudadas tienen el acceso bloqueado a casilleros y nuevas inscripciones.
+                Socios con 2 o más cuotas consecutivas adeudadas tienen el acceso bloqueado a casilleros y nuevas actividades.
               </p>
             </div>
           </div>
           <button
             onClick={() => setActiveTab('morosidad')}
-            className="px-3.5 py-1.5 bg-[#C53030] hover:bg-red-800 text-white rounded-md text-xs font-bold transition-colors flex items-center space-x-1"
+            className="px-3.5 py-1.5 bg-[#C53030] hover:bg-red-800 text-white rounded-md text-xs font-bold transition-colors flex items-center space-x-1 cursor-pointer"
           >
             <span>Ver Panel de Morosidad</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -159,7 +176,7 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Metrics Grid */}
+      {/* Grilla de Métricas Principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Card 1: Padrón */}
@@ -206,7 +223,7 @@ export const Dashboard: React.FC = () => {
             <span>Disponibles: <strong className="text-emerald-700">{lockersDisponibles}</strong></span>
             <button
               onClick={() => setActiveTab('casilleros')}
-              className="text-[#2B6CB0] font-semibold hover:underline flex items-center space-x-1"
+              className="text-[#2B6CB0] font-semibold hover:underline flex items-center space-x-1 cursor-pointer"
             >
               <span>Ver Grilla</span>
               <ArrowRight className="w-3 h-3" />
@@ -231,7 +248,7 @@ export const Dashboard: React.FC = () => {
             <span>Por cobrar: <strong className="text-amber-600">${totalPendienteMes.toLocaleString('es-AR')}</strong></span>
             <button
               onClick={() => setActiveTab('cobranza')}
-              className="text-[#2B6CB0] font-semibold hover:underline"
+              className="text-[#2B6CB0] font-semibold hover:underline cursor-pointer"
             >
               Ver Zonas
             </button>
@@ -250,10 +267,10 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-600">
-            <span>Instructores activos: <strong>{instructores.filter((i) => i.activo).length}</strong></span>
+            <span>Instructores activos: <strong>{instructores.filter((i) => i.activo ?? true).length}</strong></span>
             <button
               onClick={() => setActiveTab('actividades')}
-              className="text-[#2B6CB0] font-semibold hover:underline"
+              className="text-[#2B6CB0] font-semibold hover:underline cursor-pointer"
             >
               Ver vitrina
             </button>
@@ -261,7 +278,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Staff Management Section (Admin Only) */}
+      {/* Sección de Gestión de Personal */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Panel Cobradores */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 hover:border-purple-300 transition-all flex items-center justify-between">
@@ -273,17 +290,17 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <h3 className="text-sm font-bold text-slate-900">Nómina de Cobradores</h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
-                  {cobradores.filter((c) => c.activo).length} Activos
+                  {cobradores.filter((c) => c.activo ?? true).length} Activos
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                CRUD de cobradores domiciliarios, asignación de zonas 0-3 y comisiones (10%).
+                Gestión de cobradores domiciliarios, asignación de zonas 0-3 y comisiones (10%).
               </p>
             </div>
           </div>
           <button
             onClick={() => setActiveTab('cobradores')}
-            className="shrink-0 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-lg transition-colors flex items-center space-x-1"
+            className="shrink-0 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
           >
             <span>Gestionar</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -300,17 +317,17 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <h3 className="text-sm font-bold text-slate-900">Cuerpo de Instructores</h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800">
-                  {instructores.filter((i) => i.activo).length} Activos
+                  {instructores.filter((i) => i.activo ?? true).length} Activos
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                CRUD de profesores, legajos deportivos, contratos y asignación de disciplinas.
+                Gestión de profesores, legajos deportivos y asignación de disciplinas.
               </p>
             </div>
           </div>
           <button
             onClick={() => setActiveTab('instructores')}
-            className="shrink-0 px-3 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition-colors flex items-center space-x-1"
+            className="shrink-0 px-3 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
           >
             <span>Gestionar</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -318,7 +335,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Grid: Zonas de Cobranza & Rendición Semanal */}
+      {/* Grilla Principal: Zonas de Cobranza & Rendición Semanal */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Zonas de Cobro Summary */}
@@ -330,22 +347,21 @@ export const Dashboard: React.FC = () => {
             </div>
             <button
               onClick={() => setActiveTab('cobranza')}
-              className="text-xs font-semibold text-[#2B6CB0] hover:underline"
+              className="text-xs font-semibold text-[#2B6CB0] hover:underline cursor-pointer"
             >
               Ver todos los cupones
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[0, 1, 2, 3].map((zonaNum) => {
-              const zona = ZONAS_NOMBRES[zonaNum];
-              const sociosEnZona = socios.filter((s) => s.zonaCobro === zonaNum);
-              const cuponesEnZona = cupones.filter((c) => c.zonaCobro === zonaNum);
+            {zonasMap.map((zona) => {
+              const sociosEnZona = socios.filter((s) => Number(s.zonaCobro) === zona.num);
+              const cuponesEnZona = cupones.filter((c) => Number(c.zonaCobro) === zona.num);
               const cobrados = cuponesEnZona.filter((c) => c.estadoPago === 'PAGADO');
-              const totalCobradoZona = cobrados.reduce((acc, c) => acc + c.totalPagar, 0);
+              const totalCobradoZona = cobrados.reduce((acc, c) => acc + Number(c.totalPagar || (c as any).montoTotal || (c as any).monto || 0), 0);
 
               return (
-                <div key={zonaNum} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                <div key={zona.num} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-[#1A365D]">{zona.nombre}</span>
                     <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-semibold">
@@ -355,7 +371,7 @@ export const Dashboard: React.FC = () => {
                   <p className="text-[11px] text-slate-500 mb-2 line-clamp-1">{zona.descripcion}</p>
                   <div className="text-xs flex justify-between items-center text-slate-700 pt-2 border-t border-slate-200">
                     <span>Cobrado: <strong>${totalCobradoZona.toLocaleString('es-AR')}</strong></span>
-                    <span className="text-[11px] text-slate-500">Resp: {zona.cobradorDefault.split(' ')[0]}</span>
+                    <span className="text-[11px] text-slate-500">Resp: {zona.cobrador.split(' ')[0]}</span>
                   </div>
                 </div>
               );
@@ -377,29 +393,35 @@ export const Dashboard: React.FC = () => {
             </p>
 
             <div className="space-y-3">
-              {rendiciones.slice(0, 3).map((rend) => (
-                <div key={rend.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                  <div className="flex justify-between items-start mb-1">
-                    <strong className="text-slate-800">{rend.cobradorNombre}</strong>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      rend.estado === 'APROBADA' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      {rend.estado === 'APROBADA' ? 'APROBADA' : 'PENDIENTE'}
-                    </span>
+              {rendiciones.slice(0, 3).map((rend) => {
+                const nombreCob = rend.cobradorNombre || (rend as any).nombreCobrador || 'Cobrador';
+                const comision = Number(rend.montoComisionCobrador || (rend as any).comision || 0);
+                const estadoRend = rend.estado || 'PENDIENTE_SECRETARIA';
+
+                return (
+                  <div key={rend.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                    <div className="flex justify-between items-start mb-1">
+                      <strong className="text-slate-800">{nombreCob}</strong>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        estadoRend === 'APROBADA' || estadoRend === 'APROBADO' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {estadoRend === 'APROBADA' || estadoRend === 'APROBADO' ? 'APROBADA' : 'PENDIENTE'}
+                      </span>
+                    </div>
+                    <div className="text-slate-600 text-[11px]">Zona {rend.zonaCobro} • {rend.periodoFecha || (rend as any).fecha || 'Reciente'}</div>
+                    <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center font-mono">
+                      <span className="text-slate-500 text-[10px]">Comisión 10%:</span>
+                      <span className="text-amber-700 font-bold">${comision.toLocaleString('es-AR')}</span>
+                    </div>
                   </div>
-                  <div className="text-slate-600 text-[11px]">Zona {rend.zonaCobro} • {rend.periodoFecha}</div>
-                  <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center font-mono">
-                    <span className="text-slate-500 text-[10px]">Comisión 10%:</span>
-                    <span className="text-amber-700 font-bold">${rend.montoComisionCobrador.toLocaleString('es-AR')}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           <button
             onClick={() => setActiveTab('rendicion')}
-            className="w-full mt-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center space-x-1.5"
+            className="w-full mt-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4 text-slate-600" />
             <span>Módulo de Rendiciones</span>

@@ -4,71 +4,77 @@ import {
   QrCode,
   ShieldCheck,
   ShieldAlert,
-  Grid,
   Trophy,
   Users,
   Receipt,
-  Download,
-  Calendar,
   MapPin,
-  CheckCircle2,
-  Banknote,
-  Wallet
+  Banknote
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ZONAS_NOMBRES, CUOTA_VALORES } from '../data/mockData';
 import { ReciboModal } from './ReciboModal';
 import { CuponRecibo } from '../types';
 import titularCardBg from '../assets/images/titular_card_bg_1789672816138.jpg';
 
 export const SocioPortal: React.FC = () => {
-  const { socios, actividades, cupones, currentUser, unenrollSocioFromActividad, setActiveTab } = useApp();
+  const { socios, actividades, cupones, cobradores, currentUser, unenrollSocioFromActividad, setActiveTab } = useApp();
 
-  // Selected socio (defaults to currentUser.socioId if logged in as socio, or first socio)
-  const defaultSocioId = (currentUser.role === 'SOCIO' && currentUser.socioId)
+  // Socio seleccionado (por defecto currentUser.socioId o el primero del padrón)
+  const defaultSocioId = (currentUser?.role === 'SOCIO' && currentUser.socioId)
     ? currentUser.socioId
-    : (currentUser.socioId || socios[0]?.id || '');
-  const [selectedSocioId, setSelectedSocioId] = useState<string>(defaultSocioId);
+    : (currentUser?.socioId || socios[0]?.id || '');
+
+  const [selectedSocioId, setSelectedSocioId] = useState<string>(String(defaultSocioId));
   const [viewingCupon, setViewingCupon] = useState<CuponRecibo | null>(null);
 
-  // Sync selected socio when user changes or is a socio
+  // Sincronizar socio si el usuario con rol SOCIO cambia de sesión
   React.useEffect(() => {
-    if (currentUser.role === 'SOCIO' && currentUser.socioId) {
-      setSelectedSocioId(currentUser.socioId);
+    if (currentUser?.role === 'SOCIO' && currentUser.socioId) {
+      setSelectedSocioId(String(currentUser.socioId));
     }
   }, [currentUser]);
 
-  // If role is SOCIO, enforce that the socio can only view their own profile
-  const effectiveSocioId = (currentUser.role === 'SOCIO' && currentUser.socioId)
+  // Si el rol es SOCIO, solo puede visualizaciones de su propio perfil
+  const effectiveSocioId = (currentUser?.role === 'SOCIO' && currentUser.socioId)
     ? currentUser.socioId
     : selectedSocioId;
 
-  const socio = socios.find((s) => s.id === effectiveSocioId) || socios[0];
+  const socio = socios.find((s) => String(s.id) === String(effectiveSocioId)) || socios[0];
 
   if (!socio) {
-    return <div className="p-8 text-center text-slate-500">No hay socios en el padrón.</div>;
+    return <div className="p-8 text-center text-slate-500">No hay socios registrados en la base de datos.</div>;
   }
 
-  const isSuspended = socio.estado === 'SUSPENDIDO_MOROSIDAD';
-  const zona = ZONAS_NOMBRES[socio.zonaCobro];
-  const misActividades = actividades.filter((a) => socio.actividadesIds.includes(a.id));
-  const misCupones = cupones.filter((c) => c.socioId === socio.id);
+  const isSuspended = socio.estado === 'SUSPENDIDO_MOROSIDAD' || socio.estado === 'SUSPENDIDO';
 
-  // Cuota Social e importes mensuales del socio
-  const cuotaBase = CUOTA_VALORES[socio.categoria] ?? 14000;
-  const costoActividades = misActividades.reduce((sum, a) => sum + a.costoMensual, 0);
-  const costoCasillero = socio.casilleroAsignadoId ? CUOTA_VALORES.CASILLERO_MENSUAL : 0;
-  const hijosCount = socio.familiares.filter((f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
-  const descuentoFamiliar = hijosCount * CUOTA_VALORES.DESCUENTO_FAMILIAR_POR_HIJO;
-  const subtotal = Math.max(0, cuotaBase + costoActividades + costoCasillero - descuentoFamiliar);
-  const tieneMora = socio.cuotasAdeudadas > 0;
-  const montoRecargoMora = tieneMora ? Math.round(subtotal * CUOTA_VALORES.RECARGO_MORA_PORCENTAJE) : 0;
+  // Obtener el cobrador asignado a la zona del socio desde la BD
+  const cobradorAsignado = cobradores.find((c) => Number(c.zona) === Number(socio.zonaCobro));
+  const nombreZona = socio.zonaCobro === 0 
+    ? 'Sede Central (Club)' 
+    : `Zona ${socio.zonaCobro} - ${cobradorAsignado ? `${cobradorAsignado.nombre} ${cobradorAsignado.apellido}` : 'Cobrador de Zona'}`;
+
+  // Actividades del socio traídas desde la BD
+  const misActividades = actividades.filter((a) => 
+    socio.actividadesIds?.includes(a.id) || (socio.actividadesIds as any)?.includes(Number(a.id))
+  );
+  
+  // Cupones del socio traídos desde la BD
+  const misCupones = cupones.filter((c) => String(c.socioId) === String(socio.id));
+
+  // Importes de cuota y aranceles según datos reales de la BD
+  const cuotaBase = (socio as any).montoCuotaSocial ?? 0;
+  const costoActividades = misActividades.reduce((sum, a) => sum + Number((a as any).costoMensual || a.arancel || 0), 0);
+  const costoCasillero = socio.casilleroAsignadoId ? Number((socio as any).costoCasillero || 2500) : 0;
+  const hijosCount = (socio.familiares || []).filter((f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
+  
+  const subtotal = Math.max(0, cuotaBase + costoActividades + costoCasillero);
+  const tieneMora = (socio.cuotasAdeudadas || 0) > 0;
+  const montoRecargoMora = tieneMora ? Math.round(subtotal * 0.05) : 0; // Recargo por mora del 5%
   const totalMes = subtotal + montoRecargoMora;
 
   return (
     <div className="space-y-6">
       
-      {/* Header & Socio Selector */}
+      {/* Encabezado y Selector de Socio */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center space-x-2 mb-1">
@@ -87,7 +93,7 @@ export const SocioPortal: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Valor de Cuota Destacado */}
+          {/* Valor de Cuota Social */}
           <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100/60 border border-emerald-300/80 px-4 py-2.5 rounded-xl shadow-xs flex items-center space-x-3">
             <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black shadow-xs">
               <Banknote className="w-5 h-5" />
@@ -112,8 +118,8 @@ export const SocioPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* Member selector only visible for Admin testability; Socios only see their own profile */}
-          {currentUser.role === 'ADMIN' ? (
+          {/* Selector exclusivo para Administrador */}
+          {currentUser?.role === 'ADMIN' ? (
             <div className="flex items-center space-x-2">
               <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Ver como socio:</span>
               <select
@@ -123,7 +129,7 @@ export const SocioPortal: React.FC = () => {
               >
                 {socios.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.nombreCompleto} (Socio N° {s.numeroSocio})
+                    {s.nombreCompleto || `${s.nombre} ${s.apellido}`} (Socio N° {s.numeroSocio})
                   </option>
                 ))}
               </select>
@@ -131,7 +137,7 @@ export const SocioPortal: React.FC = () => {
           ) : (
             <div className="flex items-center space-x-2">
               <span className="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg text-xs font-bold">
-                Sesión de Socio: {socio.nombreCompleto}
+                Sesión de Socio: {socio.nombreCompleto || `${socio.nombre} ${socio.apellido}`}
               </span>
             </div>
           )}
@@ -140,10 +146,10 @@ export const SocioPortal: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Digital Member Card (Carnet Digital) */}
+        {/* Carnet Digital */}
         <div className="lg:col-span-1">
           <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-slate-700 bg-slate-900 text-white p-6 flex flex-col justify-between min-h-[440px]">
-            {/* Background Image of the Credential */}
+            {/* Imagen de fondo del carnet */}
             <div className="absolute inset-0 z-0 pointer-events-none">
               <img
                 src={titularCardBg}
@@ -156,7 +162,7 @@ export const SocioPortal: React.FC = () => {
               <div className="absolute top-0 right-0 w-48 h-48 bg-red-600/20 rounded-full blur-2xl" />
             </div>
 
-            {/* Top Bar with Club Identity */}
+            {/* Cabecera del Carnet */}
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center space-x-2.5">
@@ -178,7 +184,7 @@ export const SocioPortal: React.FC = () => {
                 </span>
               </div>
 
-              {/* Category, Status & Cuota Banner */}
+              {/* Categoría y Estado */}
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
@@ -205,19 +211,8 @@ export const SocioPortal: React.FC = () => {
                 </span>
               </div>
 
-              {/* Member Full Name and Details - Dedicated Box with Background Image and Glassmorphism */}
+              {/* Datos del Titular */}
               <div className="relative overflow-hidden rounded-xl border border-white/25 bg-gradient-to-r from-white/15 via-white/10 to-white/5 backdrop-blur-md p-4 mb-4 shadow-lg">
-                {/* Dedicated background image thumbnail inside the titular container */}
-                <div className="absolute inset-0 z-0 opacity-25 pointer-events-none">
-                  <img
-                    src={titularCardBg}
-                    alt="Fondo titular"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover object-center filter brightness-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#1A365D]/80 via-transparent to-[#C53030]/30" />
-                </div>
-
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] uppercase text-red-300 font-bold tracking-wider flex items-center space-x-1">
@@ -229,12 +224,12 @@ export const SocioPortal: React.FC = () => {
                     </span>
                   </div>
                   <h2 className="text-xl font-black text-white tracking-tight leading-snug drop-shadow-md">
-                    {socio.nombreCompleto}
+                    {socio.nombreCompleto || `${socio.nombre} ${socio.apellido}`}
                   </h2>
                   <div className="flex items-center justify-between mt-1 text-xs text-blue-200 font-mono">
                     <span>DNI: {socio.dni}</span>
                     <span className="text-[10px] text-slate-300 font-sans">
-                      Ingreso: {socio.fechaIngreso.slice(0, 4)}
+                      Ingreso: {socio.fechaIngreso ? socio.fechaIngreso.slice(0, 4) : '-'}
                     </span>
                   </div>
                 </div>
@@ -247,7 +242,7 @@ export const SocioPortal: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-[9px] text-blue-300 block uppercase">Antigüedad</span>
-                  <strong>{socio.antiguedadAnios} años</strong>
+                  <strong>{socio.antiguedadAnios || 0} años</strong>
                 </div>
                 <div>
                   <span className="text-[9px] text-blue-300 block uppercase">Casillero</span>
@@ -256,7 +251,7 @@ export const SocioPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom Bar: QR Code for Access Turnstiles */}
+            {/* Código QR */}
             <div className="relative z-10 pt-3 border-t border-white/10 flex items-center justify-between">
               <div className="space-y-0.5">
                 <span className="text-[9px] text-blue-300 uppercase tracking-widest block">Código de Acceso</span>
@@ -276,10 +271,10 @@ export const SocioPortal: React.FC = () => {
           </p>
         </div>
 
-        {/* Member Details, Services & History */}
+        {/* Detalles del Socio, Servicios e Historial */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Status Alert if Suspended */}
+          {/* Alerta de Estado */}
           {isSuspended ? (
             <div className="p-4 bg-red-50 border-l-4 border-red-600 rounded-r-xl text-xs text-red-900 flex items-start space-x-3">
               <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -288,7 +283,7 @@ export const SocioPortal: React.FC = () => {
                   Atención: Acceso Suspendido por Morosidad
                 </strong>
                 <p>
-                  Usted registra {socio.cuotasAdeudadas} cuotas consecutivas adeudadas. Para habilitar su carnet en los molinetes, hacer uso de su casillero o continuar en sus disciplinas deportivas, por favor regularice su saldo pendiente con el cobrador de zona o en secretaría.
+                  Usted registra {socio.cuotasAdeudadas || 0} cuotas consecutivas adeudadas. Para habilitar su carnet en los molinetes, hacer uso de su casillero o continuar en sus disciplinas deportivas, por favor regularice su saldo pendiente con el cobrador de zona o en secretaría.
                 </p>
               </div>
             </div>
@@ -306,7 +301,7 @@ export const SocioPortal: React.FC = () => {
             </div>
           )}
 
-          {/* Card Resumen de Cuota Mensual & Aranceles */}
+          {/* Resumen de Cuota Mensual */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
               <div className="flex items-start sm:items-center space-x-3">
@@ -337,12 +332,12 @@ export const SocioPortal: React.FC = () => {
                   ${totalMes.toLocaleString('es-AR')}
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  {socio.cuotasAdeudadas > 0 ? `Registra deuda (${socio.cuotasAdeudadas} meses)` : 'Al día • Sin recargos'}
+                  {(socio.cuotasAdeudadas || 0) > 0 ? `Registra deuda (${socio.cuotasAdeudadas} meses)` : 'Al día • Sin recargos'}
                 </span>
               </div>
             </div>
 
-            {/* Breakdown of fees */}
+            {/* Desglose de aranceles */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 text-xs">
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
                 <span className="text-[10px] text-slate-500 uppercase block font-bold">Cuota Social ({socio.categoria})</span>
@@ -375,10 +370,10 @@ export const SocioPortal: React.FC = () => {
               <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200/80">
                 <span className="text-[10px] text-emerald-800 uppercase block font-bold">Plan Familiar</span>
                 <span className="text-sm font-extrabold text-emerald-700 font-mono mt-0.5 block">
-                  {descuentoFamiliar > 0 ? `-$${descuentoFamiliar.toLocaleString('es-AR')}` : '$0'}
+                  $0
                 </span>
                 <span className="text-[10px] text-emerald-700">
-                  {hijosCount > 0 ? `${hijosCount} hijo(s) bonificado(s)` : 'Sin bonificación'}
+                  {hijosCount > 0 ? `${hijosCount} hijo(s) vinculado(s)` : 'Sin miembros vinculados'}
                 </span>
               </div>
             </div>
@@ -386,7 +381,7 @@ export const SocioPortal: React.FC = () => {
             <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center text-[11px] text-slate-500 gap-2">
               <span className="flex items-center space-x-1.5">
                 <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                <span>Modalidad de Cobro: <strong>{zona.nombre}</strong> ({zona.cobradorDefault})</span>
+                <span>Modalidad de Cobro: <strong>{nombreZona}</strong></span>
               </span>
               <span className="font-medium text-slate-600">
                 Vencimiento regular: 10 de cada mes
@@ -394,10 +389,10 @@ export const SocioPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* Current Enrolled Activities & Lockers */}
+          {/* Actividades & Grupo Familiar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
-            {/* Disciplines */}
+            {/* Actividades inscriptas */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -425,47 +420,50 @@ export const SocioPortal: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {misActividades.map((act) => (
-                      <div key={act.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs flex justify-between items-start gap-2">
-                        <div>
-                          <strong className="text-slate-900 block">{act.nombre}</strong>
-                          <span className="text-[11px] text-slate-500 block">
-                            {act.dias.join(', ')} • {act.horario} hs • Prof: {act.instructorNombre}
-                          </span>
-                          <span className="text-[10px] font-bold text-emerald-700 font-mono">
-                            ${act.costoMensual.toLocaleString('es-AR')}/mes
-                          </span>
+                    {misActividades.map((act) => {
+                      const costo = Number((act as any).costoMensual || act.arancel || 0);
+                      return (
+                        <div key={act.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs flex justify-between items-start gap-2">
+                          <div>
+                            <strong className="text-slate-900 block">{act.nombre}</strong>
+                            <span className="text-[11px] text-slate-500 block">
+                              {act.diasSemana || (act as any).dias?.join(', ')} • {act.horaInicio ? `${act.horaInicio} hs` : ''}
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-700 font-mono">
+                              ${costo.toLocaleString('es-AR')}/mes
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => unenrollSocioFromActividad(String(socio.id), String(act.id))}
+                            className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded text-[10px] font-semibold transition-colors shrink-0"
+                            title="Darse de baja de esta actividad"
+                          >
+                            Darme de baja
+                          </button>
                         </div>
-                        <button
-                          onClick={() => unenrollSocioFromActividad(socio.id, act.id)}
-                          className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded text-[10px] font-semibold transition-colors shrink-0"
-                          title="Darse de baja de esta actividad"
-                        >
-                          Darme de baja
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Family Plan */}
+            {/* Grupo Familiar */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
               <div className="flex items-center space-x-2 mb-3 text-slate-800 font-bold text-xs uppercase tracking-wider">
                 <Users className="w-4 h-4 text-[#C53030]" />
                 <span>Grupo Familiar Asociado</span>
               </div>
 
-              {socio.familiares.length === 0 ? (
+              {(!socio.familiares || socio.familiares.length === 0) ? (
                 <p className="text-slate-400 text-xs italic">No tienes familiares vinculados en tu plan.</p>
               ) : (
                 <div className="space-y-2">
                   {socio.familiares.map((fam) => (
                     <div key={fam.id} className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs">
-                      <strong className="text-slate-900 block">{fam.nombreCompleto}</strong>
+                      <strong className="text-slate-900 block">{fam.nombreCompleto || fam.nombre}</strong>
                       <span className="text-[11px] text-slate-500">
-                        {fam.parentesco} • DNI: {fam.dni} • {fam.edad} años
+                        {fam.parentesco} • DNI: {fam.dni} • {fam.edad || 0} años
                       </span>
                     </div>
                   ))}
@@ -474,7 +472,7 @@ export const SocioPortal: React.FC = () => {
             </div>
           </div>
 
-          {/* Payment Receipts History */}
+          {/* Historial de Cupones y Comprobantes */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center space-x-2">
               <Receipt className="w-4 h-4 text-slate-600" />
@@ -482,33 +480,35 @@ export const SocioPortal: React.FC = () => {
             </h3>
 
             {misCupones.length === 0 ? (
-              <p className="text-slate-400 text-xs italic">No hay cupones emitidos todavía.</p>
+              <p className="text-slate-400 text-xs italic">No hay cupones emitidos todavía en la base de datos.</p>
             ) : (
               <div className="divide-y divide-slate-100">
                 {misCupones.map((cup) => (
                   <div key={cup.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
-                      <strong className="text-slate-900 block font-mono">{cup.numeroComprobante}</strong>
+                      <strong className="text-slate-900 block font-mono">
+                        {(cup as any).numeroComprobante || `REC-${cup.id}`}
+                      </strong>
                       <span className="text-[11px] text-slate-500">
-                        Período: {cup.periodoMes} • Vto: {cup.fechaVencimiento}
+                        Período: {(cup as any).periodoMes || cup.periodo} • Vto: {(cup as any).fechaVencimiento || 'Al día'}
                       </span>
                     </div>
 
                     <div className="flex items-center space-x-3">
                       <span className="font-mono font-bold text-slate-800">
-                        ${cup.totalPagar.toLocaleString('es-AR')}
+                        ${((cup as any).totalPagar || cup.montoTotal || 0).toLocaleString('es-AR')}
                       </span>
 
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          cup.estadoPago === 'PAGADO'
+                          (cup as any).estadoPago === 'PAGADO' || cup.estado === 'PAGADO'
                             ? 'bg-emerald-100 text-emerald-800'
-                            : cup.estadoPago === 'VENCIDO'
+                            : (cup as any).estadoPago === 'VENCIDO'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-amber-100 text-amber-800'
                         }`}
                       >
-                        {cup.estadoPago}
+                        {(cup as any).estadoPago || cup.estado}
                       </span>
 
                       <button

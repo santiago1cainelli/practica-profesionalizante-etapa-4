@@ -20,7 +20,11 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
 
   if (!socio) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const nombreTitularNorm = socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+  const numeroSocioNorm = socio.numeroSocio || socio.id;
+  const familiaresArr = socio.familiares || [];
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -41,7 +45,7 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
       return;
     }
 
-    addFamiliar(socio.id, {
+    await addFamiliar(String(socio.id), {
       nombreCompleto: nombreCompleto.trim(),
       dni: dni.trim(),
       parentesco,
@@ -53,6 +57,10 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
     setFechaNacimiento('');
   };
 
+  const handleRemove = async (familiarId: string | number) => {
+    await removeFamiliar(String(socio.id), String(familiarId));
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-xs">
       <div className="relative w-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
@@ -62,10 +70,10 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
           <div className="flex items-center space-x-2">
             <Users className="w-5 h-5 text-red-400" />
             <span className="font-bold text-sm tracking-wide">
-              PLAN GRUPO FAMILIAR — SOCIO N° {socio.numeroSocio}
+              PLAN GRUPO FAMILIAR — SOCIO N° {numeroSocioNorm}
             </span>
           </div>
-          <button onClick={onClose} className="p-1 text-white/80 hover:text-white rounded">
+          <button onClick={onClose} className="p-1 text-white/80 hover:text-white rounded cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -88,56 +96,70 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
                 <span>Titular del Plan Familiar</span>
               </span>
-              <h4 className="font-bold text-white text-base mt-0.5">{socio.nombreCompleto}</h4>
-              <p className="text-slate-200 text-xs mt-0.5">DNI: {socio.dni} • Categoría: <strong className="text-amber-300">{socio.categoria}</strong></p>
+              <h4 className="font-bold text-white text-base mt-0.5">{nombreTitularNorm}</h4>
+              <p className="text-slate-200 text-xs mt-0.5">
+                DNI: {socio.dni} • Categoría: <strong className="text-amber-300">{socio.categoria}</strong>
+              </p>
             </div>
             <div className="relative z-10 text-right">
               <span className="text-xs bg-white/20 backdrop-blur-xs text-white border border-white/20 font-semibold px-2.5 py-1 rounded">
-                {socio.familiares.length} miembro(s) vinculado(s)
+                {familiaresArr.length} miembro(s) vinculado(s)
               </span>
             </div>
           </div>
 
-          {/* List of current family members */}
+          {/* Lista de miembros vinculados */}
           <div>
             <h4 className="font-bold text-slate-800 mb-2 text-xs uppercase tracking-wider">
-              Miembros Vinculados al Grupo Familiar:
+              Miembros Vinculados al Grupo Familiar en BD:
             </h4>
 
-            {socio.familiares.length === 0 ? (
+            {familiaresArr.length === 0 ? (
               <p className="text-slate-400 italic bg-slate-50 p-4 rounded text-center border border-dashed border-slate-200">
                 No tiene cónyuge ni hijos vinculados en el plan actualmente.
               </p>
             ) : (
               <div className="space-y-2">
-                {socio.familiares.map((fam) => (
-                  <div
-                    key={fam.id}
-                    className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-slate-300"
-                  >
-                    <div>
-                      <strong className="text-slate-900 text-xs block">{fam.nombreCompleto}</strong>
-                      <span className="text-slate-500 text-[11px]">
-                        Parentesco: <strong className="text-[#2B6CB0]">{fam.parentesco}</strong> • DNI: {fam.dni} • Edad: {fam.edad} años
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => removeFamiliar(socio.id, fam.id)}
-                      className="px-2.5 py-1 text-red-600 hover:bg-red-50 rounded text-xs font-semibold transition-colors"
+                {familiaresArr.map((fam) => {
+                  const nombreFam = fam.nombreCompleto || `${(fam as any).nombre || ''} ${(fam as any).apellido || ''}`.trim();
+                  
+                  // Calcular edad si no viene calculada
+                  let edadFam = fam.edad;
+                  if (!edadFam && fam.fechaNacimiento) {
+                    const hoy = new Date();
+                    const nac = new Date(fam.fechaNacimiento);
+                    edadFam = hoy.getFullYear() - nac.getFullYear();
+                  }
+
+                  return (
+                    <div
+                      key={fam.id}
+                      className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-slate-300"
                     >
-                      Desvincular
-                    </button>
-                  </div>
-                ))}
+                      <div>
+                        <strong className="text-slate-900 text-xs block">{nombreFam}</strong>
+                        <span className="text-slate-500 text-[11px]">
+                          Parentesco: <strong className="text-[#2B6CB0]">{fam.parentesco}</strong> • DNI: {fam.dni} • Edad: {edadFam || 'N/A'} años
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleRemove(fam.id)}
+                        className="px-2.5 py-1 text-red-600 hover:bg-red-50 rounded text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Desvincular
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Form to add a new family member */}
+          {/* Formulario para agregar un familiar */}
           <div className="border-t border-slate-200 pt-4">
             <h4 className="font-bold text-[#1A365D] mb-3 text-xs uppercase tracking-wider flex items-center space-x-1">
               <UserPlus className="w-4 h-4 text-[#C53030]" />
-              <span>Vincular Nuevo Familiar</span>
+              <span>Vincular Nuevo Familiar en la BD</span>
             </h4>
 
             {errorMsg && (
@@ -195,16 +217,16 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
                   className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Nota: Por estatuto del club, los hijos menores de 18 años obtienen un descuento de $1.500 en el recibo unificado familiar.
+                  Nota: Por estatuto del club, los hijos menores de 18 años obtienen un descuento en el recibo unificado familiar.
                 </p>
               </div>
 
               <div className="sm:col-span-2 text-right pt-2">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#2B6CB0] hover:bg-[#1A365D] text-white rounded font-bold text-xs transition-colors shadow-xs"
+                  className="px-4 py-2 bg-[#2B6CB0] hover:bg-[#1A365D] text-white rounded font-bold text-xs transition-colors shadow-xs cursor-pointer"
                 >
-                  Vincular al Grupo Familiar
+                  Vincular al Grupo Familiar en BD
                 </button>
               </div>
             </form>
@@ -214,7 +236,7 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
         <div className="px-6 py-3 bg-slate-100 border-t border-slate-200 text-right">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-slate-300 hover:bg-slate-400 text-slate-800 rounded font-semibold text-xs"
+            className="px-4 py-1.5 bg-slate-300 hover:bg-slate-400 text-slate-800 rounded font-semibold text-xs cursor-pointer"
           >
             Cerrar
           </button>

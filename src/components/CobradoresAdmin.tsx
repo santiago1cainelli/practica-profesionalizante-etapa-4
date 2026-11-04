@@ -5,7 +5,6 @@ import {
   UserX,
   Plus,
   Search,
-  Filter,
   MapPin,
   Phone,
   Mail,
@@ -19,15 +18,20 @@ import {
   ShieldAlert,
   ArrowLeft,
   X,
-  FileSpreadsheet,
-  Building,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Cobrador } from '../types';
-import { ZONAS_NOMBRES } from '../data/mockData';
 
 export const CobradoresAdmin: React.FC = () => {
-  const { currentUser, setActiveTab, cobradores, addCobrador, updateCobrador, deleteCobrador, toggleCobradorEstado } = useApp();
+  const {
+    currentUser,
+    setActiveTab,
+    cobradores,
+    addCobrador,
+    updateCobrador,
+    deleteCobrador,
+    toggleCobradorEstado,
+  } = useApp();
 
   // Filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,7 +71,7 @@ export const CobradoresAdmin: React.FC = () => {
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
   // Control de Acceso Estricto RBAC: Solo ADMINISTRADOR
-  if (currentUser.role !== 'ADMIN') {
+  if (currentUser?.role !== 'ADMIN') {
     return (
       <div className="bg-white rounded-xl shadow-md border border-red-200 p-8 text-center max-w-2xl mx-auto my-12 animate-in fade-in">
         <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -76,12 +80,20 @@ export const CobradoresAdmin: React.FC = () => {
         <h2 className="text-2xl font-black text-slate-800 mb-2">Acceso Restringido a Administradores</h2>
         <p className="text-sm text-slate-600 mb-6 leading-relaxed">
           La gestión de Cobradores y asignación de zonas domiciliarias requiere credenciales de nivel <strong>ADMINISTRADOR</strong>.
-          Tu usuario actual ({currentUser.nombreCompleto}) tiene rol de <span className="font-semibold text-slate-800">[{currentUser.role}]</span>.
+          Tu usuario actual ({currentUser?.nombreCompleto}) tiene rol de <span className="font-semibold text-slate-800">[{currentUser?.role}]</span>.
         </p>
         <div className="flex justify-center gap-3">
           <button
-            onClick={() => setActiveTab(currentUser.role === 'PUBLICO' ? 'inicio' : currentUser.role === 'SOCIO' ? 'portal_socio' : 'dashboard')}
-            className="flex items-center space-x-2 px-5 py-2.5 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+            onClick={() =>
+              setActiveTab(
+                currentUser?.role === 'PUBLICO'
+                  ? 'inicio'
+                  : currentUser?.role === 'SOCIO'
+                  ? 'portal_socio'
+                  : 'dashboard'
+              )
+            }
+            className="flex items-center space-x-2 px-5 py-2.5 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-sm cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Volver a la pantalla principal</span>
@@ -91,20 +103,43 @@ export const CobradoresAdmin: React.FC = () => {
     );
   }
 
-  // Filtrado de Cobradores
+  // Helper para etiquetas de zonas en BD
+  const getZonaNombreLabel = (zonaNum: number) => {
+    switch (Number(zonaNum)) {
+      case 0:
+        return { nombre: 'Zona 0 - Sede Central', descripcion: 'Ventanilla de Tesorería' };
+      case 1:
+        return { nombre: 'Zona 1 - Centro & Norte', descripcion: 'Radio urbano central' };
+      case 2:
+        return { nombre: 'Zona 2 - Sur & Estación', descripcion: 'Barrio Sur y Estación' };
+      case 3:
+        return { nombre: 'Zona 3 - Este & Costanera', descripcion: 'Zona Este y Avenida Costanera' };
+      default:
+        return { nombre: `Zona ${zonaNum}`, descripcion: `Circuito asignado N° ${zonaNum}` };
+    }
+  };
+
+  // Filtrado de Cobradores desde BD
   const filteredCobradores = useMemo(() => {
     return cobradores.filter((c) => {
-      const matchSearch =
-        c.nombreCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.dni.includes(searchTerm) ||
-        c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.telefono.includes(searchTerm);
+      const nombreNorm = c.nombreCompleto || `${(c as any).nombre || ''} ${(c as any).apellido || ''}`.trim();
+      const dniNorm = c.dni || '';
+      const emailNorm = c.email || '';
+      const telNorm = c.telefono || '';
+      const zonaNorm = String(c.zonaAsignada ?? (c as any).zona ?? 0);
+      const isActivo = c.activo ?? true;
 
-      const matchZona = filtroZona === 'TODAS' || c.zonaAsignada.toString() === filtroZona;
+      const matchSearch =
+        nombreNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dniNorm.includes(searchTerm) ||
+        emailNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        telNorm.includes(searchTerm);
+
+      const matchZona = filtroZona === 'TODAS' || zonaNorm === filtroZona;
       const matchEstado =
         filtroEstado === 'TODOS' ||
-        (filtroEstado === 'ACTIVOS' && c.activo) ||
-        (filtroEstado === 'INACTIVOS' && !c.activo);
+        (filtroEstado === 'ACTIVOS' && isActivo) ||
+        (filtroEstado === 'INACTIVOS' && !isActivo);
 
       return matchSearch && matchZona && matchEstado;
     });
@@ -112,8 +147,10 @@ export const CobradoresAdmin: React.FC = () => {
 
   // KPIs
   const totalCobradores = cobradores.length;
-  const activosCount = cobradores.filter((c) => c.activo).length;
-  const zonasCubiertas = new Set(cobradores.filter((c) => c.activo).map((c) => c.zonaAsignada)).size;
+  const activosCount = cobradores.filter((c) => (c.activo ?? true)).length;
+  const zonasCubiertas = new Set(
+    cobradores.filter((c) => (c.activo ?? true)).map((c) => Number(c.zonaAsignada ?? (c as any).zona ?? 0))
+  ).size;
 
   const handleOpenCreateModal = () => {
     setEditingCobrador(null);
@@ -134,15 +171,18 @@ export const CobradoresAdmin: React.FC = () => {
 
   const handleOpenEditModal = (cobrador: Cobrador) => {
     setEditingCobrador(cobrador);
+    const nombreNorm = cobrador.nombreCompleto || `${(cobrador as any).nombre || ''} ${(cobrador as any).apellido || ''}`.trim();
+    const comisionNorm = Number(cobrador.porcentajeComision ?? (cobrador as any).comision ?? 0.1);
+
     setFormData({
-      nombreCompleto: cobrador.nombreCompleto,
-      dni: cobrador.dni,
-      telefono: cobrador.telefono,
-      email: cobrador.email,
+      nombreCompleto: nombreNorm,
+      dni: cobrador.dni || '',
+      telefono: cobrador.telefono || '',
+      email: cobrador.email || '',
       direccion: cobrador.direccion || '',
-      zonaAsignada: cobrador.zonaAsignada,
-      porcentajeComision: Math.round(cobrador.porcentajeComision * 100),
-      activo: cobrador.activo,
+      zonaAsignada: Number(cobrador.zonaAsignada ?? (cobrador as any).zona ?? 1),
+      porcentajeComision: comisionNorm > 1 ? comisionNorm : Math.round(comisionNorm * 100),
+      activo: cobrador.activo ?? true,
       observaciones: cobrador.observaciones || '',
     });
     setFormErrors({});
@@ -171,41 +211,48 @@ export const CobradoresAdmin: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    const partesNombre = formData.nombreCompleto.trim().split(' ');
+    const nombre = partesNombre[0];
+    const apellido = partesNombre.slice(1).join(' ') || partesNombre[0];
+
     const payload = {
+      nombre,
+      apellido,
       nombreCompleto: formData.nombreCompleto.trim(),
       dni: formData.dni.replace(/\D/g, ''),
       telefono: formData.telefono.trim(),
       email: formData.email.trim(),
       direccion: formData.direccion.trim() || undefined,
       zonaAsignada: Number(formData.zonaAsignada),
+      zona: Number(formData.zonaAsignada),
       porcentajeComision: Number(formData.porcentajeComision) / 100,
+      comision: Number(formData.porcentajeComision) / 100,
       activo: formData.activo,
       observaciones: formData.observaciones.trim() || undefined,
     };
 
     if (editingCobrador) {
-      updateCobrador(editingCobrador.id, payload);
+      await updateCobrador(String(editingCobrador.id), payload as any);
     } else {
-      const ok = addCobrador(payload);
-      if (!ok) return;
+      await addCobrador(payload as any);
     }
 
     setIsModalOpen(false);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (cobradorToDelete) {
-      deleteCobrador(cobradorToDelete.id);
+      await deleteCobrador(String(cobradorToDelete.id));
       setCobradorToDelete(null);
     }
   };
 
   const getZonaBadgeColor = (zona: number) => {
-    switch (zona) {
+    switch (Number(zona)) {
       case 0:
         return 'bg-purple-100 text-purple-800 border-purple-200';
       case 1:
@@ -231,14 +278,14 @@ export const CobradoresAdmin: React.FC = () => {
             <div>
               <div className="flex items-center space-x-2">
                 <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-                  Gestión de Cobradores
+                  Gestión de Cobradores BD
                 </h1>
                 <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase">
                   Módulo Administrador
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Alta, baja, modificación y control de zonas domiciliarias para los cobradores del Club El Globo
+                Alta, baja, modificación y control de zonas domiciliarias persistidas en MySQL
               </p>
             </div>
           </div>
@@ -246,7 +293,7 @@ export const CobradoresAdmin: React.FC = () => {
 
         <button
           onClick={handleOpenCreateModal}
-          className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#C53030] hover:bg-[#9B2C2C] text-white text-xs font-bold rounded-lg shadow-sm transition-all transform active:scale-95"
+          className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#C53030] hover:bg-[#9B2C2C] text-white text-xs font-bold rounded-lg shadow-sm transition-all transform active:scale-95 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Registrar Nuevo Cobrador</span>
@@ -259,7 +306,7 @@ export const CobradoresAdmin: React.FC = () => {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Nómina</p>
             <p className="text-2xl font-black text-slate-800 mt-1">{totalCobradores}</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Cobradores registrados</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Cobradores en BD</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <Users className="w-6 h-6" />
@@ -351,7 +398,7 @@ export const CobradoresAdmin: React.FC = () => {
                 setFiltroZona('TODAS');
                 setFiltroEstado('TODOS');
               }}
-              className="px-2 py-1.5 text-[11px] text-slate-500 hover:text-slate-800 underline"
+              className="px-2 py-1.5 text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
             >
               Limpiar filtros
             </button>
@@ -379,26 +426,28 @@ export const CobradoresAdmin: React.FC = () => {
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
                     <UserX className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                    <p className="font-semibold">No se encontraron cobradores con los filtros seleccionados.</p>
+                    <p className="font-semibold">No se encontraron cobradores en la BD con los filtros seleccionados.</p>
                   </td>
                 </tr>
               ) : (
                 filteredCobradores.map((cobrador) => {
-                  const zonaInfo = ZONAS_NOMBRES[cobrador.zonaAsignada] || {
-                    nombre: `Zona ${cobrador.zonaAsignada}`,
-                    descripcion: '',
-                  };
+                  const nombreNorm = cobrador.nombreCompleto || `${(cobrador as any).nombre || ''} ${(cobrador as any).apellido || ''}`.trim();
+                  const zonaNum = Number(cobrador.zonaAsignada ?? (cobrador as any).zona ?? 0);
+                  const zonaInfo = getZonaNombreLabel(zonaNum);
+                  const isActivo = cobrador.activo ?? true;
+                  const comisionRaw = Number(cobrador.porcentajeComision ?? (cobrador as any).comision ?? 0.1);
+                  const porcentajeVal = comisionRaw > 1 ? comisionRaw : Math.round(comisionRaw * 100);
 
                   return (
                     <tr key={cobrador.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-full bg-[#1A365D] text-white flex items-center justify-center font-bold text-xs">
-                            {cobrador.nombreCompleto.charAt(0)}
+                          <div className="w-8 h-8 rounded-full bg-[#1A365D] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                            {nombreNorm.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900">{cobrador.nombreCompleto}</p>
-                            <p className="text-[11px] text-slate-500 font-mono">DNI: {cobrador.dni}</p>
+                            <p className="font-bold text-slate-900">{nombreNorm}</p>
+                            <p className="text-[11px] text-slate-500 font-mono">DNI: {cobrador.dni || 'N/A'}</p>
                             {cobrador.direccion && (
                               <p className="text-[10px] text-slate-400 flex items-center space-x-1 mt-0.5">
                                 <MapPin className="w-3 h-3 shrink-0" />
@@ -413,7 +462,7 @@ export const CobradoresAdmin: React.FC = () => {
                         <div className="space-y-1">
                           <span
                             className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold border ${getZonaBadgeColor(
-                              cobrador.zonaAsignada
+                              zonaNum
                             )}`}
                           >
                             {zonaInfo.nombre}
@@ -426,20 +475,20 @@ export const CobradoresAdmin: React.FC = () => {
                         <div className="space-y-1">
                           <div className="flex items-center space-x-1.5 text-[11px]">
                             <Phone className="w-3 h-3 text-slate-400" />
-                            <span>{cobrador.telefono}</span>
+                            <span>{cobrador.telefono || 'Sin registrar'}</span>
                           </div>
                           <div className="flex items-center space-x-1.5 text-[11px] text-slate-500">
                             <Mail className="w-3 h-3 text-slate-400" />
-                            <span className="truncate max-w-[180px]">{cobrador.email}</span>
+                            <span className="truncate max-w-[180px]">{cobrador.email || 'Sin registrar'}</span>
                           </div>
                         </div>
                       </td>
 
                       <td className="py-3 px-4 text-center">
                         <span className="font-mono font-bold text-slate-800 text-xs px-2 py-1 bg-slate-100 rounded">
-                          {Math.round(cobrador.porcentajeComision * 100)}%
+                          {porcentajeVal}%
                         </span>
-                        {cobrador.zonaAsignada === 0 && (
+                        {zonaNum === 0 && (
                           <span className="block text-[10px] text-slate-400 mt-0.5">Ventanilla fija</span>
                         )}
                       </td>
@@ -447,7 +496,7 @@ export const CobradoresAdmin: React.FC = () => {
                       <td className="py-3 px-4 text-slate-500 text-[11px]">
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>{cobrador.fechaAlta}</span>
+                          <span>{cobrador.fechaAlta || (cobrador as any).fechaIngreso || 'Reciente'}</span>
                         </div>
                         {cobrador.observaciones && (
                           <p className="text-[10px] text-slate-400 truncate max-w-[160px] mt-0.5" title={cobrador.observaciones}>
@@ -458,15 +507,15 @@ export const CobradoresAdmin: React.FC = () => {
 
                       <td className="py-3 px-4 text-center">
                         <button
-                          onClick={() => toggleCobradorEstado(cobrador.id)}
-                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
-                            cobrador.activo
+                          onClick={() => toggleCobradorEstado(String(cobrador.id))}
+                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors cursor-pointer ${
+                            isActivo
                               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                               : 'bg-red-100 text-red-800 hover:bg-red-200'
                           }`}
                           title="Click para alternar estado activo/inactivo"
                         >
-                          {cobrador.activo ? (
+                          {isActivo ? (
                             <>
                               <CheckCircle className="w-3 h-3" />
                               <span>Activo</span>
@@ -484,15 +533,15 @@ export const CobradoresAdmin: React.FC = () => {
                         <div className="flex items-center justify-end space-x-1">
                           <button
                             onClick={() => handleOpenEditModal(cobrador)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
                             title="Editar datos del cobrador"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setCobradorToDelete(cobrador)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Eliminar cobrador de la nómina"
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                            title="Eliminar cobrador de la nómina BD"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -516,23 +565,23 @@ export const CobradoresAdmin: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Users className="w-5 h-5 text-white" />
                 <h3 className="font-black text-sm uppercase tracking-wider">
-                  {editingCobrador ? 'Editar Cobrador' : 'Registrar Nuevo Cobrador'}
+                  {editingCobrador ? `Editar Cobrador #${editingCobrador.id}` : 'Registrar Nuevo Cobrador en BD'}
                 </h3>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-white/70 hover:text-white p-1 rounded transition-colors"
+                className="text-white/70 hover:text-white p-1 rounded transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
               {/* Nombre Completo */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nombre y Apellido <span className="text-red-500">*</span>
+                  Nombre y Apellido Completo <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -669,7 +718,7 @@ export const CobradoresAdmin: React.FC = () => {
                   className="rounded border-slate-300 text-[#1A365D] focus:ring-[#1A365D]"
                 />
                 <label htmlFor="activoCheckbox" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                  Cobrador habilitado y en actividad
+                  Cobrador habilitado y en actividad en la BD
                 </label>
               </div>
 
@@ -680,7 +729,7 @@ export const CobradoresAdmin: React.FC = () => {
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Detalles sobre vehículo asignado, disponibilidad horaria o rendiciones..."
+                  placeholder="Detalles sobre vehículo asignado o disponibilidad horaria..."
                   value={formData.observaciones}
                   onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D]"
@@ -692,15 +741,15 @@ export const CobradoresAdmin: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                  className="px-5 py-2 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
                 >
-                  {editingCobrador ? 'Guardar Cambios' : 'Confirmar Alta'}
+                  {editingCobrador ? 'Guardar Cambios en BD' : 'Confirmar Alta en BD'}
                 </button>
               </div>
             </form>
@@ -715,24 +764,30 @@ export const CobradoresAdmin: React.FC = () => {
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-black text-slate-800 mb-1">¿Eliminar Cobrador?</h3>
+            <h3 className="text-base font-black text-slate-800 mb-1">¿Eliminar Cobrador de la BD?</h3>
             <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-              ¿Estás seguro de que deseas dar de baja a <strong>{cobradorToDelete.nombreCompleto}</strong> (Zona {cobradorToDelete.zonaAsignada})?
-              Esta acción no eliminará las rendiciones históricas ya archivadas.
+              ¿Estás seguro de que deseas eliminar a{' '}
+              <strong>
+                {cobradorToDelete.nombreCompleto ||
+                  `${(cobradorToDelete as any).nombre || ''} ${
+                    (cobradorToDelete as any).apellido || ''
+                  }`}
+              </strong>{' '}
+              (Zona {cobradorToDelete.zonaAsignada ?? (cobradorToDelete as any).zona})? La acción lo removerá de la base de datos de MySQL.
             </p>
 
             <div className="flex items-center justify-center space-x-3">
               <button
                 onClick={() => setCobradorToDelete(null)}
-                className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
               >
-                Sí, Eliminar de Nómina
+                Sí, Eliminar de la BD
               </button>
             </div>
           </div>

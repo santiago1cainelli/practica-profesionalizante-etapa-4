@@ -2,24 +2,22 @@ import React, { useState } from 'react';
 import {
   Receipt,
   Search,
-  Filter,
-  DollarSign,
-  Printer,
-  CheckCircle,
-  AlertTriangle,
-  MapPin,
-  Building,
-  CreditCard,
   PlusCircle,
-  UserCheck
 } from 'lucide-react';
 import { CuponRecibo } from '../types';
 import { useApp } from '../context/AppContext';
-import { ZONAS_NOMBRES } from '../data/mockData';
 import { ReciboModal } from './ReciboModal';
 
 export const CobranzaZones: React.FC = () => {
-  const { cupones, socios, marcarCuponPagado, reemitirCuponConMora, generarCuponMesActual, currentUser } = useApp();
+  const {
+    cupones,
+    socios,
+    cobradores,
+    marcarCuponPagado,
+    reemitirCuponConMora,
+    generarCuponMesActual,
+    currentUser,
+  } = useApp();
 
   const [selectedZone, setSelectedZone] = useState<string>('TODAS');
   const [selectedEstado, setSelectedEstado] = useState<string>('TODOS');
@@ -28,31 +26,71 @@ export const CobranzaZones: React.FC = () => {
   const [isEmitModalOpen, setIsEmitModalOpen] = useState(false);
   const [targetSocioEmit, setTargetSocioEmit] = useState('');
 
-  // Auto-filter by assigned zone if logged in as a Cobrador
+  // Auto-filtrar por zona asignada si es Cobrador
   React.useEffect(() => {
-    if (currentUser.role === 'COBRADOR' && currentUser.zonaAsignada !== undefined) {
+    if (currentUser?.role === 'COBRADOR' && currentUser?.zonaAsignada !== undefined) {
       setSelectedZone(currentUser.zonaAsignada.toString());
     }
   }, [currentUser]);
 
+  // Construcción dinámica de la información de las zonas desde la BD
+  const zonasInfoMap = [0, 1, 2, 3].map((zNum) => {
+    if (zNum === 0) {
+      return {
+        num: 0,
+        nombre: 'Zona 0 - Sede Central',
+        cobrador: 'Ventanilla Central',
+      };
+    }
+    const cobradorAsignado = cobradores.find((c) => Number(c.zona) === zNum);
+    const nombreCobrador = cobradorAsignado
+      ? cobradorAsignado.nombreCompleto || `${cobradorAsignado.nombre || ''} ${cobradorAsignado.apellido || ''}`.trim()
+      : 'Cobrador Asignado';
+
+    return {
+      num: zNum,
+      nombre: `Zona ${zNum} - ${nombreCobrador.split(' ')[0]}`,
+      cobrador: nombreCobrador,
+    };
+  });
+
+  const getNombreZona = (zonaNum: number) => {
+    const z = zonasInfoMap.find((item) => item.num === Number(zonaNum));
+    return z ? z.nombre : `Zona ${zonaNum}`;
+  };
+
   const filteredCupones = cupones.filter((c) => {
-    const matchesZone = selectedZone === 'TODAS' || c.zonaCobro.toString() === selectedZone;
+    const zonaCuponStr = String(c.zonaCobro ?? 0);
+    const matchesZone = selectedZone === 'TODAS' || zonaCuponStr === selectedZone;
     const matchesEstado = selectedEstado === 'TODOS' || c.estadoPago === selectedEstado;
     const term = searchTerm.toLowerCase();
+
+    const nombreSocioNorm = (c.socioNombre || (c as any).socio?.nombreCompleto || '').toLowerCase();
+    const dniSocioNorm = c.socioDni || (c as any).socio?.dni || '';
+    const numComprobanteNorm = (c.numeroComprobante || String(c.id)).toLowerCase();
+
     const matchesSearch =
-      c.socioNombre.toLowerCase().includes(term) ||
-      c.socioDni.includes(term) ||
-      c.numeroComprobante.toLowerCase().includes(term);
+      nombreSocioNorm.includes(term) ||
+      dniSocioNorm.includes(term) ||
+      numComprobanteNorm.includes(term);
 
     return matchesZone && matchesEstado && matchesSearch;
   });
 
-  const handleEmitirNuevo = (e: React.FormEvent) => {
+  const handleEmitirNuevo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetSocioEmit) return;
-    generarCuponMesActual(targetSocioEmit);
+    await generarCuponMesActual(targetSocioEmit);
     setIsEmitModalOpen(false);
     setTargetSocioEmit('');
+  };
+
+  const handleMarcarPagado = async (cuponId: string | number) => {
+    await marcarCuponPagado(String(cuponId), 'EFECTIVO', String(currentUser?.id || ''));
+  };
+
+  const handleReemitirMora = async (cuponId: string | number) => {
+    await reemitirCuponConMora(String(cuponId));
   };
 
   return (
@@ -63,7 +101,7 @@ export const CobranzaZones: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#1A365D] text-white">
-              Tesorería & Zonas
+              Tesorería & Zonas BD
             </span>
             <span className="text-xs text-slate-500 font-medium">Gestión de Cobranza Oficial</span>
           </div>
@@ -72,13 +110,13 @@ export const CobranzaZones: React.FC = () => {
             <span>Gestión de Cobranza por Zonas (0 a 3)</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Emisión de recibos multiconcepto (Cuota + Actividades + Casillero) y control de cobro domiciliario.
+            Emisión de recibos multiconcepto y control de cobro domiciliario registrado en la base de datos.
           </p>
         </div>
 
         <button
           onClick={() => setIsEmitModalOpen(true)}
-          className="px-4 py-2 bg-[#1A365D] hover:bg-[#2B6CB0] text-white text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center space-x-1.5"
+          className="px-4 py-2 bg-[#1A365D] hover:bg-[#2B6CB0] text-white text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center space-x-1.5 cursor-pointer"
         >
           <PlusCircle className="w-4 h-4" />
           <span>Emitir Recibo a Socio</span>
@@ -87,18 +125,20 @@ export const CobranzaZones: React.FC = () => {
 
       {/* Zones Overview Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[0, 1, 2, 3].map((zNum) => {
-          const zInfo = ZONAS_NOMBRES[zNum];
-          const zCupones = cupones.filter((c) => c.zonaCobro === zNum);
+        {zonasInfoMap.map((zInfo) => {
+          const zCupones = cupones.filter((c) => Number(c.zonaCobro) === zInfo.num);
           const zCobrados = zCupones.filter((c) => c.estadoPago === 'PAGADO');
-          const zTotalCobrado = zCobrados.reduce((acc, c) => acc + c.totalPagar, 0);
-          const isSelected = selectedZone === zNum.toString();
+          const zTotalCobrado = zCobrados.reduce(
+            (acc, c) => acc + Number(c.totalPagar || (c as any).montoTotal || (c as any).monto || 0),
+            0
+          );
+          const isSelected = selectedZone === zInfo.num.toString();
 
           return (
             <button
-              key={zNum}
-              onClick={() => setSelectedZone(isSelected ? 'TODAS' : zNum.toString())}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
+              key={zInfo.num}
+              onClick={() => setSelectedZone(isSelected ? 'TODAS' : zInfo.num.toString())}
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                 isSelected
                   ? 'border-[#2B6CB0] bg-blue-50/70 ring-2 ring-blue-500/20 shadow-xs'
                   : 'border-slate-200 bg-white hover:border-slate-300'
@@ -110,7 +150,7 @@ export const CobranzaZones: React.FC = () => {
                   {zCupones.length} cupones
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 truncate mb-2">{zInfo.cobradorDefault}</p>
+              <p className="text-[11px] text-slate-500 truncate mb-2">{zInfo.cobrador}</p>
               <div className="text-xs text-slate-800 flex justify-between items-center pt-1.5 border-t border-slate-100">
                 <span className="text-slate-500 text-[10px]">Cobrado:</span>
                 <strong className="text-emerald-700 font-bold">${zTotalCobrado.toLocaleString('es-AR')}</strong>
@@ -141,9 +181,9 @@ export const CobranzaZones: React.FC = () => {
           >
             <option value="TODAS">Todas las Zonas (0 a 3)</option>
             <option value="0">Zona 0 - Sede Central</option>
-            <option value="1">Zona 1 - Centro & Barrio Norte</option>
-            <option value="2">Zona 2 - Sur & Estación</option>
-            <option value="3">Zona 3 - Este & Costanera</option>
+            <option value="1">Zona 1</option>
+            <option value="2">Zona 2</option>
+            <option value="3">Zona 3</option>
           </select>
         </div>
 
@@ -177,82 +217,94 @@ export const CobranzaZones: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredCupones.map((cupon) => {
-                const isPagado = cupon.estadoPago === 'PAGADO';
-                const isVencido = cupon.estadoPago === 'VENCIDO';
-                const zona = ZONAS_NOMBRES[cupon.zonaCobro];
+              {filteredCupones.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                    No se encontraron cupones de pago con los filtros seleccionados.
+                  </td>
+                </tr>
+              ) : (
+                filteredCupones.map((cupon) => {
+                  const isPagado = cupon.estadoPago === 'PAGADO';
+                  const isVencido = cupon.estadoPago === 'VENCIDO';
+                  const totalPagarNorm = Number(cupon.totalPagar || (cupon as any).montoTotal || (cupon as any).monto || 0);
+                  const nombreSocioNorm = cupon.socioNombre || (cupon as any).socio?.nombreCompleto || 'Socio';
+                  const dniSocioNorm = cupon.socioDni || (cupon as any).socio?.dni || 'N/A';
+                  const numComprobanteNorm = cupon.numeroComprobante || `REC-${cupon.id}`;
+                  const recargoMora = Number(cupon.montoRecargoMora || 0);
 
-                return (
-                  <tr key={cupon.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-3.5 font-mono font-bold text-slate-800">
-                      {cupon.numeroComprobante}
-                    </td>
-                    <td className="p-3.5">
-                      <strong className="text-slate-900 block">{cupon.socioNombre}</strong>
-                      <span className="text-[11px] text-slate-500 font-mono">DNI: {cupon.socioDni}</span>
-                    </td>
-                    <td className="p-3.5">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
-                        {zona ? zona.nombre.split('-')[0] : `Zona ${cupon.zonaCobro}`}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-slate-600">
-                      {cupon.periodoMes}
-                      {cupon.montoRecargoMora > 0 && (
-                        <span className="block text-[10px] text-red-600 font-bold">+5% Mora</span>
-                      )}
-                    </td>
-                    <td className="p-3.5 text-right font-mono font-black text-sm text-slate-900">
-                      ${cupon.totalPagar.toLocaleString('es-AR')}
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          isPagado
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : isVencido
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {cupon.estadoPago}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right space-x-1.5">
-                      <button
-                        onClick={() => setViewingCupon(cupon)}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-semibold text-xs transition-colors inline-flex items-center space-x-1"
-                        title="Ver e Imprimir Comprobante Oficial"
-                      >
-                        <Receipt className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Ver Recibo</span>
-                      </button>
+                  return (
+                    <tr key={cupon.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3.5 font-mono font-bold text-slate-800">
+                        {numComprobanteNorm}
+                      </td>
+                      <td className="p-3.5">
+                        <strong className="text-slate-900 block">{nombreSocioNorm}</strong>
+                        <span className="text-[11px] text-slate-500 font-mono">DNI: {dniSocioNorm}</span>
+                      </td>
+                      <td className="p-3.5">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
+                          {getNombreZona(Number(cupon.zonaCobro)).split('-')[0]}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-slate-600">
+                        {cupon.periodoMes || (cupon as any).periodo || 'Período Actual'}
+                        {recargoMora > 0 && (
+                          <span className="block text-[10px] text-red-600 font-bold">+5% Mora</span>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-right font-mono font-black text-sm text-slate-900">
+                        ${totalPagarNorm.toLocaleString('es-AR')}
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <span
+                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            isPagado
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : isVencido
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {cupon.estadoPago}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right space-x-1.5">
+                        <button
+                          onClick={() => setViewingCupon(cupon)}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-semibold text-xs transition-colors inline-flex items-center space-x-1 cursor-pointer"
+                          title="Ver e Imprimir Comprobante Oficial"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Ver Recibo</span>
+                        </button>
 
-                      {!isPagado && (
-                        <>
-                          <button
-                            onClick={() => marcarCuponPagado(cupon.id, 'EFECTIVO', currentUser.id)}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold text-xs transition-colors"
-                            title="Cobrar en Efectivo"
-                          >
-                            Cobrar
-                          </button>
-
-                          {cupon.montoRecargoMora === 0 && (
+                        {!isPagado && (
+                          <>
                             <button
-                              onClick={() => reemitirCuponConMora(cupon.id)}
-                              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-semibold text-xs transition-colors"
-                              title="Reemitir con 5% Recargo por Mora"
+                              onClick={() => handleMarcarPagado(cupon.id)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold text-xs transition-colors cursor-pointer"
+                              title="Cobrar en Efectivo"
                             >
-                              +5% Mora
+                              Cobrar
                             </button>
-                          )}
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+
+                            {recargoMora === 0 && (
+                              <button
+                                onClick={() => handleReemitirMora(cupon.id)}
+                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-semibold text-xs transition-colors cursor-pointer"
+                                title="Reemitir con 5% Recargo por Mora"
+                              >
+                                +5% Mora
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -263,8 +315,8 @@ export const CobranzaZones: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="relative w-full max-w-md bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
             <div className="flex items-center justify-between px-6 py-3.5 bg-[#1A365D] text-white border-b-2 border-[#C53030]">
-              <span className="font-bold text-sm tracking-wide">EMITIR NUEVO RECIBO DE CUOTA</span>
-              <button onClick={() => setIsEmitModalOpen(false)} className="p-1 text-white/80 hover:text-white rounded">
+              <span className="font-bold text-sm tracking-wide">EMITIR NUEVO RECIBO DE CUOTA EN BD</span>
+              <button onClick={() => setIsEmitModalOpen(false)} className="p-1 text-white/80 hover:text-white rounded cursor-pointer">
                 &times;
               </button>
             </div>
@@ -281,22 +333,25 @@ export const CobranzaZones: React.FC = () => {
                   required
                 >
                   <option value="">-- Seleccionar socio --</option>
-                  {socios.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombreCompleto} (DNI: {s.dni}) • Cat: {s.categoria}
-                    </option>
-                  ))}
+                  {socios.map((s) => {
+                    const nombreSocio = s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim();
+                    return (
+                      <option key={s.id} value={String(s.id)}>
+                        {nombreSocio} (DNI: {s.dni}) • Cat: {s.categoria}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
               <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 space-y-1">
-                <p>El sistema calculará automáticamente:</p>
+                <p>El backend calculará automáticamente:</p>
                 <ul className="list-disc list-inside space-y-0.5 text-[11px]">
                   <li>Cuota Social según categoría (Cadete, Activo, Vitalicio).</li>
                   <li>Aranceles de actividades deportivas en las que esté inscripto.</li>
-                  <li>Alquiler de casillero ($3.500) si tiene uno asignado.</li>
+                  <li>Alquiler de casillero si tiene uno asignado.</li>
                   <li>Descuento por hijos del Plan Familiar.</li>
-                  <li>5% recargo de mora si adeuda períodos anteriores.</li>
+                  <li>Recargo de mora si adeuda períodos anteriores.</li>
                 </ul>
               </div>
 
@@ -304,16 +359,16 @@ export const CobranzaZones: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEmitModalOpen(false)}
-                  className="px-4 py-2 bg-slate-200 text-slate-700 rounded text-xs font-semibold"
+                  className="px-4 py-2 bg-slate-200 text-slate-700 rounded text-xs font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={!targetSocioEmit}
-                  className="px-4 py-2 bg-[#1A365D] hover:bg-[#2B6CB0] text-white rounded text-xs font-bold transition-colors"
+                  className="px-4 py-2 bg-[#1A365D] hover:bg-[#2B6CB0] text-white rounded text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  Generar Cupón Oficial
+                  Generar Cupón Oficial BD
                 </button>
               </div>
             </form>

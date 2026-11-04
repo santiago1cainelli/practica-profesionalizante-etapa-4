@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Printer, Download, FileText, CheckCircle, ShieldAlert } from 'lucide-react';
+import { X, Printer, FileText, ShieldAlert } from 'lucide-react';
 
 interface PlanDocumentModalProps {
   isOpen: boolean;
@@ -17,7 +17,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-xs">
       <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
         
-        {/* Modal Top Bar */}
+        {/* Barra superior del Modal */}
         <div className="flex items-center justify-between px-6 py-3.5 bg-[#1A365D] text-white border-b-4 border-[#C53030]">
           <div className="flex items-center space-x-3">
             <FileText className="w-5 h-5 text-red-400" />
@@ -29,7 +29,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
           <div className="flex items-center space-x-2">
             <button
               onClick={handlePrint}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 rounded text-white transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 rounded text-white transition-colors cursor-pointer"
               title="Imprimir o Guardar como PDF"
             >
               <Printer className="w-4 h-4" />
@@ -44,10 +44,10 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
           </div>
         </div>
 
-        {/* Document Content */}
+        {/* Contenido del Documento */}
         <div className="p-8 overflow-y-auto font-sans text-slate-800 text-sm leading-relaxed bg-white print:p-0">
           
-          {/* Header Banner Document Replica */}
+          {/* Banner del Documento */}
           <div className="bg-[#1A365D] text-white p-6 rounded-md mb-6 border-b-4 border-[#C53030]">
             <h1 className="text-2xl font-bold tracking-tight text-white mb-1">
               PLAN DE IMPLEMENTACIÓN FRONTEND REACT
@@ -57,7 +57,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
             </p>
           </div>
 
-          {/* Meta Grid */}
+          {/* Grilla Metadatos */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 bg-slate-50 border border-slate-200 rounded-md mb-6 text-xs">
             <div>
               <span className="font-bold text-[#2B6CB0] block">PROYECTO:</span>
@@ -77,7 +77,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
             </div>
             <div>
               <span className="font-bold text-[#2B6CB0] block">BACKEND API:</span>
-              <span className="text-slate-700">NestJS / TypeORM / MySQL</span>
+              <span className="text-slate-700">NestJS / TypeORM / MySQL (Producción)</span>
             </div>
             <div>
               <span className="font-bold text-[#2B6CB0] block">DURACIÓN ESTIMADA:</span>
@@ -85,34 +85,33 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
             </div>
           </div>
 
-          {/* Section 1 */}
+          {/* Sección 1 */}
           <div className="mb-6">
             <h2 className="text-base font-bold text-[#1A365D] border-b-2 border-slate-200 pb-1.5 mb-2">
               1. Resumen Ejecutivo y Objetivos
             </h2>
             <p className="text-slate-700 text-xs sm:text-sm text-justify">
-              El presente documento establece la hoja de ruta técnica y organizativa para la implementación del cliente frontend en <strong>React (TypeScript)</strong> para el Club Social y Deportivo "El Globo". El sistema se conecta directamente con la arquitectura REST desarrollada en <strong>NestJS</strong>, garantizando el cumplimiento de los módulos funcionales y no funcionales (RBAC, performance, usabilidad y arquitectura multiplataforma).
+              El presente documento establece la hoja de ruta técnica y organizativa para la implementación del cliente frontend en <strong>React (TypeScript)</strong> para el Club Social y Deportivo "El Globo". El sistema se conecta directamente con la API RESTful desarrollada en <strong>NestJS</strong> y MySQL, garantizando el consumo de datos reales sin datos de prueba en memoria.
             </p>
           </div>
 
-          {/* Section 2 */}
+          {/* Sección 2 */}
           <div className="mb-6">
             <h2 className="text-base font-bold text-[#1A365D] border-b-2 border-slate-200 pb-1.5 mb-2">
               2. Arquitectura del Frontend
             </h2>
             <p className="text-slate-700 text-xs sm:text-sm mb-2">
-              Se implementa una arquitectura moderna tipo Single Page Application (SPA) basada en componentes modulares y gestión centralizada de estado mediante React Context + Hooks.
+              Se implementa una arquitectura moderna de Aplicación de Página Única (SPA) conectada directamente al backend NestJS mediante Axios.
             </p>
             <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm text-slate-700 pl-2">
               <li><strong>Bundler & Runtime:</strong> Vite + React 19 / TypeScript.</li>
-              <li><strong>Estilos & UI:</strong> Tailwind CSS + Lucide Icons para componentes responsivos e intuitivos.</li>
-              <li><strong>Gestión de Estado:</strong> React Context API (Auth, Notificaciones, Estado Global de Cupones/Socios).</li>
-              <li><strong>Cliente HTTP:</strong> Axios con interceptores para inyección automática del Header <code>Authorization: Bearer &lt;token&gt;</code> y manejo centralizado de errores 401/403.</li>
-              <li><strong>Formularios y Validaciones:</strong> React Hook Form + Zod para validación estricta en el cliente (DNI, CUIT, Emails).</li>
+              <li><strong>Estilos & UI:</strong> Tailwind CSS + Lucide Icons para una interfaz moderna y responsiva.</li>
+              <li><strong>Gestión de Estado:</strong> React Context API alimentado exclusivamente desde los endpoints HTTP del servidor.</li>
+              <li><strong>Cliente HTTP:</strong> Instancia de Axios con interceptores que inyectan el token JWT (<code>Authorization: Bearer &lt;token&gt;</code>) en cada petición.</li>
             </ul>
           </div>
 
-          {/* Section 3: Cronograma */}
+          {/* Sección 3: Cronograma */}
           <div className="mb-6 overflow-x-auto">
             <h2 className="text-base font-bold text-[#1A365D] border-b-2 border-slate-200 pb-1.5 mb-3">
               3. Cronograma de Implementación por Fases (6 Semanas)
@@ -128,70 +127,50 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
               </thead>
               <tbody className="divide-y divide-slate-200">
                 <tr className="hover:bg-slate-50">
-                  <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 1: Setup y Autenticación</td>
+                  <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 1: Setup y Autenticación API</td>
                   <td className="p-2.5 border border-slate-300 text-slate-600">Semana 1</td>
                   <td className="p-2.5 border border-slate-300 text-slate-700">
-                    • Configuración inicial del repositorio React + Vite.<br />
-                    • Cliente Axios con Interceptores JWT.<br />
-                    • Pantalla de Login y Guardia de Rutas por Rol (RBAC).
+                    • Integración del cliente Axios con la API NestJS.<br />
+                    • Autenticación basada en tokens JWT.<br />
+                    • Protección de rutas mediante Guardias (RBAC).
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Autenticación y Roles RBAC</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Autenticación y Sesión</td>
                 </tr>
                 <tr className="bg-slate-50/70 hover:bg-slate-50">
-                  <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 2: Padrón y Categorización</td>
+                  <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 2: Padrón y Categorización BD</td>
                   <td className="p-2.5 border border-slate-300 text-slate-600">Semana 2</td>
                   <td className="p-2.5 border border-slate-300 text-slate-700">
-                    • Módulo ABMC de Socios (Alta con DNI único).<br />
-                    • Cálculo automático de categorías (Cadete &lt;18, Activo &ge;18, Vitalicio &gt;30a).<br />
-                    • Gestión del Plan Grupo Familiar y vinculación cónyuge/hijos.
+                    • ABMC de Socios persitiendo en la BD de MySQL.<br />
+                    • Categorización automática (Cadete, Activo, Vitalicio).<br />
+                    • Plan Grupo Familiar conectado a la base de datos.
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Padrón, Categorías y Plan Familiar</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Padrón de Socios BD</td>
                 </tr>
                 <tr className="hover:bg-slate-50">
                   <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 3: Infraestructura y Deportes</td>
                   <td className="p-2.5 border border-slate-300 text-slate-600">Semana 3</td>
                   <td className="p-2.5 border border-slate-300 text-slate-700">
-                    • Vitrina pública de Actividades y Filtros.<br />
-                    • Panel de Asistencia e Inscripción para Instructores.<br />
-                    • Grilla interactiva de 100 Casilleros con vinculación única.
+                    • Carga de Actividades y Disciplinas desde la API.<br />
+                    • Control de Asistencias e Inscripciones.<br />
+                    • Estado en tiempo real de los 100 casilleros del club.
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Actividades Deportivas y Casilleros</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Actividades y Casilleros</td>
                 </tr>
                 <tr className="bg-slate-50/70 hover:bg-slate-50">
-                  <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 4: Cobranza, Zonas y Recibos</td>
+                  <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 4: Cobranza, Zonas y Rendiciones</td>
                   <td className="p-2.5 border border-slate-300 text-slate-600">Semana 4</td>
                   <td className="p-2.5 border border-slate-300 text-slate-700">
-                    • Emisión y Cálculo detallado de Recibos (Lógica multiconcepto).<br />
-                    • Gestión de Zonas de Cobro (Zona 0 a Zona 3).<br />
-                    • Módulo de Liquidación Semanal (10% Comisión Cobradores).
+                    • Emisión de comprobantes desde el servidor.<br />
+                    • Asignación de Zonas de Cobro y Cobradores.<br />
+                    • Liquidaciones semanales con 10% de comisión.
                   </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Zonas de Cobro, Recibos y Rendición</td>
-                </tr>
-                <tr className="hover:bg-slate-50">
-                  <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 5: Morosidad y Automatismos</td>
-                  <td className="p-2.5 border border-slate-300 text-slate-600">Semana 5</td>
-                  <td className="p-2.5 border border-slate-300 text-slate-700">
-                    • Panel de Control de Morosidad (Suspensión automática a los 2 meses).<br />
-                    • Reemisión de cupones con 5% de recargo.<br />
-                    • Generación de reportes y exportación en PDF.
-                  </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Control de Morosidad y Recargos</td>
-                </tr>
-                <tr className="bg-slate-50/70 hover:bg-slate-50">
-                  <td className="p-2.5 font-bold text-slate-800 border border-slate-300">Fase 6: Testing, QA y Despliegue</td>
-                  <td className="p-2.5 border border-slate-300 text-slate-600">Semana 6</td>
-                  <td className="p-2.5 border border-slate-300 text-slate-700">
-                    • Integración E2E con el Backend NestJS.<br />
-                    • Pruebas de carga con 1500 socios simultáneos.<br />
-                    • Despliegue en producción (Vercel / Nginx / Cloud Run).
-                  </td>
-                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Multiplataforma y Control de Calidad</td>
+                  <td className="p-2.5 border border-slate-300 font-medium text-blue-800">Cobranza y Tesorería</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          {/* Section 4: Matriz RBAC */}
+          {/* Sección 4: Matriz RBAC */}
           <div className="mb-6">
             <h2 className="text-base font-bold text-[#1A365D] border-b-2 border-slate-200 pb-1.5 mb-3">
               4. Matriz de Componentes Frontend y Control de Acceso (RBAC)
@@ -207,30 +186,22 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
               <tbody>
                 <tr>
                   <td className="p-2 border border-slate-300 font-bold">Panel de Socios</td>
-                  <td className="p-2 border border-slate-300 font-mono text-[11px] text-slate-600">SocioList, SocioFormModal, GrupoFamiliarModal</td>
+                  <td className="p-2 border border-slate-300 font-mono text-[11px] text-slate-600">SocioList, SocioFormModal, FamiliarModal</td>
                   <td className="p-2 border border-slate-300">
                     <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold text-white bg-[#805AD5]">ADMIN</span>
                   </td>
                 </tr>
                 <tr className="bg-slate-50">
                   <td className="p-2 border border-slate-300 font-bold">Gestión de Cobranza</td>
-                  <td className="p-2 border border-slate-300 font-mono text-[11px] text-slate-600">CouponZoneGrid, RendicionForm, ReciboViewer</td>
+                  <td className="p-2 border border-slate-300 font-mono text-[11px] text-slate-600">RendicionCobrador, ReciboModal</td>
                   <td className="p-2 border border-slate-300 space-x-1">
                     <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold text-white bg-[#805AD5]">ADMIN</span>
                     <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold text-white bg-[#DD6B20]">COBRADOR</span>
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-2 border border-slate-300 font-bold">Asistencia e Instructores</td>
-                  <td className="p-2 border border-slate-300 font-mono text-[11px] text-slate-600">ActividadesShowcase, AsistenciaTracker</td>
-                  <td className="p-2 border border-slate-300 space-x-1">
-                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold text-white bg-[#805AD5]">ADMIN</span>
-                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold text-white bg-[#319795]">INSTRUCTOR</span>
-                  </td>
-                </tr>
-                <tr className="bg-slate-50">
                   <td className="p-2 border border-slate-300 font-bold">Portal del Socio</td>
-                  <td className="p-2 border border-slate-300 font-mono text-[11px] text-slate-600">MiEstadoCuenta, MisActividades, SolicitudCasillero</td>
+                  <td className="p-2 border border-slate-300 font-mono text-[11px] text-slate-600">SocioPortal, ReciboModal</td>
                   <td className="p-2 border border-slate-300">
                     <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold text-white bg-[#3182CE]">SOCIO</span>
                   </td>
@@ -245,21 +216,9 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
                 <span>Regla de Negocio - Control de Morosidad:</span>
               </div>
               <p className="leading-normal">
-                Si el socio acumula 2 meses impagos consecutivos, el frontend bloqueará automáticamente las opciones de inscripción a actividades, alquiler de casilleros y mostrará la alerta de suspensión temporal hasta que se regularice la deuda mediante el cobrador de zona o en la sede (Zona 0).
+                Si la API reporta que el socio acumula meses impagos, el sistema bloqueará las opciones de inscripción a actividades, alquiler de casilleros y mostrará la alerta de suspensión temporal hasta que se regularice la deuda mediante el cobrador de zona o en la sede (Zona 0).
               </p>
             </div>
-          </div>
-
-          {/* Section 5: Estrategia de Pruebas */}
-          <div>
-            <h2 className="text-base font-bold text-[#1A365D] border-b-2 border-slate-200 pb-1.5 mb-2">
-              5. Estrategia de Pruebas y Despliegue
-            </h2>
-            <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm text-slate-700 pl-2">
-              <li><strong>Pruebas Unitarias:</strong> Vitest + React Testing Library para validar el cálculo de recibos, recargos del 5% y comisiones del 10%.</li>
-              <li><strong>Pruebas de Integración:</strong> Validación de flujos completos de login, emisión de recibo y rendición semanal con Mock Service Worker (MSW) y API real.</li>
-              <li><strong>Despliegue Continuo (CI/CD):</strong> Pipeline en GitHub Actions ejecutando linter, build de TypeScript y deploy automatizado.</li>
-            </ul>
           </div>
         </div>
 
@@ -268,7 +227,7 @@ export const PlanDocumentModal: React.FC<PlanDocumentModalProps> = ({ isOpen, on
           <span>Club Social y Deportivo El Globo • Caccia, Cainelli, Lapenta, Olmos</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-[#1A365D] text-white rounded font-medium hover:bg-[#2B6CB0] transition-colors"
+            className="px-4 py-1.5 bg-[#1A365D] text-white rounded font-medium hover:bg-[#2B6CB0] transition-colors cursor-pointer"
           >
             Cerrar Vista
           </button>

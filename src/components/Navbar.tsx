@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Home,
   Users,
-  KeyRound,
   Grid,
   Trophy,
   ClipboardCheck,
@@ -11,7 +10,6 @@ import {
   AlertOctagon,
   UserCheck,
   ShieldCheck,
-  LogOut,
   ChevronDown,
   LayoutDashboard,
   CheckCircle2,
@@ -26,7 +24,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useApp, ActiveTab } from '../context/AppContext';
-import { MOCK_USERS, CUOTA_VALORES } from '../data/mockData';
 import { UserRole } from '../types';
 
 interface NavbarProps {
@@ -36,26 +33,33 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = () => {
   const {
     currentUser,
+    usersList,
     quickSwitchUser,
     activeTab,
     setActiveTab,
     toast,
     closeToast,
     socios,
-    cupones,
     rendiciones,
     isApiConnected,
     isSyncing,
     syncWithDatabase,
   } = useApp();
+  
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // Socio info when user is a registered member
-  const socioActual = currentUser.socioId ? socios.find((s) => s.id === currentUser.socioId) : null;
-  const cuotaValor = socioActual ? CUOTA_VALORES[socioActual.categoria] : null;
+  // Rol del usuario con fallback seguro si no hay sesión cargada todavía
+  const currentRole: UserRole = currentUser?.role || 'PUBLICO';
 
-  // Counts for notification badges
-  const morososCount = socios.filter((s) => s.estado === 'SUSPENDIDO_MOROSIDAD').length;
+  // Socio asociado si el usuario en sesión es un socio registrado en la BD
+  const socioActual = currentUser?.socioId
+    ? socios.find((s) => String(s.id) === String(currentUser.socioId))
+    : null;
+
+  const cuotaValor = socioActual ? Number((socioActual as any).montoCuotaSocial || 0) : null;
+
+  // Contadores para insignias de notificación
+  const morososCount = socios.filter((s) => s.estado === 'SUSPENDIDO' || s.estado === 'MOROSO').length;
   const rendicionesPendientes = rendiciones.filter((r) => r.estado === 'PENDIENTE_SECRETARIA').length;
 
   const roleBadges: Record<UserRole, { bg: string; text: string; label: string }> = {
@@ -81,21 +85,21 @@ export const Navbar: React.FC<NavbarProps> = () => {
     { id: 'portal_socio', label: 'Mi Portal Socio', icon: UserCheck, roles: ['SOCIO', 'ADMIN'] },
   ];
 
-  const visibleNavItems = navItems.filter((item) => item.roles.includes(currentUser.role));
+  const visibleNavItems = navItems.filter((item) => item.roles.includes(currentRole));
+  const nombreUsuarioDisplay = currentUser?.nombreCompleto || currentUser?.email || 'Usuario';
 
   return (
     <header className="sticky top-0 z-40 bg-[#1A365D] text-white shadow-md border-b-4 border-[#C53030]">
-      {/* Top Banner with Brand & Quick Switcher */}
+      {/* Banner Superior con Identidad y Selector de Usuario */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
-          {/* Logo & Club Name */}
+          {/* Logo del Club */}
           <div
             className="flex items-center space-x-3 cursor-pointer"
-            onClick={() => setActiveTab(currentUser.role === 'PUBLICO' ? 'inicio' : currentUser.role === 'SOCIO' ? 'portal_socio' : 'dashboard')}
+            onClick={() => setActiveTab(currentRole === 'PUBLICO' ? 'inicio' : currentRole === 'SOCIO' ? 'portal_socio' : 'dashboard')}
           >
             <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1.5 shadow-md border-2 border-[#C53030]">
-              {/* Balloon / El Globo Icon */}
               <div className="relative flex items-center justify-center">
                 <div className="w-6 h-6 rounded-full bg-[#C53030] flex items-center justify-center text-white text-xs font-black">
                   G
@@ -122,12 +126,12 @@ export const Navbar: React.FC<NavbarProps> = () => {
             </div>
           </div>
 
-          {/* Right actions: Plan Doc + Persona Switcher */}
+          {/* Acciones e Indicador de BD */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            {currentUser.role === 'PUBLICO' && (
+            {currentRole === 'PUBLICO' && (
               <button
                 onClick={() => setShowUserMenu(true)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold bg-[#C53030] hover:bg-[#9B2C2C] rounded-md text-white transition-colors shadow-xs"
+                className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold bg-[#C53030] hover:bg-[#9B2C2C] rounded-md text-white transition-colors shadow-xs cursor-pointer"
                 title="Acceder al sistema con usuario interno o socio"
               >
                 <LogIn className="w-3.5 h-3.5" />
@@ -135,8 +139,8 @@ export const Navbar: React.FC<NavbarProps> = () => {
               </button>
             )}
 
-            {/* Cuota Social Badge when logged in as Socio */}
-            {currentUser.role === 'SOCIO' && cuotaValor !== null && (
+            {/* Insignia Cuota Social si es Socio */}
+            {currentRole === 'SOCIO' && cuotaValor !== null && (
               <div
                 onClick={() => setActiveTab('portal_socio')}
                 className="cursor-pointer hidden sm:flex items-center space-x-1.5 px-2.5 py-1 bg-emerald-950/70 hover:bg-emerald-900/80 rounded-md border border-emerald-500/50 text-xs transition-colors shadow-xs"
@@ -149,84 +153,87 @@ export const Navbar: React.FC<NavbarProps> = () => {
               </div>
             )}
 
-            {/* Database & API Status Badge */}
+            {/* Estado de Conexión a la BD */}
             <div
               className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-md border text-xs transition-colors shadow-xs ${
                 isApiConnected
                   ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
                   : 'bg-amber-950/60 border-amber-500/40 text-amber-200'
               }`}
-              title={isApiConnected ? 'Base de datos persistente y API REST conectada (/data/database.json)' : 'Conectando a API y base de datos...'}
+              title={isApiConnected ? 'Base de datos MySQL conectada a través de NestJS' : 'Conectando a la API backend...'}
             >
               <Database className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-semibold text-[11px]">{isApiConnected ? 'BD Activa' : 'Conectando'}</span>
               <button
                 onClick={() => syncWithDatabase()}
                 disabled={isSyncing}
-                className="hover:text-white p-0.5 rounded transition-transform"
-                title="Sincronizar con API y Base de Datos"
+                className="hover:text-white p-0.5 rounded transition-transform cursor-pointer"
+                title="Sincronizar datos con la BD"
               >
                 <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-emerald-300' : 'text-slate-300'}`} />
               </button>
             </div>
 
-            {/* User Switcher Dropdown */}
+            {/* Desplegable de Usuarios de la BD */}
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-2 px-3 py-1.5 bg-[#2B6CB0]/50 hover:bg-[#2B6CB0] rounded-md border border-blue-400/30 text-xs text-white transition-all shadow-xs"
+                className="flex items-center space-x-2 px-3 py-1.5 bg-[#2B6CB0]/50 hover:bg-[#2B6CB0] rounded-md border border-blue-400/30 text-xs text-white transition-all shadow-xs cursor-pointer"
               >
                 <div className="w-6 h-6 rounded-full bg-white text-[#1A365D] font-bold flex items-center justify-center text-xs">
-                  {currentUser.nombreCompleto.charAt(0)}
+                  {nombreUsuarioDisplay.charAt(0).toUpperCase()}
                 </div>
                 <div className="text-left hidden sm:block">
-                  <div className="font-semibold leading-tight text-white">{currentUser.nombreCompleto}</div>
+                  <div className="font-semibold leading-tight text-white">{nombreUsuarioDisplay}</div>
                   <div className="text-[10px] text-blue-200 uppercase tracking-wider flex items-center space-x-1">
-                    <span>{roleBadges[currentUser.role]?.label || currentUser.role}</span>
-                    {currentUser.role === 'SOCIO' && cuotaValor !== null && (
-                      <span className="text-emerald-300 font-mono font-bold">
-                        • {cuotaValor > 0 ? `$${cuotaValor.toLocaleString('es-AR')}` : '$0'}
-                      </span>
-                    )}
+                    <span>{roleBadges[currentRole]?.label || currentRole}</span>
                   </div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-blue-200" />
               </button>
 
-              {/* User Dropdown Menu */}
+              {/* Menú desplegable */}
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-2xl py-2 z-50 border border-slate-200 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="px-4 py-2 border-b border-slate-100 bg-slate-50">
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Simulador de Roles (RBAC)</p>
-                    <p className="text-xs text-slate-600">Cambia de usuario para validar vistas y permisos según el Plan de Implementación:</p>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Usuarios Registrados en BD</p>
+                    <p className="text-xs text-slate-600">Seleccione un usuario para cambiar la sesión activa:</p>
                   </div>
 
-                  <div className="py-1">
-                    {MOCK_USERS.map((user) => {
-                      const isCurrent = user.id === currentUser.id;
-                      const badge = roleBadges[user.role];
-                      return (
-                        <button
-                          key={user.id}
-                          onClick={() => {
-                            quickSwitchUser(user.id);
-                            setShowUserMenu(false);
-                          }}
-                          className={`w-full text-left px-4 py-2.5 flex items-start space-x-3 hover:bg-slate-100 transition-colors ${
-                            isCurrent ? 'bg-blue-50/80 font-medium' : ''
-                          }`}
-                        >
-                          <div className={`mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold ${badge.bg} text-white`}>
-                            {user.role}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-slate-800 truncate">{user.nombreCompleto}</p>
-                            <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
-                          </div>
-                          {isCurrent && <ShieldCheck className="w-4 h-4 text-blue-600 mt-1" />}
-                        </button>
-                      );
-                    })}
+                  <div className="py-1 max-h-60 overflow-y-auto">
+                    {usersList.length === 0 ? (
+                      <p className="px-4 py-3 text-xs text-slate-400 italic text-center">
+                        Cargando usuarios desde la base de datos...
+                      </p>
+                    ) : (
+                      usersList.map((u) => {
+                        const isCurrent = String(u.id) === String(currentUser?.id);
+                        const badge = roleBadges[u.role] || roleBadges.PUBLICO;
+                        const nombreUser = u.nombreCompleto || u.email;
+
+                        return (
+                          <button
+                            key={u.id}
+                            onClick={() => {
+                              quickSwitchUser(String(u.id));
+                              setShowUserMenu(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 flex items-start space-x-3 hover:bg-slate-100 transition-colors cursor-pointer ${
+                              isCurrent ? 'bg-blue-50/80 font-medium' : ''
+                            }`}
+                          >
+                            <div className={`mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold ${badge.bg} text-white`}>
+                              {u.role}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-800 truncate">{nombreUser}</p>
+                              <p className="text-[11px] text-slate-500 truncate">{u.email}</p>
+                            </div>
+                            {isCurrent && <ShieldCheck className="w-4 h-4 text-blue-600 mt-1 shrink-0" />}
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               )}
@@ -235,7 +242,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
         </div>
       </div>
 
-      {/* Navigation Bar */}
+      {/* Barra de Navegación por Módulos */}
       <nav className="bg-[#142847] border-t border-blue-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-1 overflow-x-auto py-1 scrollbar-none">
@@ -246,7 +253,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center space-x-2 px-3.5 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-colors relative ${
+                  className={`flex items-center space-x-2 px-3.5 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-colors relative cursor-pointer ${
                     isActive
                       ? 'bg-[#2B6CB0] text-white font-bold shadow-xs'
                       : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
@@ -254,11 +261,6 @@ export const Navbar: React.FC<NavbarProps> = () => {
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
-                  {item.id === 'portal_socio' && currentUser.role === 'SOCIO' && cuotaValor !== null && (
-                    <span className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-emerald-500 text-white shadow-xs">
-                      {cuotaValor > 0 ? `$${cuotaValor.toLocaleString('es-AR')}` : 'Exento'}
-                    </span>
-                  )}
                   {item.badge !== undefined && item.badge > 0 && (
                     <span className="ml-1.5 px-1.5 py-0.2 bg-red-600 text-white rounded-full text-[10px] font-black">
                       {item.badge}
@@ -271,7 +273,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
         </div>
       </nav>
 
-      {/* Toast Notification Container */}
+      {/* Notificaciones Toast */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 max-w-md w-full animate-in slide-in-from-bottom-5 duration-200">
           <div
@@ -292,7 +294,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
               {toast.description && <p className="leading-snug opacity-90">{toast.description}</p>}
             </div>
 
-            <button onClick={closeToast} className="text-white/60 hover:text-white p-1">
+            <button onClick={closeToast} className="text-white/60 hover:text-white p-1 cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>

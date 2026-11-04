@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, UserCheck, Shield, AlertCircle } from 'lucide-react';
+import { X, UserCheck, AlertCircle } from 'lucide-react';
 import { Socio } from '../types';
 import { useApp } from '../context/AppContext';
-import { ZONAS_NOMBRES } from '../data/mockData';
 
 interface SocioFormModalProps {
   socioToEdit: Socio | null;
@@ -11,7 +10,7 @@ interface SocioFormModalProps {
 }
 
 export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isOpen, onClose }) => {
-  const { addSocio, updateSocio, calcularCategoria } = useApp();
+  const { addSocio, updateSocio, calcularCategoria, cobradores } = useApp();
 
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [dni, setDni] = useState('');
@@ -25,14 +24,17 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
 
   useEffect(() => {
     if (socioToEdit) {
-      setNombreCompleto(socioToEdit.nombreCompleto);
-      setDni(socioToEdit.dni);
-      setEmail(socioToEdit.email);
-      setTelefono(socioToEdit.telefono);
-      setDireccion(socioToEdit.direccion);
-      setZonaCobro(socioToEdit.zonaCobro);
-      setFechaNacimiento(socioToEdit.fechaNacimiento);
-      setFechaIngreso(socioToEdit.fechaIngreso);
+      const nombreNorm = socioToEdit.nombreCompleto || `${socioToEdit.nombre || ''} ${socioToEdit.apellido || ''}`.trim();
+      setNombreCompleto(nombreNorm);
+      setDni(socioToEdit.dni || '');
+      setEmail(socioToEdit.email || '');
+      setTelefono(socioToEdit.telefono || '');
+      setDireccion(socioToEdit.direccion || '');
+      setZonaCobro(Number(socioToEdit.zonaCobro) || 0);
+      setFechaNacimiento(socioToEdit.fechaNacimiento ? socioToEdit.fechaNacimiento.slice(0, 10) : '');
+      
+      const fechaAltaNorm = socioToEdit.fechaIngreso || socioToEdit.fechaAlta;
+      setFechaIngreso(fechaAltaNorm ? fechaAltaNorm.slice(0, 10) : '');
     } else {
       setNombreCompleto('');
       setDni('');
@@ -48,22 +50,38 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
 
   if (!isOpen) return null;
 
-  // Live calculation of preview category
+  // Cálculo visual dinámico de la categoría según estatuto
   const previewCalculation = (fechaNacimiento && fechaIngreso)
     ? calcularCategoria(fechaNacimiento, fechaIngreso)
     : null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Generar opciones de zonas disponibles basadas en los Cobradores de la BD
+  const zonasOpciones = [
+    { id: 0, label: 'Zona 0 - Sede Central (Club)' },
+    ...cobradores.map((c) => ({
+      id: Number(c.zona),
+      label: `Zona ${c.zona} - ${c.nombre} ${c.apellido}`,
+    })),
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
     if (!nombreCompleto.trim() || !dni.trim() || !fechaNacimiento || !fechaIngreso) {
-      setErrorMsg('Por favor complete los campos obligatorios.');
+      setErrorMsg('Por favor complete todos los campos obligatorios.');
       return;
     }
 
+    // Separación para mantener compatibilidad con BD
+    const partesNombre = nombreCompleto.trim().split(' ');
+    const nombre = partesNombre[0];
+    const apellido = partesNombre.slice(1).join(' ') || partesNombre[0];
+
     if (socioToEdit) {
-      updateSocio(socioToEdit.id, {
+      await updateSocio(String(socioToEdit.id), {
+        nombre,
+        apellido,
         nombreCompleto: nombreCompleto.trim(),
         dni: dni.trim(),
         email: email.trim(),
@@ -71,11 +89,14 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
         direccion: direccion.trim(),
         zonaCobro,
         fechaNacimiento,
+        fechaAlta: fechaIngreso,
         fechaIngreso,
-      });
+      } as any);
       onClose();
     } else {
-      const success = addSocio({
+      const success = await addSocio({
+        nombre,
+        apellido,
         nombreCompleto: nombreCompleto.trim(),
         dni: dni.trim(),
         email: email.trim(),
@@ -83,11 +104,12 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
         direccion: direccion.trim(),
         zonaCobro,
         fechaNacimiento,
+        fechaAlta: fechaIngreso,
         fechaIngreso,
         esTitularFamilia: false,
         familiares: [],
         actividadesIds: [],
-      });
+      } as any);
 
       if (success) {
         onClose();
@@ -104,7 +126,9 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
           <div className="flex items-center space-x-2">
             <UserCheck className="w-5 h-5 text-red-400" />
             <span className="font-bold text-sm tracking-wide">
-              {socioToEdit ? `EDITAR SOCIO N° ${socioToEdit.numeroSocio}` : 'ALTA DE NUEVO SOCIO'}
+              {socioToEdit 
+                ? `EDITAR SOCIO N° ${socioToEdit.numeroSocio || socioToEdit.id}` 
+                : 'ALTA DE NUEVO SOCIO (BD)'}
             </span>
           </div>
           <button onClick={onClose} className="p-1 text-white/80 hover:text-white rounded">
@@ -122,7 +146,7 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
             </div>
           )}
 
-          {/* Dynamic Categorization Badge Banner */}
+          {/* Cálculo dinámico de categoría */}
           {previewCalculation && (
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
               <div>
@@ -149,7 +173,9 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Nombre y Apellido Completo *</label>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Nombre y Apellido Completo *
+              </label>
               <input
                 type="text"
                 required
@@ -161,7 +187,9 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">DNI Único *</label>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                DNI Único *
+              </label>
               <input
                 type="text"
                 required
@@ -173,22 +201,26 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Zona de Cobro Asignada *</label>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Zona de Cobro Asignada *
+              </label>
               <select
                 value={zonaCobro}
                 onChange={(e) => setZonaCobro(Number(e.target.value))}
                 className="w-full px-3 py-2 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none"
               >
-                {[0, 1, 2, 3].map((num) => (
-                  <option key={num} value={num}>
-                    {ZONAS_NOMBRES[num].nombre}
+                {zonasOpciones.map((z) => (
+                  <option key={z.id} value={z.id}>
+                    {z.label}
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Fecha de Nacimiento *</label>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Fecha de Nacimiento *
+              </label>
               <input
                 type="date"
                 required
@@ -200,7 +232,9 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Fecha de Ingreso al Club *</label>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Fecha de Ingreso / Alta al Club *
+              </label>
               <input
                 type="date"
                 required
@@ -208,7 +242,7 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
                 onChange={(e) => setFechaIngreso(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none"
               />
-              <p className="text-[10px] text-slate-500 mt-0.5">Vitalicio: &gt; 30 años de antigüedad ininterrumpida</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Vitalicio: &gt; 30 años de antigüedad</p>
             </div>
 
             <div>
@@ -234,7 +268,9 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Dirección / Domicilio para Cobrador</label>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Dirección / Domicilio para Cobrador
+              </label>
               <input
                 type="text"
                 value={direccion}
@@ -257,7 +293,7 @@ export const SocioFormModal: React.FC<SocioFormModalProps> = ({ socioToEdit, isO
               type="submit"
               className="px-4 py-2 bg-[#1A365D] hover:bg-[#2B6CB0] text-white rounded text-xs font-bold transition-colors shadow-xs"
             >
-              {socioToEdit ? 'Guardar Cambios' : 'Registrar Socio'}
+              {socioToEdit ? 'Guardar Cambios en BD' : 'Registrar Socio en BD'}
             </button>
           </div>
         </form>
