@@ -6,7 +6,19 @@ import {
   Save,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { AsistenciaRegistro } from '../types';
+export interface AsistenciaItem {
+  socioId: string;
+  socioNombre: string;
+  presente: boolean;
+}
+
+export interface AsistenciaRegistro {
+  id: string;
+  actividadId: string;
+  fecha: string;
+  instructorId: string;
+  asistencias: AsistenciaItem[];
+}
 
 export const AsistenciaTracker: React.FC = () => {
   const { actividades, socios, asistencias, saveAsistencia, currentUser } = useApp();
@@ -50,7 +62,7 @@ export const AsistenciaTracker: React.FC = () => {
 
     enrolledSocios.forEach((s) => {
       const socioIdStr = String(s.id);
-      const match = existing?.asistencias?.find((item) => String(item.socioId) === socioIdStr);
+      const match = existing?.asistencias?.find((item: any) => String(item.socioId) === socioIdStr);
       updated[socioIdStr] = match !== undefined ? match.presente : true;
     });
 

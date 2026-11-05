@@ -20,7 +20,20 @@ import {
   X,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Cobrador } from '../types';
+import { cobradores } from '../types';
+
+export type CobradorData = cobradores & {
+  nombreCompleto?: string;
+  dni?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  zonaAsignada?: number;
+  porcentajeComision?: number;
+  activo?: boolean;
+  observaciones?: string;
+  fechaAlta?: string;
+};
 
 export const CobradoresAdmin: React.FC = () => {
   const {
@@ -40,10 +53,10 @@ export const CobradoresAdmin: React.FC = () => {
 
   // Estado del modal de creación/edición
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCobrador, setEditingCobrador] = useState<Cobrador | null>(null);
+  const [editingCobrador, setEditingCobrador] = useState<CobradorData | null>(null);
 
   // Estado del modal de confirmación de eliminación
-  const [cobradorToDelete, setCobradorToDelete] = useState<Cobrador | null>(null);
+  const [cobradorToDelete, setCobradorToDelete] = useState<CobradorData | null>(null);
 
   // Formulario
   const [formData, setFormData] = useState<{
@@ -169,7 +182,7 @@ export const CobradoresAdmin: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (cobrador: Cobrador) => {
+  const handleOpenEditModal = (cobrador: CobradorData) => {
     setEditingCobrador(cobrador);
     const nombreNorm = cobrador.nombreCompleto || `${(cobrador as any).nombre || ''} ${(cobrador as any).apellido || ''}`.trim();
     const comisionNorm = Number(cobrador.porcentajeComision ?? (cobrador as any).comision ?? 0.1);
@@ -226,10 +239,12 @@ export const CobradoresAdmin: React.FC = () => {
       dni: formData.dni.replace(/\D/g, ''),
       telefono: formData.telefono.trim(),
       email: formData.email.trim(),
+      correo: formData.email.trim(),
       direccion: formData.direccion.trim() || undefined,
       zonaAsignada: Number(formData.zonaAsignada),
       zona: Number(formData.zonaAsignada),
       porcentajeComision: Number(formData.porcentajeComision) / 100,
+      comisionPorcentaje: Number(formData.porcentajeComision),
       comision: Number(formData.porcentajeComision) / 100,
       activo: formData.activo,
       observaciones: formData.observaciones.trim() || undefined,

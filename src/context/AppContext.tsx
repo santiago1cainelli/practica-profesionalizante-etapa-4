@@ -1,17 +1,140 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
-  Socio,
-  Locker,
-  Actividad,
-  AsistenciaRegistro,
-  CuponRecibo,
-  RendicionLiquidacion,
-  AppUser,
-  Familiar,
-  Cobrador,
-  Instructor,
+  socios,
+  casilleros,
+  actividades,
+  cobradores,
+  instructores,
+  cupones,
+  rendiciones,
+  users,
   SocioCategoria,
+  SocioEstado,
+  TurnoActividad,
+  RolGrupoFamiliar,
+  EstadoCupon,
 } from '../types';
+
+export interface Familiar {
+  id?: number | string;
+  nombre?: string;
+  apellido?: string;
+  nombreCompleto?: string;
+  dni?: string;
+  parentesco?: 'CONYUGE' | 'HIJO' | 'HIJA' | RolGrupoFamiliar;
+  fechaNacimiento?: string;
+  edad?: number;
+}
+
+export interface AsistenciaItem {
+  socioId: string;
+  socioNombre: string;
+  presente: boolean;
+}
+
+export interface AsistenciaRegistro {
+  id: string;
+  actividadId: string;
+  fecha: string;
+  instructorId: string;
+  asistencias: AsistenciaItem[];
+}
+
+export type Socio = socios & {
+  numeroSocio?: number;
+  nombreCompleto?: string;
+  fechaIngreso?: string;
+  edad?: number;
+  antiguedadAnios?: number;
+  cuotasAdeudadas?: number;
+  esTitularFamilia?: boolean;
+  familiares?: Familiar[];
+  actividadesIds?: (string | number)[];
+  casilleroAsignadoId?: number;
+  fotoUrl?: string;
+};
+
+export type Locker = casilleros & {
+  estado?: 'DISPONIBLE' | 'OCUPADO' | 'RESERVADO';
+  socioNombre?: string;
+  socioDni?: string;
+  socioId?: string;
+  fechaAsignacion?: string;
+};
+
+export type Actividad = actividades & {
+  categoria?: string;
+  dias?: string[];
+  horario?: string;
+  cupoOcupado?: number;
+  costoMensual?: number;
+  lugar?: string;
+  edadMinima?: number;
+};
+
+export type Cobrador = cobradores & {
+  nombreCompleto?: string;
+  dni?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  zonaAsignada?: number;
+  porcentajeComision?: number;
+  activo?: boolean;
+  fechaAlta?: string;
+  observaciones?: string;
+};
+
+export type Instructor = instructores & {
+  nombreCompleto?: string;
+  dni?: string;
+  tituloProfesional?: string;
+  disciplinasIds?: string[];
+  modalidadContrato?: string;
+  remuneracionMensual?: number;
+  diasDisponibles?: string[];
+  activo?: boolean;
+  fechaAlta?: string;
+  observaciones?: string;
+};
+
+export type CuponRecibo = cupones & {
+  numeroComprobante?: string;
+  socioNombre?: string;
+  socioDni?: string;
+  zonaCobro?: number;
+  periodoMes?: string;
+  fechaVencimiento?: string;
+  cuotaSocialBase?: number;
+  detalleActividades?: { nombre: string; monto: number }[];
+  costoCasillero?: number;
+  recargoMoraPorcentaje?: number;
+  montoRecargoMora?: number;
+  descuentoFamiliar?: number;
+  subtotal?: number;
+  totalPagar?: number;
+  estadoPago?: string;
+  metodoPago?: string;
+};
+
+export type RendicionLiquidacion = rendiciones & {
+  cobradorNombre?: string;
+  zonaCobro?: number;
+  semanaNumero?: number;
+  periodoFecha?: string;
+  recibosCobradosIds?: string[];
+  totalCobrado?: number;
+  porcentajeComision?: number;
+  montoComisionCobrador?: number;
+  netoRendidoClub?: number;
+  estado?: string;
+};
+
+export type AppUser = users & {
+  nombreCompleto?: string;
+  zonaAsignada?: number;
+  actividadId?: string;
+};
 import { useApi } from '../hooks/useApi';
 
 export type ActiveTab =
@@ -55,37 +178,37 @@ interface AppContextType {
 
   // Socios
   socios: Socio[];
-  addSocio: (data: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>) => Promise<boolean>;
-  updateSocio: (id: string, data: Partial<Socio>) => Promise<void>;
-  deleteSocio: (id: string) => Promise<void>;
-  addFamiliar: (socioId: string, familiar: Omit<Familiar, 'id' | 'edad'>) => Promise<void>;
-  removeFamiliar: (socioId: string, familiarId: string) => Promise<void>;
-  regularizarDeudaSocio: (socioId: string) => Promise<void>;
+  addSocio: (data: any) => Promise<boolean>;
+  updateSocio: (id: string | number, data: Partial<Socio>) => Promise<void>;
+  deleteSocio: (id: string | number) => Promise<void>;
+  addFamiliar: (socioId: string | number, familiar: any) => Promise<void>;
+  removeFamiliar: (socioId: string | number, familiarId: string | number) => Promise<void>;
+  regularizarDeudaSocio: (socioId: string | number) => Promise<void>;
 
   // Cobradores CRUD
   cobradores: Cobrador[];
-  addCobrador: (data: Omit<Cobrador, 'id' | 'fechaAlta'>) => Promise<boolean>;
-  updateCobrador: (id: string, data: Partial<Cobrador>) => Promise<void>;
-  deleteCobrador: (id: string) => Promise<void>;
-  toggleCobradorEstado: (id: string) => Promise<void>;
+  addCobrador: (data: any) => Promise<boolean>;
+  updateCobrador: (id: string | number, data: Partial<Cobrador>) => Promise<void>;
+  deleteCobrador: (id: string | number) => Promise<void>;
+  toggleCobradorEstado: (id: string | number) => Promise<void>;
 
   // Instructores CRUD
   instructores: Instructor[];
-  addInstructor: (data: Omit<Instructor, 'id' | 'fechaAlta'>) => Promise<boolean>;
-  updateInstructor: (id: string, data: Partial<Instructor>) => Promise<void>;
-  deleteInstructor: (id: string) => Promise<void>;
-  toggleInstructorEstado: (id: string) => Promise<void>;
+  addInstructor: (data: any) => Promise<boolean>;
+  updateInstructor: (id: string | number, data: Partial<Instructor>) => Promise<void>;
+  deleteInstructor: (id: string | number) => Promise<void>;
+  toggleInstructorEstado: (id: string | number) => Promise<void>;
 
   // Casilleros
   lockers: Locker[];
-  assignLocker: (lockerNumber: number, socioId: string) => Promise<boolean>;
+  assignLocker: (lockerNumber: number, socioId: string | number) => Promise<boolean>;
   releaseLocker: (lockerNumber: number) => Promise<void>;
   reserveLocker: (lockerNumber: number) => Promise<void>;
 
   // Actividades
   actividades: Actividad[];
-  enrollSocioInActividad: (socioId: string, actividadId: string) => Promise<boolean>;
-  unenrollSocioFromActividad: (socioId: string, actividadId: string) => Promise<void>;
+  enrollSocioInActividad: (socioId: string | number, actividadId: string | number) => Promise<boolean>;
+  unenrollSocioFromActividad: (socioId: string | number, actividadId: string | number) => Promise<void>;
 
   // Asistencias
   asistencias: AsistenciaRegistro[];
@@ -93,18 +216,18 @@ interface AppContextType {
 
   // Cupones y Cobranza
   cupones: CuponRecibo[];
-  generarCuponMesActual: (socioId: string) => Promise<void>;
-  marcarCuponPagado: (cuponId: string, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => Promise<void>;
-  reemitirCuponConMora: (cuponId: string) => Promise<void>;
+  generarCuponMesActual: (socioId: string | number) => Promise<void>;
+  marcarCuponPagado: (cuponId: string | number, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => Promise<void>;
+  reemitirCuponConMora: (cuponId: string | number) => Promise<void>;
 
   // Rendiciones
   rendiciones: RendicionLiquidacion[];
-  crearRendicionSemanal: (zonaCobro: number, cobradorId: string, cobradorNombre: string, cuponesIds: string[]) => Promise<void>;
-  aprobarRendicion: (rendicionId: string) => Promise<void>;
+  crearRendicionSemanal: (zonaCobro: number, cobradorId: string | number, cobradorNombre: string, cuponesIds: (string | number)[]) => Promise<void>;
+  aprobarRendicion: (rendicionId: string | number) => Promise<void>;
 
   // Helpers
   calcularCategoria: (fechaNacimiento: string, fechaIngreso: string) => { categoria: SocioCategoria; edad: number; antiguedadAnios: number };
-  quickSwitchUser: (userId: string) => void;
+  quickSwitchUser: (userId: string | number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -121,13 +244,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const rendicionesApi = useApi('/rendiciones');
   const asistenciasApi = useApi('/asistencias');
 
+  const GUEST_USER: AppUser = {
+    id: 0,
+    email: 'invitado@elglobo.com',
+    password: '',
+    role: 'PUBLICO',
+    nombreCompleto: 'Invitado Público',
+    activo: true,
+  };
+
   // Usuario activo en sesión
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+  const [currentUser, setCurrentUser] = useState<AppUser>(() => {
     const saved = localStorage.getItem('el_globo_current_user');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
-    return null;
+    return GUEST_USER;
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -251,19 +383,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // SOCIOS CRUD BD
-  const addSocio = async (data: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>): Promise<boolean> => {
-    if (socios.some((s) => s.dni.trim() === data.dni.trim())) {
+  const addSocio = async (data: any): Promise<boolean> => {
+    if (socios.some((s) => s.dni.trim() === String(data.dni).trim())) {
       showToast('error', 'Error al registrar', `Ya existe un socio registrado con el DNI ${data.dni}.`);
       return false;
     }
 
-    const { categoria, edad, antiguedadAnios } = calcularCategoria(data.fechaNacimiento, data.fechaIngreso);
+    const fechaAltaNorm = data.fechaAlta || data.fechaIngreso || new Date().toISOString().split('T')[0];
+    const { categoria, edad, antiguedadAnios } = calcularCategoria(data.fechaNacimiento, fechaAltaNorm);
     const payload = {
       ...data,
+      fechaAlta: fechaAltaNorm,
       edad,
       antiguedadAnios,
       categoria,
-      estado: 'ACTIVO',
+      estado: data.estado || 'ACTIVO',
+      mesesImpagosConsecutivos: data.mesesImpagosConsecutivos || 0,
     };
 
     try {
@@ -315,7 +450,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSocios((prev) =>
         prev.map((s) => {
           if (String(s.id) !== String(socioId)) return s;
-          return { ...s, familiares: (s.familiares || []).filter((f) => String(f.id) !== String(familiarId)) };
+          return { ...s, familiares: (s.familiares || []).filter((f: any) => String(f.id) !== String(familiarId)) };
         })
       );
       showToast('info', 'Familiar desvinculado');

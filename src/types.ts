@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'COBRADOR' | 'INSTRUCTOR' | 'SOCIO' | 'PUBLICO';
+export type UserRole = 'ADMIN' | 'COBRADOR' | 'INSTRUCTOR' | 'SOCIO';
 
 export type SocioCategoria = 'CADETE' | 'ACTIVO' | 'VITALICIO';
 
@@ -32,17 +32,6 @@ export interface grupos_familiares {
   id: number;
   cuotaGrupal: number;
   createdAt?: string;
-}
-
-export interface Familiar {
-  id: number | string;
-  nombre: string;
-  apellido: string;
-  nombreCompleto?: string;
-  dni: string;
-  parentesco: 'CONYUGE' | 'HIJO' | 'HIJA';
-  fechaNacimiento: string;
-  edad?: number;
 }
 
 export interface socios {

@@ -4,7 +4,19 @@ import {
   Search,
   PlusCircle,
 } from 'lucide-react';
-import { CuponRecibo } from '../types';
+import { cupones } from '../types';
+
+export type CuponData = cupones & {
+  numeroComprobante?: string;
+  socioNombre?: string;
+  socioDni?: string;
+  zonaCobro?: number;
+  periodoMes?: string;
+  cuotaSocialBase?: number;
+  montoRecargoMora?: number;
+  totalPagar?: number;
+  estadoPago?: string;
+};
 import { useApp } from '../context/AppContext';
 import { ReciboModal } from './ReciboModal';
 
@@ -22,7 +34,7 @@ export const CobranzaZones: React.FC = () => {
   const [selectedZone, setSelectedZone] = useState<string>('TODAS');
   const [selectedEstado, setSelectedEstado] = useState<string>('TODOS');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewingCupon, setViewingCupon] = useState<CuponRecibo | null>(null);
+  const [viewingCupon, setViewingCupon] = useState<CuponData | null>(null);
   const [isEmitModalOpen, setIsEmitModalOpen] = useState(false);
   const [targetSocioEmit, setTargetSocioEmit] = useState('');
 
@@ -60,9 +72,9 @@ export const CobranzaZones: React.FC = () => {
   };
 
   const filteredCupones = cupones.filter((c) => {
-    const zonaCuponStr = String(c.zonaCobro ?? 0);
+    const zonaCuponStr = String(c.zona ?? (c as any).zonaCobro ?? 0);
     const matchesZone = selectedZone === 'TODAS' || zonaCuponStr === selectedZone;
-    const matchesEstado = selectedEstado === 'TODOS' || c.estadoPago === selectedEstado;
+    const matchesEstado = selectedEstado === 'TODOS' || c.estado === selectedEstado || (c as any).estadoPago === selectedEstado;
     const term = searchTerm.toLowerCase();
 
     const nombreSocioNorm = (c.socioNombre || (c as any).socio?.nombreCompleto || '').toLowerCase();

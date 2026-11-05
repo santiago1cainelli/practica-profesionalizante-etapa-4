@@ -26,6 +26,8 @@ import {
 import { useApp, ActiveTab } from '../context/AppContext';
 import { UserRole } from '../types';
 
+export type ExtendedUserRole = UserRole | 'PUBLICO';
+
 interface NavbarProps {
   onOpenPlanDoc?: () => void;
 }
@@ -49,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Rol del usuario con fallback seguro si no hay sesión cargada todavía
-  const currentRole: UserRole = currentUser?.role || 'PUBLICO';
+  const currentRole: ExtendedUserRole = (currentUser?.role as ExtendedUserRole) || 'PUBLICO';
 
   // Socio asociado si el usuario en sesión es un socio registrado en la BD
   const socioActual = currentUser?.socioId
@@ -60,9 +62,9 @@ export const Navbar: React.FC<NavbarProps> = () => {
 
   // Contadores para insignias de notificación
   const morososCount = socios.filter((s) => s.estado === 'SUSPENDIDO' || s.estado === 'MOROSO').length;
-  const rendicionesPendientes = rendiciones.filter((r) => r.estado === 'PENDIENTE_SECRETARIA').length;
+  const rendicionesPendientes = rendiciones.filter((r) => (r as any).estado === 'PENDIENTE_SECRETARIA' || !(r as any).fechaRendicion).length;
 
-  const roleBadges: Record<UserRole, { bg: string; text: string; label: string }> = {
+  const roleBadges: Record<ExtendedUserRole, { bg: string; text: string; label: string }> = {
     ADMIN: { bg: 'bg-purple-700', text: 'text-white', label: 'ADMINISTRADOR' },
     COBRADOR: { bg: 'bg-amber-600', text: 'text-white', label: 'COBRADOR DE ZONA' },
     INSTRUCTOR: { bg: 'bg-teal-600', text: 'text-white', label: 'INSTRUCTOR DEPORTES' },
@@ -70,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
     PUBLICO: { bg: 'bg-slate-600', text: 'text-white', label: 'INVITADO PÚBLICO' },
   };
 
-  const navItems: { id: ActiveTab; label: string; icon: React.ElementType; roles: UserRole[]; badge?: number }[] = [
+  const navItems: { id: ActiveTab; label: string; icon: React.ElementType; roles: ExtendedUserRole[]; badge?: number }[] = [
     { id: 'inicio', label: 'Inicio / Club', icon: Home, roles: ['ADMIN', 'COBRADOR', 'INSTRUCTOR', 'SOCIO', 'PUBLICO'] },
     { id: 'dashboard', label: 'Tablero', icon: LayoutDashboard, roles: ['ADMIN'] },
     { id: 'socios', label: 'Padrón Socios', icon: Users, roles: ['ADMIN'] },
@@ -208,7 +210,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
                     ) : (
                       usersList.map((u) => {
                         const isCurrent = String(u.id) === String(currentUser?.id);
-                        const badge = roleBadges[u.role] || roleBadges.PUBLICO;
+                        const badge = roleBadges[u.role as ExtendedUserRole] || roleBadges.PUBLICO;
                         const nombreUser = u.nombreCompleto || u.email;
 
                         return (

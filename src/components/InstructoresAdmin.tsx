@@ -21,7 +21,22 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Instructor, ModalidadInstructor } from '../types';
+import { instructores } from '../types';
+
+export type ModalidadInstructor = 'PLANTA_PERMANENTE' | 'HONORARIOS' | 'POR_HORA';
+
+export type InstructorData = instructores & {
+  nombreCompleto?: string;
+  dni?: string;
+  tituloProfesional?: string;
+  disciplinasIds?: string[];
+  modalidadContrato?: ModalidadInstructor;
+  remuneracionMensual?: number;
+  diasDisponibles?: string[];
+  activo?: boolean;
+  fechaAlta?: string;
+  observaciones?: string;
+};
 
 export const InstructoresAdmin: React.FC = () => {
   const {
@@ -43,10 +58,10 @@ export const InstructoresAdmin: React.FC = () => {
 
   // Estado del modal de creación/edición
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingInstructor, setEditingInstructor] = useState<Instructor | null>(null);
+  const [editingInstructor, setEditingInstructor] = useState<InstructorData | null>(null);
 
   // Estado del modal de confirmación de eliminación
-  const [instructorToDelete, setInstructorToDelete] = useState<Instructor | null>(null);
+  const [instructorToDelete, setInstructorToDelete] = useState<InstructorData | null>(null);
 
   // Formulario
   const [formData, setFormData] = useState<{
@@ -170,7 +185,7 @@ export const InstructoresAdmin: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (inst: Instructor) => {
+  const handleOpenEditModal = (inst: InstructorData) => {
     setEditingInstructor(inst);
     const nombreNorm = inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
     const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
@@ -238,6 +253,7 @@ export const InstructoresAdmin: React.FC = () => {
       actividadesIds: formData.disciplinasIds,
       modalidadContrato: formData.modalidadContrato,
       remuneracionMensual: Number(formData.remuneracionMensual),
+      sueldo: Number(formData.remuneracionMensual),
       montoMensual: Number(formData.remuneracionMensual),
       diasDisponibles: formData.diasDisponibles,
       activo: formData.activo,
@@ -554,7 +570,7 @@ export const InstructoresAdmin: React.FC = () => {
 
                       <td className="py-3.5 px-4">
                         <div className="flex flex-wrap gap-1 max-w-[170px]">
-                          {(inst.diasDisponibles || ['Lunes', 'Miércoles', 'Viernes']).map((dia) => (
+                          {(inst.diasDisponibles || ['Lunes', 'Miércoles', 'Viernes']).map((dia: string) => (
                             <span
                               key={dia}
                               className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200"

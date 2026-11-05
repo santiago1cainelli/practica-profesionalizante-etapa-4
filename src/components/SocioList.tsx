@@ -39,8 +39,8 @@ export const SocioList: React.FC = () => {
 
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [socioToEdit, setSocioToEdit] = useState<Socio | null>(null);
-  const [socioFamilia, setSocioFamilia] = useState<Socio | null>(null);
+  const [socioToEdit, setSocioToEdit] = useState<socios | any | null>(null);
+  const [socioFamilia, setSocioFamilia] = useState<socios | any | null>(null);
 
   // Helper para obtener el nombre de la Zona desde los Cobradores de la BD
   const getNombreZona = (zonaCobro: number) => {
@@ -52,12 +52,12 @@ export const SocioList: React.FC = () => {
   };
 
   // Helper para calcular la cuota estimada de un socio según BD
-  const getCuotaInfo = (socio: Socio) => {
+  const getCuotaInfo = (socio: socios | any) => {
     const cuotaBase = (socio as any).montoCuotaSocial ?? 0;
 
     const actividadesSocio = (socio.actividadesIds || [])
-      .map((actId) => actividades.find((a) => String(a.id) === String(actId)))
-      .filter(Boolean) as Actividad[];
+      .map((actId: any) => actividades.find((a) => String(a.id) === String(actId)))
+      .filter(Boolean) as actividades[];
 
     const costoActividades = actividadesSocio.reduce(
       (sum, a) => sum + Number((a as any).costoMensual || a.arancel || 0),
@@ -65,7 +65,7 @@ export const SocioList: React.FC = () => {
     );
     const costoCasillero = socio.casilleroAsignadoId ? Number((socio as any).costoCasillero || 2500) : 0;
     const hijosCount = (socio.familiares || []).filter(
-      (f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA'
+      (f: any) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA'
     ).length;
     
     const subtotal = Math.max(0, cuotaBase + costoActividades + costoCasillero);
@@ -98,7 +98,7 @@ export const SocioList: React.FC = () => {
     return matchesSearch && matchesCategoria && matchesEstado && matchesZona;
   });
 
-  const handleEdit = (socio: Socio) => {
+  const handleEdit = (socio: socios | any) => {
     setSocioToEdit(socio);
     setIsFormOpen(true);
   };

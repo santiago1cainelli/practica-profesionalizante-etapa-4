@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ReciboModal } from './ReciboModal';
-import { CuponRecibo } from '../types';
+import { cupones } from '../types';
 import titularCardBg from '../assets/images/titular_card_bg_1789672816138.jpg';
 
 export const SocioPortal: React.FC = () => {
@@ -24,7 +24,7 @@ export const SocioPortal: React.FC = () => {
     : (currentUser?.socioId || socios[0]?.id || '');
 
   const [selectedSocioId, setSelectedSocioId] = useState<string>(String(defaultSocioId));
-  const [viewingCupon, setViewingCupon] = useState<CuponRecibo | null>(null);
+  const [viewingCupon, setViewingCupon] = useState<cupones | any | null>(null);
 
   // Sincronizar socio si el usuario con rol SOCIO cambia de sesión
   React.useEffect(() => {
@@ -63,11 +63,11 @@ export const SocioPortal: React.FC = () => {
   // Importes de cuota y aranceles según datos reales de la BD
   const cuotaBase = (socio as any).montoCuotaSocial ?? 0;
   const costoActividades = misActividades.reduce((sum, a) => sum + Number((a as any).costoMensual || a.arancel || 0), 0);
-  const costoCasillero = socio.casilleroAsignadoId ? Number((socio as any).costoCasillero || 2500) : 0;
-  const hijosCount = (socio.familiares || []).filter((f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
+  const costoCasillero = (socio as any).casilleroAsignadoId ? Number((socio as any).costoCasillero || 2500) : 0;
+  const hijosCount = ((socio as any).familiares || []).filter((f: any) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
   
   const subtotal = Math.max(0, cuotaBase + costoActividades + costoCasillero);
-  const tieneMora = (socio.cuotasAdeudadas || 0) > 0;
+  const tieneMora = (socio.mesesImpagosConsecutivos || 0) > 0 || ((socio as any).cuotasAdeudadas || 0) > 0;
   const montoRecargoMora = tieneMora ? Math.round(subtotal * 0.05) : 0; // Recargo por mora del 5%
   const totalMes = subtotal + montoRecargoMora;
 
@@ -455,11 +455,11 @@ export const SocioPortal: React.FC = () => {
                 <span>Grupo Familiar Asociado</span>
               </div>
 
-              {(!socio.familiares || socio.familiares.length === 0) ? (
+              {(!(socio as any).familiares || (socio as any).familiares.length === 0) ? (
                 <p className="text-slate-400 text-xs italic">No tienes familiares vinculados en tu plan.</p>
               ) : (
                 <div className="space-y-2">
-                  {socio.familiares.map((fam) => (
+                  {((socio as any).familiares || []).map((fam: any) => (
                     <div key={fam.id} className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs">
                       <strong className="text-slate-900 block">{fam.nombreCompleto || fam.nombre}</strong>
                       <span className="text-[11px] text-slate-500">

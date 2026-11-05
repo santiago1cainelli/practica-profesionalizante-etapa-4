@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, UserCheck, AlertCircle } from 'lucide-react';
-import { Socio } from '../types';
+import { socios } from '../types';
 import { useApp } from '../context/AppContext';
 
 interface SocioFormModalProps {
-  socioToEdit: Socio | null;
+  socioToEdit: socios | any | null;
   isOpen: boolean;
   onClose: () => void;
 }

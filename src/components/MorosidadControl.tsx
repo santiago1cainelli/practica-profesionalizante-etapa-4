@@ -9,12 +9,12 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ReciboModal } from './ReciboModal';
-import { CuponRecibo } from '../types';
+import { cupones } from '../types';
 
 export const MorosidadControl: React.FC = () => {
   const { socios, cupones, cobradores, regularizarDeudaSocio, reemitirCuponConMora } = useApp();
   const [filterType, setFilterType] = useState<'TODOS' | 'SUSPENDIDOS' | 'DEUDORES'>('TODOS');
-  const [viewingCupon, setViewingCupon] = useState<CuponRecibo | null>(null);
+  const [viewingCupon, setViewingCupon] = useState<cupones | any | null>(null);
 
   // Filtrar socios con deuda (no están al día)
   const sociosConDeuda = socios.filter(

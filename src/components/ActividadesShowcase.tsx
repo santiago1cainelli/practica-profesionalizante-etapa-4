@@ -12,7 +12,7 @@ import {
   UserCheck,
   X
 } from 'lucide-react';
-import { Actividad } from '../types';
+import { actividades } from '../types';
 import { useApp } from '../context/AppContext';
 
 export const ActividadesShowcase: React.FC = () => {
@@ -28,10 +28,10 @@ export const ActividadesShowcase: React.FC = () => {
 
   const [selectedCategoria, setSelectedCategoria] = useState<string>('TODAS');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedActividadToEnroll, setSelectedActividadToEnroll] = useState<Actividad | null>(null);
+  const [selectedActividadToEnroll, setSelectedActividadToEnroll] = useState<actividades | null>(null);
   const [targetSocioId, setTargetSocioId] = useState<string>('');
   const [showGuestModal, setShowGuestModal] = useState(false);
-  const [actividadToUnenroll, setActividadToUnenroll] = useState<Actividad | null>(null);
+  const [actividadToUnenroll, setActividadToUnenroll] = useState<actividades | null>(null);
 
   const isGuest = currentUser?.role === 'PUBLICO';
   const isSocio = currentUser?.role === 'SOCIO';
@@ -43,10 +43,10 @@ export const ActividadesShowcase: React.FC = () => {
       socios.find((s) => s.email === currentUser.email)
     : null;
 
-  const categoriasUnicas = Array.from(new Set(actividades.map((a) => a.categoria || 'Deporte'))).filter(Boolean);
+  const categoriasUnicas = Array.from(new Set(actividades.map((a) => (a as any).categoria || a.turno || 'Deporte'))).filter(Boolean);
 
   const filteredActividades = actividades.filter((act) => {
-    const matchesCat = selectedCategoria === 'TODAS' || act.categoria === selectedCategoria;
+    const matchesCat = selectedCategoria === 'TODAS' || (act as any).categoria === selectedCategoria || act.turno === selectedCategoria;
     const term = searchQuery.toLowerCase();
     const nombreAct = (act.nombre || '').toLowerCase();
     const nombreProf = (act.instructorNombre || (act as any).instructor?.nombreCompleto || '').toLowerCase();
@@ -201,9 +201,9 @@ export const ActividadesShowcase: React.FC = () => {
         {filteredActividades.map((act) => {
           const cupoMax = Number(act.cupoMaximo || (act as any).cupo || 30);
           const cupoOcup = Number(act.cupoOcupado || (act as any).inscriptosCount || 0);
-          const costoMensual = Number(act.costoMensual || (act as any).arancel || 0);
+          const costoMensual = Number((act as any).costoMensual || act.arancel || 0);
           const instructorNombre = act.instructorNombre || (act as any).instructor?.nombreCompleto || 'Sin Asignar';
-          const diasStr = Array.isArray(act.dias) ? act.dias.join(', ') : act.dias || 'Días a coordinar';
+          const diasStr = act.diasSemana || (Array.isArray((act as any).dias) ? (act as any).dias.join(', ') : (act as any).dias) || 'Días a coordinar';
 
           const cupoPorcentaje = Math.round((cupoOcup / cupoMax) * 100);
           const isLleno = cupoOcup >= cupoMax;
@@ -224,7 +224,7 @@ export const ActividadesShowcase: React.FC = () => {
               <div>
                 <div className="flex justify-between items-start mb-2">
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800">
-                    {act.categoria || 'Deporte'}
+                    {(act as any).categoria || act.turno || 'Deporte'}
                   </span>
                   <span className="font-mono text-sm font-black text-emerald-700">
                     ${costoMensual.toLocaleString('es-AR')}/mes
@@ -244,11 +244,11 @@ export const ActividadesShowcase: React.FC = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{act.horario} hs</span>
+                    <span>{act.horaInicio && act.horaFin ? `${act.horaInicio} a ${act.horaFin}` : ((act as any).horario || 'Horario a confirmar')} hs</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate">{act.lugar || 'Instalaciones del Club'}</span>
+                    <span className="truncate">{(act as any).lugar || 'Instalaciones del Club'}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <User className="w-3.5 h-3.5 text-[#2B6CB0] shrink-0" />
@@ -461,9 +461,9 @@ export const ActividadesShowcase: React.FC = () => {
             <form onSubmit={handleEnrollSubmit} className="p-6 space-y-4 text-xs sm:text-sm text-slate-800">
               <div className="p-3 bg-blue-50 rounded-lg text-xs text-blue-900 border border-blue-200">
                 <p className="font-bold text-sm text-[#1A365D] mb-1">{selectedActividadToEnroll.nombre}</p>
-                <p>Arancel mensual: <strong>${Number(selectedActividadToEnroll.costoMensual || (selectedActividadToEnroll as any).arancel || 0).toLocaleString('es-AR')}/mes</strong></p>
-                <p>Profesor: {selectedActividadToEnroll.instructorNombre || (selectedActividadToEnroll as any).instructor?.nombreCompleto || 'Instructor'} • {selectedActividadToEnroll.horario} hs</p>
-                <p>Lugar: {selectedActividadToEnroll.lugar || 'Club El Globo'}</p>
+                <p>Arancel mensual: <strong>${Number(selectedActividadToEnroll.arancel ?? (selectedActividadToEnroll as any).costoMensual ?? 0).toLocaleString('es-AR')}/mes</strong></p>
+                <p>Profesor: {selectedActividadToEnroll.instructorNombre || (selectedActividadToEnroll as any).instructor?.nombreCompleto || 'Instructor'} • {selectedActividadToEnroll.horaInicio && selectedActividadToEnroll.horaFin ? `${selectedActividadToEnroll.horaInicio} a ${selectedActividadToEnroll.horaFin}` : ((selectedActividadToEnroll as any).horario || '')} hs</p>
+                <p>Lugar: {(selectedActividadToEnroll as any).lugar || 'Club El Globo'}</p>
               </div>
 
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
@@ -528,8 +528,8 @@ export const ActividadesShowcase: React.FC = () => {
 
             <form onSubmit={handleEnrollSubmit} className="p-6 space-y-4 text-xs sm:text-sm text-slate-800">
               <div className="p-3 bg-blue-50 rounded-lg text-xs text-blue-900 border border-blue-200">
-                <p>Arancel mensual: <strong>${Number(selectedActividadToEnroll.costoMensual || (selectedActividadToEnroll as any).arancel || 0).toLocaleString('es-AR')}</strong></p>
-                <p>Profesor: {selectedActividadToEnroll.instructorNombre || (selectedActividadToEnroll as any).instructor?.nombreCompleto || 'Instructor'} • {selectedActividadToEnroll.horario} hs</p>
+                <p>Arancel mensual: <strong>${Number(selectedActividadToEnroll.arancel ?? (selectedActividadToEnroll as any).costoMensual ?? 0).toLocaleString('es-AR')}</strong></p>
+                <p>Profesor: {selectedActividadToEnroll.instructorNombre || (selectedActividadToEnroll as any).instructor?.nombreCompleto || 'Instructor'} • {selectedActividadToEnroll.horaInicio && selectedActividadToEnroll.horaFin ? `${selectedActividadToEnroll.horaInicio} a ${selectedActividadToEnroll.horaFin}` : ((selectedActividadToEnroll as any).horario || '')} hs</p>
               </div>
 
               <div>

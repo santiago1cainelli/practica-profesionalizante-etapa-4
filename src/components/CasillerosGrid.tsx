@@ -4,13 +4,21 @@ import {
   Search,
   Info
 } from 'lucide-react';
-import { Locker } from '../types';
+import { casilleros } from '../types';
+
+export type LockerData = casilleros & {
+  estado?: 'DISPONIBLE' | 'OCUPADO' | 'RESERVADO';
+  socioNombre?: string;
+  socioDni?: string;
+  socioId?: string;
+  fechaAsignacion?: string;
+};
 import { useApp } from '../context/AppContext';
 
 export const CasillerosGrid: React.FC = () => {
   const { lockers, socios, assignLocker, releaseLocker, reserveLocker } = useApp();
 
-  const [selectedLocker, setSelectedLocker] = useState<Locker | null>(null);
+  const [selectedLocker, setSelectedLocker] = useState<LockerData | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>('TODOS');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSocioId, setSelectedSocioId] = useState('');
@@ -19,7 +27,7 @@ export const CasillerosGrid: React.FC = () => {
   const COSTO_CASILLERO_MENSUAL = 2500;
 
   // Socios disponibles para asignación (no suspendidos por morosidad y sin casillero activo)
-  const eligibleSocios = socios.filter((s) => !s.casilleroAsignadoId && !(s as any).casilleroId);
+  const eligibleSocios = socios.filter((s) => !(s as any).casilleroAsignadoId && !(s as any).casilleroId);
 
   // Estadísticas en tiempo real basadas en la BD
   const total = lockers.length;

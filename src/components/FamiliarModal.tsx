@@ -1,11 +1,28 @@
 import React, { useState } from 'react';
 import { X, UserPlus, Users, AlertCircle } from 'lucide-react';
-import { Socio } from '../types';
+import { socios, RolGrupoFamiliar } from '../types';
+
+export interface FamiliarItem {
+  id?: number | string;
+  nombre?: string;
+  apellido?: string;
+  nombreCompleto?: string;
+  dni?: string;
+  parentesco?: 'CONYUGE' | 'HIJO' | 'HIJA' | RolGrupoFamiliar;
+  fechaNacimiento?: string;
+  edad?: number;
+}
+
+export type SocioConFamiliares = socios & {
+  nombreCompleto?: string;
+  numeroSocio?: number;
+  familiares?: FamiliarItem[];
+};
 import { useApp } from '../context/AppContext';
 import titularCardBg from '../assets/images/titular_card_bg_1789672816138.jpg';
 
 interface FamiliarModalProps {
-  socio: Socio | null;
+  socio: SocioConFamiliares | null;
   onClose: () => void;
 }
 
@@ -120,7 +137,7 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
               </p>
             ) : (
               <div className="space-y-2">
-                {familiaresArr.map((fam) => {
+                {familiaresArr.map((fam: any) => {
                   const nombreFam = fam.nombreCompleto || `${(fam as any).nombre || ''} ${(fam as any).apellido || ''}`.trim();
                   
                   // Calcular edad si no viene calculada

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle, Building, CreditCard, DollarSign } from 'lucide-react';
-import { CuponRecibo } from '../types';
+import { cupones } from '../types';
 import { useApp } from '../context/AppContext';
 
 interface ReciboModalProps {
-  cupon: CuponRecibo | null;
+  cupon: cupones | any | null;
   onClose: () => void;
 }
 
