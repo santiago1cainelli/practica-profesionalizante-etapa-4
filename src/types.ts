@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'COBRADOR' | 'INSTRUCTOR' | 'SOCIO';
+export type UserRole = 'ADMIN' | 'COBRADOR' | 'INSTRUCTOR' | 'SOCIO' | 'PUBLICO';
 
 export type SocioCategoria = 'CADETE' | 'ACTIVO' | 'VITALICIO';
 

@@ -49,7 +49,7 @@ const AppContent: React.FC = () => {
       case 'plan_doc':
         return <Dashboard />;
       default:
-        return currentUser.role === 'PUBLICO' ? <GuestHome /> : <Dashboard />;
+        //return currentUser.role === 'PUBLICO' ? <GuestHome /> : <Dashboard />;
     }
   };
 

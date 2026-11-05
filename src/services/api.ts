@@ -1,13 +1,11 @@
 import {
-  Socio,
-  Cobrador,
-  Instructor,
-  Locker,
-  Actividad,
-  CuponRecibo,
-  RendicionLiquidacion,
-  AsistenciaRegistro,
-  Familiar,
+  socios,
+  cobradores,
+  instructores,
+  casilleros,
+  actividades,
+  cupones,
+  rendiciones,
 } from '../types';
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -40,14 +38,13 @@ export const api = {
   },
 
   async getFullDatabase(): Promise<{
-    socios: Socio[];
-    cobradores: Cobrador[];
-    instructores: Instructor[];
-    lockers: Locker[];
-    actividades: Actividad[];
-    cupones: CuponRecibo[];
-    rendiciones: RendicionLiquidacion[];
-    asistencias: AsistenciaRegistro[];
+    socios: socios[];
+    cobradores: cobradores[];
+    instructores: instructores[];
+    lockers: casilleros[];
+    actividades: actividades[];
+    cupones: cupones[];
+    rendiciones: rendiciones[];
   }> {
     const res = await fetch('/api/database/all');
     return handleResponse(res);
@@ -59,12 +56,12 @@ export const api = {
   },
 
   // Socios
-  async getSocios(): Promise<Socio[]> {
+  async getSocios(): Promise<socios[]> {
     const res = await fetch('/api/socios');
     return handleResponse(res);
   },
 
-  async addSocio(data: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>): Promise<Socio> {
+  async addSocio(data: Omit<socios, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>): Promise<socios> {
     const res = await fetch('/api/socios', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -73,7 +70,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async updateSocio(id: string, data: Partial<Socio>): Promise<Socio> {
+  async updateSocio(id: string, data: Partial<socios>): Promise<socios> {
     const res = await fetch(`/api/socios/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -87,15 +84,6 @@ export const api = {
     return handleResponse(res);
   },
 
-  async addFamiliar(socioId: string, familiar: Omit<Familiar, 'id' | 'edad'>): Promise<Familiar> {
-    const res = await fetch(`/api/socios/${socioId}/familiares`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(familiar),
-    });
-    return handleResponse(res);
-  },
-
   async removeFamiliar(socioId: string, familiarId: string): Promise<{ success: boolean }> {
     const res = await fetch(`/api/socios/${socioId}/familiares/${familiarId}`, {
       method: 'DELETE',
@@ -103,7 +91,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async regularizarDeuda(socioId: string): Promise<Socio> {
+  async regularizarDeuda(socioId: string): Promise<socios> {
     const res = await fetch(`/api/socios/${socioId}/regularizar`, {
       method: 'POST',
     });
@@ -111,12 +99,12 @@ export const api = {
   },
 
   // Cobradores
-  async getCobradores(): Promise<Cobrador[]> {
+  async getCobradores(): Promise<cobradores[]> {
     const res = await fetch('/api/cobradores');
     return handleResponse(res);
   },
 
-  async addCobrador(data: Omit<Cobrador, 'id' | 'fechaAlta'>): Promise<Cobrador> {
+  async addCobrador(data: Omit<cobradores, 'id' | 'fechaAlta'>): Promise<cobradores> {
     const res = await fetch('/api/cobradores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -125,7 +113,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async updateCobrador(id: string, data: Partial<Cobrador>): Promise<Cobrador> {
+  async updateCobrador(id: string, data: Partial<cobradores>): Promise<cobradores> {
     const res = await fetch(`/api/cobradores/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -140,12 +128,12 @@ export const api = {
   },
 
   // Instructores
-  async getInstructores(): Promise<Instructor[]> {
+  async getInstructores(): Promise<instructores[]> {
     const res = await fetch('/api/instructores');
     return handleResponse(res);
   },
 
-  async addInstructor(data: Omit<Instructor, 'id' | 'fechaAlta'>): Promise<Instructor> {
+  async addInstructor(data: Omit<instructores, 'id' | 'fechaAlta'>): Promise<instructores> {
     const res = await fetch('/api/instructores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -154,7 +142,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async updateInstructor(id: string, data: Partial<Instructor>): Promise<Instructor> {
+  async updateInstructor(id: string, data: Partial<instructores>): Promise<instructores> {
     const res = await fetch(`/api/instructores/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -169,12 +157,12 @@ export const api = {
   },
 
   // Lockers
-  async getLockers(): Promise<Locker[]> {
+  async getLockers(): Promise<casilleros[]> {
     const res = await fetch('/api/lockers');
     return handleResponse(res);
   },
 
-  async assignLocker(numero: number, socioId: string): Promise<Locker> {
+  async assignLocker(numero: number, socioId: string): Promise<casilleros> {
     const res = await fetch(`/api/lockers/${numero}/assign`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -183,14 +171,14 @@ export const api = {
     return handleResponse(res);
   },
 
-  async releaseLocker(numero: number): Promise<Locker> {
+  async releaseLocker(numero: number): Promise<casilleros> {
     const res = await fetch(`/api/lockers/${numero}/release`, {
       method: 'PUT',
     });
     return handleResponse(res);
   },
 
-  async reserveLocker(numero: number): Promise<Locker> {
+  async reserveLocker(numero: number): Promise<casilleros> {
     const res = await fetch(`/api/lockers/${numero}/reserve`, {
       method: 'PUT',
     });
@@ -198,12 +186,12 @@ export const api = {
   },
 
   // Actividades
-  async getActividades(): Promise<Actividad[]> {
+  async getActividades(): Promise<actividades[]> {
     const res = await fetch('/api/actividades');
     return handleResponse(res);
   },
 
-  async enrollActividad(socioId: string, actividadId: string): Promise<{ socio: Socio; actividad: Actividad }> {
+  async enrollActividad(socioId: string, actividadId: string): Promise<{ socio: socios; actividad: actividades }> {
     const res = await fetch('/api/actividades/enroll', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -212,7 +200,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async unenrollActividad(socioId: string, actividadId: string): Promise<{ socio: Socio; actividad: Actividad }> {
+  async unenrollActividad(socioId: string, actividadId: string): Promise<{ socio: socios; actividad: actividades }> {
     const res = await fetch('/api/actividades/unenroll', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -222,12 +210,12 @@ export const api = {
   },
 
   // Cupones
-  async getCupones(): Promise<CuponRecibo[]> {
+  async getCupones(): Promise<cupones[]> {
     const res = await fetch('/api/cupones');
     return handleResponse(res);
   },
 
-  async generarCupon(socioId: string): Promise<CuponRecibo> {
+  async generarCupon(socioId: string): Promise<cupones> {
     const res = await fetch('/api/cupones/generar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -236,7 +224,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async pagarCupon(cuponId: string, metodoPago: string, cobradorId?: string): Promise<CuponRecibo> {
+  async pagarCupon(cuponId: string, metodoPago: string, cobradorId?: string): Promise<cupones> {
     const res = await fetch(`/api/cupones/${cuponId}/pagar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -245,7 +233,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async moraCupon(cuponId: string): Promise<CuponRecibo> {
+  async moraCupon(cuponId: string): Promise<cupones> {
     const res = await fetch(`/api/cupones/${cuponId}/mora`, {
       method: 'POST',
     });
@@ -253,12 +241,12 @@ export const api = {
   },
 
   // Rendiciones
-  async getRendiciones(): Promise<RendicionLiquidacion[]> {
+  async getRendiciones(): Promise<rendiciones[]> {
     const res = await fetch('/api/rendiciones');
     return handleResponse(res);
   },
 
-  async addRendicion(data: Omit<RendicionLiquidacion, 'id' | 'fechaRendicion'>): Promise<RendicionLiquidacion> {
+  async addRendicion(data: Omit<rendiciones, 'id' | 'fechaRendicion'>): Promise<rendiciones> {
     const res = await fetch('/api/rendiciones', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -267,24 +255,9 @@ export const api = {
     return handleResponse(res);
   },
 
-  async aprobarRendicion(id: string): Promise<RendicionLiquidacion> {
+  async aprobarRendicion(id: string): Promise<rendiciones> {
     const res = await fetch(`/api/rendiciones/${id}/aprobar`, {
       method: 'PUT',
-    });
-    return handleResponse(res);
-  },
-
-  // Asistencias
-  async getAsistencias(): Promise<AsistenciaRegistro[]> {
-    const res = await fetch('/api/asistencias');
-    return handleResponse(res);
-  },
-
-  async saveAsistencia(registro: AsistenciaRegistro): Promise<AsistenciaRegistro> {
-    const res = await fetch('/api/asistencias', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(registro),
     });
     return handleResponse(res);
   },

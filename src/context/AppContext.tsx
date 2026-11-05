@@ -9,36 +9,8 @@ import {
   rendiciones,
   users,
   SocioCategoria,
-  SocioEstado,
-  TurnoActividad,
-  RolGrupoFamiliar,
-  EstadoCupon,
 } from '../types';
-
-export interface Familiar {
-  id?: number | string;
-  nombre?: string;
-  apellido?: string;
-  nombreCompleto?: string;
-  dni?: string;
-  parentesco?: 'CONYUGE' | 'HIJO' | 'HIJA' | RolGrupoFamiliar;
-  fechaNacimiento?: string;
-  edad?: number;
-}
-
-export interface AsistenciaItem {
-  socioId: string;
-  socioNombre: string;
-  presente: boolean;
-}
-
-export interface AsistenciaRegistro {
-  id: string;
-  actividadId: string;
-  fecha: string;
-  instructorId: string;
-  asistencias: AsistenciaItem[];
-}
+import { useApi } from '../hooks/useApi';
 
 export type Socio = socios & {
   numeroSocio?: number;
@@ -48,7 +20,6 @@ export type Socio = socios & {
   antiguedadAnios?: number;
   cuotasAdeudadas?: number;
   esTitularFamilia?: boolean;
-  familiares?: Familiar[];
   actividadesIds?: (string | number)[];
   casilleroAsignadoId?: number;
   fotoUrl?: string;
@@ -135,7 +106,6 @@ export type AppUser = users & {
   zonaAsignada?: number;
   actividadId?: string;
 };
-import { useApi } from '../hooks/useApi';
 
 export type ActiveTab =
   | 'inicio'
@@ -167,73 +137,48 @@ interface AppContextType {
   toast: ToastMessage | null;
   showToast: (type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => void;
   closeToast: () => void;
+  isLoading: boolean;
 
-  // API & Database status
-  isApiConnected: boolean;
-  isSyncing: boolean;
-  syncWithDatabase: () => Promise<void>;
-  
-  // Usuarios de BD
+  // Usuarios
   usersList: AppUser[];
 
-  // Socios
+  // Socios CRUD
   socios: Socio[];
-  addSocio: (data: any) => Promise<boolean>;
-  updateSocio: (id: string | number, data: Partial<Socio>) => Promise<void>;
-  deleteSocio: (id: string | number) => Promise<void>;
-  addFamiliar: (socioId: string | number, familiar: any) => Promise<void>;
-  removeFamiliar: (socioId: string | number, familiarId: string | number) => Promise<void>;
-  regularizarDeudaSocio: (socioId: string | number) => Promise<void>;
+  agregarSocio: (socio: any) => Promise<void>;
+  actualizarSocio: (socio: Socio) => Promise<void>;
+  eliminarSocio: (id: string | number) => Promise<void>;
 
   // Cobradores CRUD
   cobradores: Cobrador[];
-  addCobrador: (data: any) => Promise<boolean>;
-  updateCobrador: (id: string | number, data: Partial<Cobrador>) => Promise<void>;
-  deleteCobrador: (id: string | number) => Promise<void>;
-  toggleCobradorEstado: (id: string | number) => Promise<void>;
+  agregarCobrador: (cobrador: any) => Promise<void>;
+  actualizarCobrador: (cobrador: Cobrador) => Promise<void>;
+  eliminarCobrador: (id: string | number) => Promise<void>;
 
   // Instructores CRUD
   instructores: Instructor[];
-  addInstructor: (data: any) => Promise<boolean>;
-  updateInstructor: (id: string | number, data: Partial<Instructor>) => Promise<void>;
-  deleteInstructor: (id: string | number) => Promise<void>;
-  toggleInstructorEstado: (id: string | number) => Promise<void>;
+  agregarInstructor: (instructor: any) => Promise<void>;
+  actualizarInstructor: (instructor: Instructor) => Promise<void>;
+  eliminarInstructor: (id: string | number) => Promise<void>;
 
-  // Casilleros
+  // Casilleros CRUD
   lockers: Locker[];
-  assignLocker: (lockerNumber: number, socioId: string | number) => Promise<boolean>;
-  releaseLocker: (lockerNumber: number) => Promise<void>;
-  reserveLocker: (lockerNumber: number) => Promise<void>;
+  actualizarCasillero: (casillero: Locker) => Promise<void>;
 
-  // Actividades
+  // Actividades CRUD
   actividades: Actividad[];
-  enrollSocioInActividad: (socioId: string | number, actividadId: string | number) => Promise<boolean>;
-  unenrollSocioFromActividad: (socioId: string | number, actividadId: string | number) => Promise<void>;
+  agregarActividad: (actividad: any) => Promise<void>;
+  actualizarActividad: (actividad: Actividad) => Promise<void>;
+  eliminarActividad: (id: string | number) => Promise<void>;
 
-  // Asistencias
-  asistencias: AsistenciaRegistro[];
-  saveAsistencia: (registro: AsistenciaRegistro) => Promise<void>;
-
-  // Cupones y Cobranza
+  // Cupones y Rendiciones
   cupones: CuponRecibo[];
-  generarCuponMesActual: (socioId: string | number) => Promise<void>;
-  marcarCuponPagado: (cuponId: string | number, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => Promise<void>;
-  reemitirCuponConMora: (cuponId: string | number) => Promise<void>;
-
-  // Rendiciones
   rendiciones: RendicionLiquidacion[];
-  crearRendicionSemanal: (zonaCobro: number, cobradorId: string | number, cobradorNombre: string, cuponesIds: (string | number)[]) => Promise<void>;
-  aprobarRendicion: (rendicionId: string | number) => Promise<void>;
-
-  // Helpers
-  calcularCategoria: (fechaNacimiento: string, fechaIngreso: string) => { categoria: SocioCategoria; edad: number; antiguedadAnios: number };
-  quickSwitchUser: (userId: string | number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Instancias del hook useApi
+  // ⭐️ Instanciamos los hooks de API para cada endpoint (similar a VeterinariaProvider)
   const usersApi = useApi('/users');
   const sociosApi = useApi('/socios');
   const cobradoresApi = useApi('/cobradores');
@@ -242,7 +187,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const actividadesApi = useApi('/actividades');
   const cuponesApi = useApi('/cupones');
   const rendicionesApi = useApi('/rendiciones');
-  const asistenciasApi = useApi('/asistencias');
 
   const GUEST_USER: AppUser = {
     id: 0,
@@ -253,7 +197,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     activo: true,
   };
 
-  // Usuario activo en sesión
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
     const saved = localStorage.getItem('el_globo_current_user');
     if (saved) {
@@ -264,12 +207,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // ⭐️ Manejo de carga estilo VeterinariaProvider
 
-  // Estados de conexión
-  const [isApiConnected, setIsApiConnected] = useState<boolean>(false);
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
-
-  // Estados de datos (solamente poblados desde la base de datos)
+  // Estados de datos
   const [usersList, setUsersList] = useState<AppUser[]>([]);
   const [socios, setSocios] = useState<Socio[]>([]);
   const [cobradores, setCobradores] = useState<Cobrador[]>([]);
@@ -278,7 +218,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [actividades, setActividades] = useState<Actividad[]>([]);
   const [cupones, setCupones] = useState<CuponRecibo[]>([]);
   const [rendiciones, setRendiciones] = useState<RendicionLiquidacion[]>([]);
-  const [asistencias, setAsistencias] = useState<AsistenciaRegistro[]>([]);
 
   const showToast = useCallback((type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => {
     setToast({
@@ -293,61 +232,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToast(null);
   }, []);
 
-  // Carga paralela de datos de BD mediante la API de NestJS
-  const syncWithDatabase = useCallback(async () => {
-    setIsSyncing(true);
-    try {
-      const [
-        usersData,
-        sociosData,
-        cobradoresData,
-        instructoresData,
-        casillerosData,
-        actividadesData,
-        cuponesData,
-        rendicionesData,
-        asistenciasData,
-      ] = await Promise.all([
-        usersApi.get().catch(() => []),
-        sociosApi.get().catch(() => []),
-        cobradoresApi.get().catch(() => []),
-        instructoresApi.get().catch(() => []),
-        casillerosApi.get().catch(() => []),
-        actividadesApi.get().catch(() => []),
-        cuponesApi.get().catch(() => []),
-        rendicionesApi.get().catch(() => []),
-        asistenciasApi.get().catch(() => []),
-      ]);
-
-      if (Array.isArray(usersData)) {
-        setUsersList(usersData);
-        // Si no hay usuario en localStorage, se establece el primero traído desde la BD
-        if (!currentUser && usersData.length > 0) {
-          setCurrentUser(usersData[0]);
-        }
-      }
-      if (Array.isArray(sociosData)) setSocios(sociosData);
-      if (Array.isArray(cobradoresData)) setCobradores(cobradoresData);
-      if (Array.isArray(instructoresData)) setInstructores(instructoresData);
-      if (Array.isArray(casillerosData)) setLockers(casillerosData);
-      if (Array.isArray(actividadesData)) setActividades(actividadesData);
-      if (Array.isArray(cuponesData)) setCupones(cuponesData);
-      if (Array.isArray(rendicionesData)) setRendiciones(rendicionesData);
-      if (Array.isArray(asistenciasData)) setAsistencias(asistenciasData);
-
-      setIsApiConnected(true);
-    } catch (err: any) {
-      console.error('[AppContext] Error conectando con la BD:', err);
-      setIsApiConnected(false);
-      showToast('error', 'Error de BD', 'No se pudo conectar a la base de datos.');
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [currentUser]);
-
+  // ----------------------------------------------------
+  // ⭐️ 1. LÓGICA DE CARGA INICIAL (GET - READ)
+  // ----------------------------------------------------
   useEffect(() => {
-    syncWithDatabase();
-  }, [syncWithDatabase]);
+    const fetchData = async () => {
+      try {
+        const [
+          usersData,
+          sociosData,
+          cobradoresData,
+          instructoresData,
+          casillerosData,
+          actividadesData,
+          cuponesData,
+          rendicionesData,
+        ] = await Promise.all([
+          usersApi.get(),
+          sociosApi.get(),
+          cobradoresApi.get(),
+          instructoresApi.get(),
+          casillerosApi.get(),
+          actividadesApi.get(),
+          cuponesApi.get(),
+          rendicionesApi.get(),
+        ]);
+
+        if (Array.isArray(usersData)) {
+          setUsersList(usersData);
+          if (!currentUser && usersData.length > 0) {
+            setCurrentUser(usersData[0]);
+          }
+        }
+        if (Array.isArray(sociosData)) setSocios(sociosData);
+        if (Array.isArray(cobradoresData)) setCobradores(cobradoresData);
+        if (Array.isArray(instructoresData)) setInstructores(instructoresData);
+        if (Array.isArray(casillerosData)) setLockers(casillerosData);
+        if (Array.isArray(actividadesData)) setActividades(actividadesData);
+        if (Array.isArray(cuponesData)) setCupones(cuponesData);
+        if (Array.isArray(rendicionesData)) setRendiciones(rendicionesData);
+      } catch (error) {
+        showToast('error', 'Error al cargar datos', 'No se pudieron recuperar los registros del servidor.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   useEffect(() => {
     if (currentUser) {
@@ -357,341 +289,152 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentUser]);
 
-  // Reglas de negocio para Socios
-  const calcularCategoria = (fechaNacimiento: string, fechaIngreso: string) => {
-    const hoy = new Date();
-    const nac = new Date(fechaNacimiento);
-    let edad = hoy.getFullYear() - nac.getFullYear();
-    const m = hoy.getMonth() - nac.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
-    if (isNaN(edad) || edad < 0) edad = 0;
-
-    const ing = new Date(fechaIngreso);
-    let antiguedad = hoy.getFullYear() - ing.getFullYear();
-    const mIng = hoy.getMonth() - ing.getMonth();
-    if (mIng < 0 || (mIng === 0 && hoy.getDate() < ing.getDate())) antiguedad--;
-    if (isNaN(antiguedad) || antiguedad < 0) antiguedad = 0;
-
-    let categoria: SocioCategoria = 'ACTIVO';
-    if (edad < 18) {
-      categoria = 'CADETE';
-    } else if (antiguedad >= 30) {
-      categoria = 'VITALICIO';
-    }
-
-    return { categoria, edad, antiguedadAnios: antiguedad };
-  };
-
-  // SOCIOS CRUD BD
-  const addSocio = async (data: any): Promise<boolean> => {
-    if (socios.some((s) => s.dni.trim() === String(data.dni).trim())) {
-      showToast('error', 'Error al registrar', `Ya existe un socio registrado con el DNI ${data.dni}.`);
-      return false;
-    }
-
-    const fechaAltaNorm = data.fechaAlta || data.fechaIngreso || new Date().toISOString().split('T')[0];
-    const { categoria, edad, antiguedadAnios } = calcularCategoria(data.fechaNacimiento, fechaAltaNorm);
-    const payload = {
-      ...data,
-      fechaAlta: fechaAltaNorm,
-      edad,
-      antiguedadAnios,
-      categoria,
-      estado: data.estado || 'ACTIVO',
-      mesesImpagosConsecutivos: data.mesesImpagosConsecutivos || 0,
-    };
-
+  // ----------------------------------------------------
+  // ⭐️ 2. FUNCIONES DE SOCIOS (CREATE, UPDATE, DELETE)
+  // ----------------------------------------------------
+  const agregarSocio = async (nuevoSocio: any) => {
     try {
-      const nuevoSocio = await sociosApi.create(payload);
-      setSocios((prev) => [nuevoSocio, ...prev]);
-      showToast('success', 'Socio registrado', `${nuevoSocio.nombre || nuevoSocio.nombreCompleto} guardado en BD.`);
-      return true;
-    } catch (err: any) {
-      showToast('error', 'Error en BD', err.message);
-      return false;
+      const data = await sociosApi.create(nuevoSocio);
+      setSocios([...socios, data]);
+      showToast('success', 'Socio agregado');
+    } catch (error) {
+      showToast('error', 'Error al agregar socio');
     }
   };
 
-  const updateSocio = async (id: string, data: Partial<Socio>) => {
+  const actualizarSocio = async (socioActualizado: Socio) => {
     try {
-      const actualizado = await sociosApi.update(id, data);
-      setSocios((prev) => prev.map((s) => (String(s.id) === String(id) ? actualizado : s)));
-      showToast('success', 'Padrón actualizado', 'Datos actualizados en BD.');
-    } catch (err: any) {
-      showToast('error', 'Error al actualizar', err.message);
+      await sociosApi.update(socioActualizado.id, socioActualizado);
+      setSocios(socios.map((s) => (s.id === socioActualizado.id ? socioActualizado : s)));
+      showToast('success', 'Socio actualizado');
+    } catch (error) {
+      showToast('error', 'Error al actualizar socio');
     }
   };
 
-  const deleteSocio = async (id: string) => {
+  const eliminarSocio = async (id: string | number) => {
     try {
       await sociosApi.remove(id);
-      setSocios((prev) => prev.filter((s) => String(s.id) !== String(id)));
-      showToast('info', 'Socio eliminado', 'Registro eliminado de la BD.');
-    } catch (err: any) {
-      showToast('error', 'Error al eliminar', err.message);
+      setSocios(socios.filter((s) => s.id !== id));
+      showToast('info', 'Socio eliminado');
+    } catch (error) {
+      showToast('error', 'Error al eliminar socio');
     }
   };
 
-  const addFamiliar = async (socioId: string, familiarData: Omit<Familiar, 'id' | 'edad'>) => {
+  // ----------------------------------------------------
+  // ⭐️ 3. FUNCIONES DE COBRADORES (CREATE, UPDATE, DELETE)
+  // ----------------------------------------------------
+  const agregarCobrador = async (nuevoCobrador: any) => {
     try {
-      const familiarCreado = await useApi(`/socios/${socioId}/familiares`).create(familiarData);
-      setSocios((prev) =>
-        prev.map((s) => (String(s.id) === String(socioId) ? { ...s, familiares: [...(s.familiares || []), familiarCreado] } : s))
-      );
-      showToast('success', 'Familiar registrado', `${familiarData.nombre} vinculado en BD.`);
-    } catch (err: any) {
-      showToast('error', 'Error al agregar familiar', err.message);
+      const data = await cobradoresApi.create(nuevoCobrador);
+      setCobradores([...cobradores, data]);
+      showToast('success', 'Cobrador agregado');
+    } catch (error) {
+      showToast('error', 'Error al agregar cobrador');
     }
   };
 
-  const removeFamiliar = async (socioId: string, familiarId: string) => {
+  const actualizarCobrador = async (cobradorActualizado: Cobrador) => {
     try {
-      await useApi(`/socios/${socioId}/familiares`).remove(familiarId);
-      setSocios((prev) =>
-        prev.map((s) => {
-          if (String(s.id) !== String(socioId)) return s;
-          return { ...s, familiares: (s.familiares || []).filter((f: any) => String(f.id) !== String(familiarId)) };
-        })
-      );
-      showToast('info', 'Familiar desvinculado');
-    } catch (err: any) {
-      showToast('error', 'Error al desvincular familiar', err.message);
-    }
-  };
-
-  const regularizarDeudaSocio = async (socioId: string) => {
-    try {
-      await useApi(`/socios/${socioId}/regularizar`).create({});
-      await syncWithDatabase();
-      showToast('success', 'Deuda regularizada', 'Socio habilitado en BD.');
-    } catch (err: any) {
-      showToast('error', 'Error al regularizar', err.message);
-    }
-  };
-
-  // COBRADORES CRUD BD
-  const addCobrador = async (data: Omit<Cobrador, 'id' | 'fechaAlta'>): Promise<boolean> => {
-    try {
-      const nuevo = await cobradoresApi.create(data);
-      setCobradores((prev) => [nuevo, ...prev]);
-      showToast('success', 'Cobrador guardado', `Cobrador de Zona ${nuevo.zona} guardado en BD.`);
-      return true;
-    } catch (err: any) {
-      showToast('error', 'Error en BD', err.message);
-      return false;
-    }
-  };
-
-  const updateCobrador = async (id: string, data: Partial<Cobrador>) => {
-    try {
-      const actualizado = await cobradoresApi.update(id, data);
-      setCobradores((prev) => prev.map((c) => (String(c.id) === String(id) ? actualizado : c)));
+      await cobradoresApi.update(cobradorActualizado.id, cobradorActualizado);
+      setCobradores(cobradores.map((c) => (c.id === cobradorActualizado.id ? cobradorActualizado : c)));
       showToast('success', 'Cobrador actualizado');
-    } catch (err: any) {
-      showToast('error', 'Error al actualizar', err.message);
+    } catch (error) {
+      showToast('error', 'Error al actualizar cobrador');
     }
   };
 
-  const deleteCobrador = async (id: string) => {
+  const eliminarCobrador = async (id: string | number) => {
     try {
       await cobradoresApi.remove(id);
-      setCobradores((prev) => prev.filter((c) => String(c.id) !== String(id)));
+      setCobradores(cobradores.filter((c) => c.id !== id));
       showToast('info', 'Cobrador eliminado');
-    } catch (err: any) {
-      showToast('error', 'Error al eliminar', err.message);
+    } catch (error) {
+      showToast('error', 'Error al eliminar cobrador');
     }
   };
 
-  const toggleCobradorEstado = async (id: string) => {
-    const target = cobradores.find((c) => String(c.id) === String(id));
-    if (!target) return;
+  // ----------------------------------------------------
+  // ⭐️ 4. FUNCIONES DE INSTRUCTORES (CREATE, UPDATE, DELETE)
+  // ----------------------------------------------------
+  const agregarInstructor = async (nuevoInstructor: any) => {
     try {
-      const nuevoEstado = !target.activo;
-      await cobradoresApi.update(id, { activo: nuevoEstado });
-      setCobradores((prev) => prev.map((c) => (String(c.id) === String(id) ? { ...c, activo: nuevoEstado } : c)));
-      showToast('info', 'Estado actualizado');
-    } catch (err: any) {
-      showToast('error', 'Error al actualizar estado', err.message);
+      const data = await instructoresApi.create(nuevoInstructor);
+      setInstructores([...instructores, data]);
+      showToast('success', 'Instructor agregado');
+    } catch (error) {
+      showToast('error', 'Error al agregar instructor');
     }
   };
 
-  // INSTRUCTORES CRUD BD
-  const addInstructor = async (data: Omit<Instructor, 'id' | 'fechaAlta'>): Promise<boolean> => {
+  const actualizarInstructor = async (instructorActualizado: Instructor) => {
     try {
-      const nuevo = await instructoresApi.create(data);
-      setInstructores((prev) => [nuevo, ...prev]);
-      showToast('success', 'Instructor guardado');
-      return true;
-    } catch (err: any) {
-      showToast('error', 'Error al registrar instructor', err.message);
-      return false;
-    }
-  };
-
-  const updateInstructor = async (id: string, data: Partial<Instructor>) => {
-    try {
-      const actualizado = await instructoresApi.update(id, data);
-      setInstructores((prev) => prev.map((i) => (String(i.id) === String(id) ? actualizado : i)));
+      await instructoresApi.update(instructorActualizado.id, instructorActualizado);
+      setInstructores(instructores.map((i) => (i.id === instructorActualizado.id ? instructorActualizado : i)));
       showToast('success', 'Instructor actualizado');
-    } catch (err: any) {
-      showToast('error', 'Error al actualizar instructor', err.message);
+    } catch (error) {
+      showToast('error', 'Error al actualizar instructor');
     }
   };
 
-  const deleteInstructor = async (id: string) => {
+  const eliminarInstructor = async (id: string | number) => {
     try {
       await instructoresApi.remove(id);
-      setInstructores((prev) => prev.filter((i) => String(i.id) !== String(id)));
+      setInstructores(instructores.filter((i) => i.id !== id));
       showToast('info', 'Instructor eliminado');
-    } catch (err: any) {
-      showToast('error', 'Error al eliminar instructor', err.message);
+    } catch (error) {
+      showToast('error', 'Error al eliminar instructor');
     }
   };
 
-  const toggleInstructorEstado = async (id: string) => {
-    const target = instructores.find((i) => String(i.id) === String(id));
-    if (!target) return;
+  // ----------------------------------------------------
+  // ⭐️ 5. FUNCIONES DE ACTIVIDADES (CREATE, UPDATE, DELETE)
+  // ----------------------------------------------------
+  const agregarActividad = async (nuevaActividad: any) => {
     try {
-      const nuevoEstado = !target.activo;
-      await instructoresApi.update(id, { activo: nuevoEstado });
-      setInstructores((prev) => prev.map((i) => (String(i.id) === String(id) ? { ...i, activo: nuevoEstado } : i)));
-      showToast('info', 'Estado actualizado');
-    } catch (err: any) {
-      showToast('error', 'Error al actualizar estado', err.message);
+      const data = await actividadesApi.create(nuevaActividad);
+      setActividades([...actividades, data]);
+      showToast('success', 'Actividad agregada');
+    } catch (error) {
+      showToast('error', 'Error al agregar actividad');
     }
   };
 
-  // CASILLEROS BD
-  const assignLocker = async (lockerNumber: number, socioId: string): Promise<boolean> => {
+  const actualizarActividad = async (actividadActualizada: Actividad) => {
     try {
-      const casilleroActualizado = await useApi(`/casilleros/${lockerNumber}/asignar`).create({ socioId });
-      setLockers((prev) => prev.map((l) => (l.numero === lockerNumber ? casilleroActualizado : l)));
-      showToast('success', 'Casillero asignado');
-      return true;
-    } catch (err: any) {
-      showToast('error', 'Error al asignar casillero', err.message);
-      return false;
+      await actividadesApi.update(actividadActualizada.id, actividadActualizada);
+      setActividades(actividades.map((a) => (a.id === actividadActualizada.id ? actividadActualizada : a)));
+      showToast('success', 'Actividad actualizada');
+    } catch (error) {
+      showToast('error', 'Error al actualizar actividad');
     }
   };
 
-  const releaseLocker = async (lockerNumber: number) => {
+  const eliminarActividad = async (id: string | number) => {
     try {
-      const casilleroLiberado = await useApi(`/casilleros/${lockerNumber}/liberar`).create({});
-      setLockers((prev) => prev.map((l) => (l.numero === lockerNumber ? casilleroLiberado : l)));
-      showToast('info', 'Casillero liberado');
-    } catch (err: any) {
-      showToast('error', 'Error al liberar casillero', err.message);
+      await actividadesApi.remove(id);
+      setActividades(actividades.filter((a) => a.id !== id));
+      showToast('info', 'Actividad eliminada');
+    } catch (error) {
+      showToast('error', 'Error al eliminar actividad');
     }
   };
 
-  const reserveLocker = async (lockerNumber: number) => {
+  // ----------------------------------------------------
+  // ⭐️ 6. FUNCIONES DE CASILLEROS (UPDATE)
+  // ----------------------------------------------------
+  const actualizarCasillero = async (casilleroActualizado: Locker) => {
     try {
-      const res = await casillerosApi.update(lockerNumber, { reservado: true });
-      setLockers((prev) => prev.map((l) => (l.numero === lockerNumber ? res : l)));
-      showToast('info', 'Casillero reservado');
-    } catch (err: any) {
-      showToast('error', 'Error al reservar casillero', err.message);
+      await casillerosApi.update(casilleroActualizado.id, casilleroActualizado);
+      setLockers(lockers.map((l) => (l.id === casilleroActualizado.id ? casilleroActualizado : l)));
+      showToast('success', 'Casillero actualizado');
+    } catch (error) {
+      showToast('error', 'Error al actualizar casillero');
     }
   };
 
-  // ACTIVIDADES Y INSCRIPCIONES BD
-  const enrollSocioInActividad = async (socioId: string, actividadId: string): Promise<boolean> => {
-    try {
-      await useApi('/inscripciones').create({ socioId, actividadId });
-      await syncWithDatabase();
-      showToast('success', 'Inscripción confirmada');
-      return true;
-    } catch (err: any) {
-      showToast('error', 'Error en inscripción', err.message);
-      return false;
-    }
-  };
-
-  const unenrollSocioFromActividad = async (socioId: string, actividadId: string) => {
-    try {
-      await useApi(`/inscripciones/socio/${socioId}/actividad/${actividadId}`).remove('');
-      await syncWithDatabase();
-      showToast('info', 'Inscripción cancelada');
-    } catch (err: any) {
-      showToast('error', 'Error al cancelar inscripción', err.message);
-    }
-  };
-
-  // ASISTENCIAS BD
-  const saveAsistencia = async (registro: AsistenciaRegistro) => {
-    try {
-      const guardada = await asistenciasApi.create(registro);
-      setAsistencias((prev) => [guardada, ...prev.filter((a) => a.id !== guardada.id)]);
-      showToast('success', 'Asistencia guardada');
-    } catch (err: any) {
-      showToast('error', 'Error al registrar asistencia', err.message);
-    }
-  };
-
-  // CUPONES Y COBRANZAS BD
-  const generarCuponMesActual = async (socioId: string) => {
-    try {
-      const cuponNuevo = await useApi(`/cupones/generar/${socioId}`).create({});
-      setCupones((prev) => [cuponNuevo, ...prev]);
-      showToast('success', 'Recibo generado en BD');
-    } catch (err: any) {
-      showToast('error', 'Error al generar recibo', err.message);
-    }
-  };
-
-  const marcarCuponPagado = async (cuponId: string, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string) => {
-    try {
-      const cuponPagado = await cuponesApi.update(cuponId, {
-        estado: 'PAGADO',
-        metodoPago,
-        cobradorId,
-        fechaPago: new Date().toISOString(),
-      });
-      setCupones((prev) => prev.map((c) => (String(c.id) === String(cuponId) ? cuponPagado : c)));
-      showToast('success', 'Pago registrado en BD');
-    } catch (err: any) {
-      showToast('error', 'Error al asentar pago', err.message);
-    }
-  };
-
-  const reemitirCuponConMora = async (cuponId: string) => {
-    try {
-      const cuponActualizado = await useApi(`/cupones/${cuponId}/mora`).create({});
-      setCupones((prev) => prev.map((c) => (String(c.id) === String(cuponId) ? cuponActualizado : c)));
-      showToast('warning', 'Mora aplicada en BD');
-    } catch (err: any) {
-      showToast('error', 'Error al aplicar mora', err.message);
-    }
-  };
-
-  // RENDICIONES BD
-  const crearRendicionSemanal = async (zonaCobro: number, cobradorId: string, cobradorNombre: string, cuponesIds: string[]) => {
-    try {
-      const rendicion = await rendicionesApi.create({
-        zonaCobro,
-        cobradorId,
-        cobradorNombre,
-        cuponesIds,
-      });
-      setRendiciones((prev) => [rendicion, ...prev]);
-      showToast('success', 'Rendición creada');
-    } catch (err: any) {
-      showToast('error', 'Error al generar rendición', err.message);
-    }
-  };
-
-  const aprobarRendicion = async (rendicionId: string) => {
-    try {
-      const aprobada = await rendicionesApi.update(rendicionId, { estado: 'APROBADA' });
-      setRendiciones((prev) => prev.map((r) => (String(r.id) === String(rendicionId) ? aprobada : r)));
-      showToast('success', 'Rendición Aprobada');
-    } catch (err: any) {
-      showToast('error', 'Error al aprobar rendición', err.message);
-    }
-  };
-
-  // Cambio de usuario exclusivamente desde el listado obtenido de la BD
-  const quickSwitchUser = (userId: string) => {
+  const quickSwitchUser = (userId: string | number) => {
     const foundUser = usersList.find((u) => String(u.id) === String(userId));
     if (foundUser) {
       setCurrentUser(foundUser);
@@ -703,64 +446,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       showToast('info', 'Sesión cambiada', `Usuario activo: ${foundUser.nombreCompleto || foundUser.email}`);
     } else {
-      showToast('error', 'Usuario no encontrado', 'El usuario solicitado no existe en la base de datos.');
+      showToast('error', 'Usuario no encontrado');
     }
   };
 
-  return (
-    <AppContext.Provider
-      value={{
-        currentUser,
-        setCurrentUser,
-        activeTab,
-        setActiveTab,
-        toast,
-        showToast,
-        closeToast,
-        isApiConnected,
-        isSyncing,
-        syncWithDatabase,
-        usersList,
-        socios,
-        addSocio,
-        updateSocio,
-        deleteSocio,
-        addFamiliar,
-        removeFamiliar,
-        regularizarDeudaSocio,
-        cobradores,
-        addCobrador,
-        updateCobrador,
-        deleteCobrador,
-        toggleCobradorEstado,
-        instructores,
-        addInstructor,
-        updateInstructor,
-        deleteInstructor,
-        toggleInstructorEstado,
-        lockers,
-        assignLocker,
-        releaseLocker,
-        reserveLocker,
-        actividades,
-        enrollSocioInActividad,
-        unenrollSocioFromActividad,
-        asistencias,
-        saveAsistencia,
-        cupones,
-        generarCuponMesActual,
-        marcarCuponPagado,
-        reemitirCuponConMora,
-        rendiciones,
-        crearRendicionSemanal,
-        aprobarRendicion,
-        calcularCategoria,
-        quickSwitchUser,
-      }}
-    >
-      {children}
-    </AppContext.Provider>
-  );
+  // ----------------------------------------------------
+  // ⭐️ 7. DEFINIR EL OBJETO DE VALOR
+  // ----------------------------------------------------
+  const value = {
+    currentUser,
+    setCurrentUser,
+    activeTab,
+    setActiveTab,
+    toast,
+    showToast,
+    closeToast,
+    isLoading, // Explicito para vistas igual que en VeterinariaProvider
+
+    usersList,
+
+    // Socios
+    socios,
+    agregarSocio,
+    actualizarSocio,
+    eliminarSocio,
+
+    // Cobradores
+    cobradores,
+    agregarCobrador,
+    actualizarCobrador,
+    eliminarCobrador,
+
+    // Instructores
+    instructores,
+    agregarInstructor,
+    actualizarInstructor,
+    eliminarInstructor,
+
+    // Casilleros
+    lockers,
+    actualizarCasillero,
+
+    // Actividades
+    actividades,
+    agregarActividad,
+    actualizarActividad,
+    eliminarActividad,
+
+    // Cupones y Rendiciones
+    cupones,
+    rendiciones,
+  };
+
+  if (isLoading) {
+    return <h1>Cargando datos del servidor...</h1>;
+  }
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
 export const useApp = () => {
