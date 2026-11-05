@@ -244,7 +244,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           cobradoresData,
           instructoresData,
           casillerosData,
-          actividadesData,
           cuponesData,
           rendicionesData,
         ] = await Promise.all([
@@ -253,7 +252,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           cobradoresApi.get(),
           instructoresApi.get(),
           casillerosApi.get(),
-          actividadesApi.get(),
           cuponesApi.get(),
           rendicionesApi.get(),
         ]);
@@ -268,7 +266,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(cobradoresData)) setCobradores(cobradoresData);
         if (Array.isArray(instructoresData)) setInstructores(instructoresData);
         if (Array.isArray(casillerosData)) setLockers(casillerosData);
-        if (Array.isArray(actividadesData)) setActividades(actividadesData);
         if (Array.isArray(cuponesData)) setCupones(cuponesData);
         if (Array.isArray(rendicionesData)) setRendiciones(rendicionesData);
       } catch (error) {
@@ -278,7 +275,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
+    const fetchActividades = async () => {
+      try {
+        const [
+          actividadesData,
+        ] = await Promise.all([
+          actividadesApi.get(),
+        ]);
+
+        if (Array.isArray(fetchActividades)) {
+          setUsersList(fetchActividades);
+          if (!currentUser && fetchActividades.length > 0) {
+            setCurrentUser(fetchActividades[0]);
+          }
+        }
+        if (Array.isArray(actividadesData)) setActividades(actividadesData);
+      } catch (error) {
+        showToast('error', 'Error al cargar datos', 'No se pudieron recuperar los registros del servidor.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchData();
+    fetchActividades();
   }, []);
 
   useEffect(() => {
