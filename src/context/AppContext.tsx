@@ -454,22 +454,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const quickSwitchUser = (userId: string | number) => {
-    const foundUser = usersList.find((u) => String(u.id) === String(userId));
-    if (foundUser) {
-      setCurrentUser(foundUser);
-      if (foundUser.role === 'ADMIN') setActiveTab('dashboard');
-      else if (foundUser.role === 'COBRADOR') setActiveTab('cobranza');
-      else if (foundUser.role === 'INSTRUCTOR') setActiveTab('asistencia');
-      else if (foundUser.role === 'SOCIO') setActiveTab('portal_socio');
-      else setActiveTab('inicio');
-
-      showToast('info', 'Sesión cambiada', `Usuario activo: ${foundUser.nombreCompleto || foundUser.email}`);
-    } else {
-      showToast('error', 'Usuario no encontrado');
-    }
-  };
-
   // ----------------------------------------------------
   // ⭐️ 7. DEFINIR EL OBJETO DE VALOR
   // ----------------------------------------------------
