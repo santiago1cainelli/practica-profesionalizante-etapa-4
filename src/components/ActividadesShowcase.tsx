@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   Trophy,
   Calendar,
@@ -12,8 +12,9 @@ import {
   UserCheck,
   X
 } from 'lucide-react';
-import { actividades } from '../types';
-import { useApp } from '../context/AppContext';
+import { Actividades } from '../types';
+//import { useApp } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
 
 export const ActividadesShowcase: React.FC = () => {
   const {
@@ -23,15 +24,15 @@ export const ActividadesShowcase: React.FC = () => {
     unenrollSocioFromActividad,
     currentUser,
     setActiveTab,
-    quickSwitchUser,
-  } = useApp();
+    quickSwitchUser
+  } = useContext( useClub );
 
   const [selectedCategoria, setSelectedCategoria] = useState<string>('TODAS');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedActividadToEnroll, setSelectedActividadToEnroll] = useState<actividades | null>(null);
+  const [selectedActividadToEnroll, setSelectedActividadToEnroll] = useState<Actividades | null>(null);
   const [targetSocioId, setTargetSocioId] = useState<string>('');
   const [showGuestModal, setShowGuestModal] = useState(false);
-  const [actividadToUnenroll, setActividadToUnenroll] = useState<actividades | null>(null);
+  const [actividadToUnenroll, setActividadToUnenroll] = useState<Actividades | null>(null);
 
   const isGuest = currentUser?.role === 'PUBLICO';
   const isSocio = currentUser?.role === 'SOCIO';
@@ -43,9 +44,9 @@ export const ActividadesShowcase: React.FC = () => {
       socios.find((s) => s.email === currentUser.email)
     : null;
 
-  const categoriasUnicas = Array.from(new Set(actividades.map((a) => (a as any).categoria || a.turno || 'Deporte'))).filter(Boolean);
+  const categoriasUnicas = Array.from(new Set(actividades.map((a : any) => (a as any).categoria || a.turno || 'Deporte'))).filter(Boolean);
 
-  const filteredActividades = actividades.filter((act) => {
+  const filteredActividades = actividades.filter((act : any) => {
     const matchesCat = selectedCategoria === 'TODAS' || (act as any).categoria === selectedCategoria || act.turno === selectedCategoria;
     const term = searchQuery.toLowerCase();
     const nombreAct = (act.nombre || '').toLowerCase();

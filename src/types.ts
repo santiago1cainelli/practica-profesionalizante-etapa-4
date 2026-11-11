@@ -82,7 +82,7 @@ export interface cobradores {
   createdAt?: string;
 }
 
-export interface actividades {
+export interface Actividades {
   id: number;
   nombre: string;
   descripcion?: string;

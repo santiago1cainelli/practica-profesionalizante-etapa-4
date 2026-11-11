@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import {
   socios,
   casilleros,
-  actividades,
+  Actividades,
   cobradores,
   instructores,
   cupones,
@@ -10,7 +10,7 @@ import {
   users,
   SocioCategoria,
 } from '../types';
-import { useApi } from '../hooks/useApi';
+//import { useApi } from '../hooks/useApi';
 
 export type Socio = socios & {
   numeroSocio?: number;
@@ -33,7 +33,7 @@ export type Locker = casilleros & {
   fechaAsignacion?: string;
 };
 
-export type Actividad = actividades & {
+export type Actividad = Actividades & {
   categoria?: string;
   dias?: string[];
   horario?: string;
@@ -122,7 +122,7 @@ export type ActiveTab =
   | 'portal_socio'
   | 'plan_doc';
 
-interface ToastMessage {
+export interface ToastMessage {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
   title: string;
@@ -175,9 +175,9 @@ interface AppContextType {
   rendiciones: RendicionLiquidacion[];
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+export const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+/*export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // ⭐️ Instanciamos los hooks de API para cada endpoint (similar a VeterinariaProvider)
   const usersApi = useApi('/users');
   const sociosApi = useApi('/socios');
@@ -200,7 +200,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
     const saved = localStorage.getItem('el_globo_current_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+      try { return JSON.parse(saved); } catch (e) { }
     }
     return GUEST_USER;
   });
@@ -283,15 +283,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           actividadesApi.get(),
         ]);
 
-        if (Array.isArray(fetchActividades)) {
-          setUsersList(fetchActividades);
-          if (!currentUser && fetchActividades.length > 0) {
-            setCurrentUser(fetchActividades[0]);
-          }
-        }
         if (Array.isArray(actividadesData)) setActividades(actividadesData);
       } catch (error) {
-        showToast('error', 'Error al cargar datos', 'No se pudieron recuperar los registros del servidor.');
+        showToast('error', 'Error al cargar datos', 'No se pudieron recuperar las actividades del servidor.');
       } finally {
         setIsLoading(false);
       }
@@ -507,12 +501,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-};
+};*/
 
-export const useApp = () => {
+//export const AppContext;
+//export const useContext;
+
+/*export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {
     throw new Error('useApp debe ser utilizado dentro de un AppProvider');
   }
   return context;
-};
+};*/

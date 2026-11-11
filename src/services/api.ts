@@ -3,7 +3,7 @@ import {
   cobradores,
   instructores,
   casilleros,
-  actividades,
+  Actividades,
   cupones,
   rendiciones,
 } from '../types';
@@ -42,7 +42,7 @@ export const api = {
     cobradores: cobradores[];
     instructores: instructores[];
     lockers: casilleros[];
-    actividades: actividades[];
+    actividades: Actividades[];
     cupones: cupones[];
     rendiciones: rendiciones[];
   }> {
@@ -186,7 +186,7 @@ export const api = {
   },
 
   // Actividades
-  async getActividades(): Promise<actividades[]> {
+  async getActividades(): Promise<Actividades[]> {
     const res = await fetch('/api/actividades');
     return handleResponse(res);
   },
