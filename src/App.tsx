@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
+import { AppProvider, useClub } from './context/AppProvider.tsx';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './components/Dashboard';
 import { SocioList } from './components/SocioList';
@@ -17,7 +17,7 @@ import { PlanDocumentModal } from './components/PlanDocumentModal';
 import { Building2, ShieldCheck, Heart } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { activeTab, setActiveTab, currentUser } = useApp();
+  const { activeTab, setActiveTab, currentUser } = useClub();
   const [isPlanDocOpen, setIsPlanDocOpen] = useState(false);
 
   const renderContent = () => {

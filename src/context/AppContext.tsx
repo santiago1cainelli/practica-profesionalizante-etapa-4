@@ -1,16 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext } from 'react';
 import {
   socios,
   casilleros,
-  Actividades,
+  actividades,
   cobradores,
   instructores,
   cupones,
   rendiciones,
   users,
-  SocioCategoria,
 } from '../types';
-//import { useApi } from '../hooks/useApi';
 
 export type Socio = socios & {
   numeroSocio?: number;
@@ -33,7 +31,7 @@ export type Locker = casilleros & {
   fechaAsignacion?: string;
 };
 
-export type Actividad = Actividades & {
+export type Actividad = actividades & {
   categoria?: string;
   dias?: string[];
   horario?: string;
@@ -105,6 +103,7 @@ export type AppUser = users & {
   nombreCompleto?: string;
   zonaAsignada?: number;
   actividadId?: string;
+  socioId?: string | number; // ✅ Agregado para vincular usuario con socio
 };
 
 export type ActiveTab =
@@ -129,9 +128,10 @@ export interface ToastMessage {
   description?: string;
 }
 
-interface AppContextType {
+export interface AppContextType {
   currentUser: AppUser | null;
   setCurrentUser: (user: AppUser) => void;
+  quickSwitchUser: (userIdOrRole: string) => void; // ✅ Agregado
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   toast: ToastMessage | null;
@@ -164,17 +164,20 @@ interface AppContextType {
   lockers: Locker[];
   actualizarCasillero: (casillero: Locker) => Promise<void>;
 
-  // Actividades CRUD
+  // Actividades CRUD e Inscripciones
   actividades: Actividad[];
   agregarActividad: (actividad: any) => Promise<void>;
   actualizarActividad: (actividad: Actividad) => Promise<void>;
   eliminarActividad: (id: string | number) => Promise<void>;
+  enrollSocioInActividad: (socioId: string, actividadId: string) => Promise<boolean>; // ✅ Agregado
+  unenrollSocioFromActividad: (socioId: string, actividadId: string) => Promise<boolean>; // ✅ Agregado
 
   // Cupones y Rendiciones
   cupones: CuponRecibo[];
   rendiciones: RendicionLiquidacion[];
 }
 
+// ✅ Inicializado en undefined (no en {})
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
 /*export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

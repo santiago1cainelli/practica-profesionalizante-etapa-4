@@ -1,9 +1,20 @@
 import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { useApi } from '../hooks/useApi';
-import { Socio, Locker, Actividad, Cobrador, Instructor, CuponRecibo, RendicionLiquidacion, AppUser, AppContext, ActiveTab, ToastMessage } from './AppContext.tsx';
+import {
+  Socio,
+  Locker,
+  Actividad,
+  Cobrador,
+  Instructor,
+  CuponRecibo,
+  RendicionLiquidacion,
+  AppUser,
+  AppContext,
+  ActiveTab,
+  ToastMessage,
+} from './AppContext';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // ⭐️ Instanciamos los hooks de API para cada endpoint (similar a VeterinariaProvider)
   const usersApi = useApi('/users');
   const sociosApi = useApi('/socios');
   const cobradoresApi = useApi('/cobradores');
@@ -25,16 +36,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<AppUser>(() => {
     const saved = localStorage.getItem('el_globo_current_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        /* ignore */
+      }
     }
     return GUEST_USER;
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // ⭐️ Manejo de carga estilo VeterinariaProvider
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Estados de datos
   const [usersList, setUsersList] = useState<AppUser[]>([]);
   const [socios, setSocios] = useState<Socio[]>([]);
   const [cobradores, setCobradores] = useState<Cobrador[]>([]);
@@ -44,24 +58,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [cupones, setCupones] = useState<CuponRecibo[]>([]);
   const [rendiciones, setRendiciones] = useState<RendicionLiquidacion[]>([]);
 
-  const showToast = useCallback((type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => {
-    setToast({
-      id: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      type,
-      title,
-      description,
-    });
-  }, []);
+  const showToast = useCallback(
+    (type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => {
+      setToast({
+        id: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        type,
+        title,
+        description,
+      });
+    },
+    []
+  );
 
   const closeToast = useCallback(() => {
     setToast(null);
   }, []);
 
-  // ----------------------------------------------------
-  // ⭐️ 1. LÓGICA DE CARGA INICIAL (GET - READ)
-  // ----------------------------------------------------
+  // ✅ 1. CARGA INICIAL UNIFICADA (incluye actividades dentro del mismo Promise.all)
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchAllData = async () => {
       try {
         const [
           usersData,
@@ -69,6 +84,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           cobradoresData,
           instructoresData,
           casillerosData,
+          actividadesData,
           cuponesData,
           rendicionesData,
         ] = await Promise.all([
@@ -77,6 +93,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           cobradoresApi.get(),
           instructoresApi.get(),
           casillerosApi.get(),
+          actividadesApi.get(),
           cuponesApi.get(),
           rendicionesApi.get(),
         ]);
@@ -91,6 +108,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(cobradoresData)) setCobradores(cobradoresData);
         if (Array.isArray(instructoresData)) setInstructores(instructoresData);
         if (Array.isArray(casillerosData)) setLockers(casillerosData);
+        if (Array.isArray(actividadesData)) setActividades(actividadesData);
         if (Array.isArray(cuponesData)) setCupones(cuponesData);
         if (Array.isArray(rendicionesData)) setRendiciones(rendicionesData);
       } catch (error) {
@@ -100,24 +118,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    const fetchActividades = async () => {
-      try {
-        const [
-          actividadesData,
-        ] = await Promise.all([
-          actividadesApi.get(),
-        ]);
-
-        if (Array.isArray(actividadesData)) setActividades(actividadesData);
-      } catch (error) {
-        showToast('error', 'Error al cargar datos', 'No se pudieron recuperar las actividades del servidor.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-    fetchActividades();
+    fetchAllData();
   }, []);
 
   useEffect(() => {
@@ -128,13 +129,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentUser]);
 
-  // ----------------------------------------------------
-  // ⭐️ 2. FUNCIONES DE SOCIOS (CREATE, UPDATE, DELETE)
-  // ----------------------------------------------------
+  // ✅ Cambio rápido de usuario (para el botón "Iniciar Sesión" desde invitado)
+  const quickSwitchUser = (userIdOrRole: string) => {
+    const found =
+      usersList.find((u) => String(u.id) === userIdOrRole) ||
+      usersList.find((u) => u.role === 'SOCIO');
+
+    if (found) {
+      setCurrentUser(found);
+      showToast('success', `Sesión iniciada como ${found.nombreCompleto || found.email}`);
+    } else {
+      showToast('warning', 'Usuario no encontrado', 'No hay usuarios de tipo Socio cargados en la base de datos.');
+    }
+  };
+
+  // 2. SOCIOS
   const agregarSocio = async (nuevoSocio: any) => {
     try {
       const data = await sociosApi.create(nuevoSocio);
-      setSocios([...socios, data]);
+      setSocios((prev) => [...prev, data]);
       showToast('success', 'Socio agregado');
     } catch (error) {
       showToast('error', 'Error al agregar socio');
@@ -144,7 +157,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const actualizarSocio = async (socioActualizado: Socio) => {
     try {
       await sociosApi.update(socioActualizado.id, socioActualizado);
-      setSocios(socios.map((s) => (s.id === socioActualizado.id ? socioActualizado : s)));
+      setSocios((prev) => prev.map((s) => (s.id === socioActualizado.id ? socioActualizado : s)));
       showToast('success', 'Socio actualizado');
     } catch (error) {
       showToast('error', 'Error al actualizar socio');
@@ -154,20 +167,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const eliminarSocio = async (id: string | number) => {
     try {
       await sociosApi.remove(id);
-      setSocios(socios.filter((s) => s.id !== id));
+      setSocios((prev) => prev.filter((s) => s.id !== id));
       showToast('info', 'Socio eliminado');
     } catch (error) {
       showToast('error', 'Error al eliminar socio');
     }
   };
 
-  // ----------------------------------------------------
-  // ⭐️ 3. FUNCIONES DE COBRADORES (CREATE, UPDATE, DELETE)
-  // ----------------------------------------------------
+  // 3. COBRADORES
   const agregarCobrador = async (nuevoCobrador: any) => {
     try {
       const data = await cobradoresApi.create(nuevoCobrador);
-      setCobradores([...cobradores, data]);
+      setCobradores((prev) => [...prev, data]);
       showToast('success', 'Cobrador agregado');
     } catch (error) {
       showToast('error', 'Error al agregar cobrador');
@@ -177,7 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const actualizarCobrador = async (cobradorActualizado: Cobrador) => {
     try {
       await cobradoresApi.update(cobradorActualizado.id, cobradorActualizado);
-      setCobradores(cobradores.map((c) => (c.id === cobradorActualizado.id ? cobradorActualizado : c)));
+      setCobradores((prev) => prev.map((c) => (c.id === cobradorActualizado.id ? cobradorActualizado : c)));
       showToast('success', 'Cobrador actualizado');
     } catch (error) {
       showToast('error', 'Error al actualizar cobrador');
@@ -187,20 +198,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const eliminarCobrador = async (id: string | number) => {
     try {
       await cobradoresApi.remove(id);
-      setCobradores(cobradores.filter((c) => c.id !== id));
+      setCobradores((prev) => prev.filter((c) => c.id !== id));
       showToast('info', 'Cobrador eliminado');
     } catch (error) {
       showToast('error', 'Error al eliminar cobrador');
     }
   };
 
-  // ----------------------------------------------------
-  // ⭐️ 4. FUNCIONES DE INSTRUCTORES (CREATE, UPDATE, DELETE)
-  // ----------------------------------------------------
+  // 4. INSTRUCTORES
   const agregarInstructor = async (nuevoInstructor: any) => {
     try {
       const data = await instructoresApi.create(nuevoInstructor);
-      setInstructores([...instructores, data]);
+      setInstructores((prev) => [...prev, data]);
       showToast('success', 'Instructor agregado');
     } catch (error) {
       showToast('error', 'Error al agregar instructor');
@@ -210,7 +219,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const actualizarInstructor = async (instructorActualizado: Instructor) => {
     try {
       await instructoresApi.update(instructorActualizado.id, instructorActualizado);
-      setInstructores(instructores.map((i) => (i.id === instructorActualizado.id ? instructorActualizado : i)));
+      setInstructores((prev) => prev.map((i) => (i.id === instructorActualizado.id ? instructorActualizado : i)));
       showToast('success', 'Instructor actualizado');
     } catch (error) {
       showToast('error', 'Error al actualizar instructor');
@@ -220,20 +229,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const eliminarInstructor = async (id: string | number) => {
     try {
       await instructoresApi.remove(id);
-      setInstructores(instructores.filter((i) => i.id !== id));
+      setInstructores((prev) => prev.filter((i) => i.id !== id));
       showToast('info', 'Instructor eliminado');
     } catch (error) {
       showToast('error', 'Error al eliminar instructor');
     }
   };
 
-  // ----------------------------------------------------
-  // ⭐️ 5. FUNCIONES DE ACTIVIDADES (CREATE, UPDATE, DELETE)
-  // ----------------------------------------------------
+  // 5. ACTIVIDADES E INSCRIPCIONES
   const agregarActividad = async (nuevaActividad: any) => {
     try {
       const data = await actividadesApi.create(nuevaActividad);
-      setActividades([...actividades, data]);
+      setActividades((prev) => [...prev, data]);
       showToast('success', 'Actividad agregada');
     } catch (error) {
       showToast('error', 'Error al agregar actividad');
@@ -243,7 +250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const actualizarActividad = async (actividadActualizada: Actividad) => {
     try {
       await actividadesApi.update(actividadActualizada.id, actividadActualizada);
-      setActividades(actividades.map((a) => (a.id === actividadActualizada.id ? actividadActualizada : a)));
+      setActividades((prev) => prev.map((a) => (a.id === actividadActualizada.id ? actividadActualizada : a)));
       showToast('success', 'Actividad actualizada');
     } catch (error) {
       showToast('error', 'Error al actualizar actividad');
@@ -253,70 +260,133 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const eliminarActividad = async (id: string | number) => {
     try {
       await actividadesApi.remove(id);
-      setActividades(actividades.filter((a) => a.id !== id));
+      setActividades((prev) => prev.filter((a) => a.id !== id));
       showToast('info', 'Actividad eliminada');
     } catch (error) {
       showToast('error', 'Error al eliminar actividad');
     }
   };
 
-  // ----------------------------------------------------
-  // ⭐️ 6. FUNCIONES DE CASILLEROS (UPDATE)
-  // ----------------------------------------------------
+  // ✅ Inscribir socio en actividad y actualizar cupo en BD
+  const enrollSocioInActividad = async (socioId: string, actividadId: string): Promise<boolean> => {
+    const socio = socios.find((s) => String(s.id) === String(socioId));
+    const actividad = actividades.find((a) => String(a.id) === String(actividadId));
+
+    if (!socio || !actividad) {
+      showToast('error', 'Error', 'Socio o actividad no encontrados.');
+      return false;
+    }
+
+    const actuales = socio.actividadesIds || [];
+    if (actuales.some((id) => String(id) === String(actividadId))) {
+      showToast('warning', 'Ya inscripto', 'El socio ya forma parte de esta actividad.');
+      return false;
+    }
+
+    try {
+      const socioActualizado: Socio = {
+        ...socio,
+        actividadesIds: [...actuales, actividad.id],
+      };
+
+      const actividadActualizada: Actividad = {
+        ...actividad,
+        cupoOcupado: Number(actividad.cupoOcupado || 0) + 1,
+      };
+
+      await Promise.all([
+        sociosApi.update(socio.id, socioActualizado),
+        actividadesApi.update(actividad.id, actividadActualizada),
+      ]);
+
+      setSocios((prev) => prev.map((s) => (s.id === socio.id ? socioActualizado : s)));
+      setActividades((prev) => prev.map((a) => (a.id === actividad.id ? actividadActualizada : a)));
+
+      showToast('success', 'Inscripción confirmada', `Inscripto en ${actividad.nombre}.`);
+      return true;
+    } catch (error) {
+      showToast('error', 'Error al inscribir', 'No se pudo guardar la inscripción en el servidor.');
+      return false;
+    }
+  };
+
+  // ✅ Dar de baja socio de actividad y liberar cupo en BD
+  const unenrollSocioFromActividad = async (socioId: string, actividadId: string): Promise<boolean> => {
+    const socio = socios.find((s) => String(s.id) === String(socioId));
+    const actividad = actividades.find((a) => String(a.id) === String(actividadId));
+
+    if (!socio || !actividad) return false;
+
+    try {
+      const actuales = socio.actividadesIds || [];
+      const socioActualizado: Socio = {
+        ...socio,
+        actividadesIds: actuales.filter((id) => String(id) !== String(actividadId)),
+      };
+
+      const actividadActualizada: Actividad = {
+        ...actividad,
+        cupoOcupado: Math.max(0, Number(actividad.cupoOcupado || 1) - 1),
+      };
+
+      await Promise.all([
+        sociosApi.update(socio.id, socioActualizado),
+        actividadesApi.update(actividad.id, actividadActualizada),
+      ]);
+
+      setSocios((prev) => prev.map((s) => (s.id === socio.id ? socioActualizado : s)));
+      setActividades((prev) => prev.map((a) => (a.id === actividad.id ? actividadActualizada : a)));
+
+      showToast('info', 'Baja confirmada', `Se dio de baja de ${actividad.nombre}.`);
+      return true;
+    } catch (error) {
+      showToast('error', 'Error al dar de baja', 'No se pudo actualizar el registro en el servidor.');
+      return false;
+    }
+  };
+
+  // 6. CASILLEROS
   const actualizarCasillero = async (casilleroActualizado: Locker) => {
     try {
       await casillerosApi.update(casilleroActualizado.id, casilleroActualizado);
-      setLockers(lockers.map((l) => (l.id === casilleroActualizado.id ? casilleroActualizado : l)));
+      setLockers((prev) => prev.map((l) => (l.id === casilleroActualizado.id ? casilleroActualizado : l)));
       showToast('success', 'Casillero actualizado');
     } catch (error) {
       showToast('error', 'Error al actualizar casillero');
     }
   };
 
-  // ----------------------------------------------------
-  // ⭐️ 7. DEFINIR EL OBJETO DE VALOR
-  // ----------------------------------------------------
   const value = {
     currentUser,
     setCurrentUser,
+    quickSwitchUser,
     activeTab,
     setActiveTab,
     toast,
     showToast,
     closeToast,
-    isLoading, // Explicito para vistas igual que en VeterinariaProvider
-
+    isLoading,
     usersList,
-
-    // Socios
     socios,
     agregarSocio,
     actualizarSocio,
     eliminarSocio,
-
-    // Cobradores
     cobradores,
     agregarCobrador,
     actualizarCobrador,
     eliminarCobrador,
-
-    // Instructores
     instructores,
     agregarInstructor,
     actualizarInstructor,
     eliminarInstructor,
-
-    // Casilleros
     lockers,
     actualizarCasillero,
-
-    // Actividades
     actividades,
     agregarActividad,
     actualizarActividad,
     eliminarActividad,
-
-    // Cupones y Rendiciones
+    enrollSocioInActividad,
+    unenrollSocioFromActividad,
     cupones,
     rendiciones,
   };

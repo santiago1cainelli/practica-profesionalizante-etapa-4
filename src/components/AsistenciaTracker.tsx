@@ -5,7 +5,7 @@ import {
   UserX,
   Save,
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
 export interface AsistenciaItem {
   socioId: string;
   socioNombre: string;
@@ -21,7 +21,7 @@ export interface AsistenciaRegistro {
 }
 
 export const AsistenciaTracker: React.FC = () => {
-  const { actividades, socios, asistencias, saveAsistencia, currentUser } = useApp();
+  const { actividades, socios, asistencias, saveAsistencia, currentUser } = useClub();
 
   // Seleccionar actividad inicial respetando la asignación del instructor o la lista de la BD
   const defaultActId = currentUser?.actividadId || (actividades.length > 0 ? String(actividades[0].id) : '');

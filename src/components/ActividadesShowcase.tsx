@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import {
   Trophy,
   Calendar,
@@ -12,9 +12,8 @@ import {
   UserCheck,
   X
 } from 'lucide-react';
-import { Actividades } from '../types';
-//import { useApp } from '../context/AppContext';
-import { useClub } from '../context/AppProvider';
+import { Actividad } from '../context/AppContext'; // ✅ Importamos el tipo extendido sin colisión
+import { useClub } from '../context/AppProvider';  // ✅ Usamos el hook seguro
 
 export const ActividadesShowcase: React.FC = () => {
   const {
@@ -25,14 +24,14 @@ export const ActividadesShowcase: React.FC = () => {
     currentUser,
     setActiveTab,
     quickSwitchUser
-  } = useContext( useClub );
+  } = useClub(); // ✅ Reemplaza a useContext(AppContext)
 
   const [selectedCategoria, setSelectedCategoria] = useState<string>('TODAS');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedActividadToEnroll, setSelectedActividadToEnroll] = useState<Actividades | null>(null);
+  const [selectedActividadToEnroll, setSelectedActividadToEnroll] = useState<Actividad | null>(null);
   const [targetSocioId, setTargetSocioId] = useState<string>('');
   const [showGuestModal, setShowGuestModal] = useState(false);
-  const [actividadToUnenroll, setActividadToUnenroll] = useState<Actividades | null>(null);
+  const [actividadToUnenroll, setActividadToUnenroll] = useState<Actividad | null>(null);
 
   const isGuest = currentUser?.role === 'PUBLICO';
   const isSocio = currentUser?.role === 'SOCIO';
@@ -303,7 +302,7 @@ export const ActividadesShowcase: React.FC = () => {
                     ? actIdsSocio.some((id) => String(id) === String(act.id))
                     : String(actIdsSocio) === String(act.id);
 
-                  const isSuspended = currentSocio?.estado === 'SUSPENDIDO_MOROSIDAD';
+                  const isSuspended = currentSocio?.estado === 'SUSPENDIDO';
 
                   if (isEnrolled) {
                     return (
@@ -550,7 +549,7 @@ export const ActividadesShowcase: React.FC = () => {
                       ? actIdsSocio.some((id) => String(id) === String(selectedActividadToEnroll.id))
                       : String(actIdsSocio) === String(selectedActividadToEnroll.id);
 
-                    const isSuspended = s.estado === 'SUSPENDIDO_MOROSIDAD';
+                    const isSuspended = s.estado === 'SUSPENDIDO';
                     const nombreSocioNorm = s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim();
 
                     return (

@@ -23,7 +23,8 @@ import {
   Database,
   RefreshCw,
 } from 'lucide-react';
-import { useApp, ActiveTab } from '../context/AppContext';
+import { ActiveTab } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
 import { UserRole } from '../types';
 
 export type ExtendedUserRole = UserRole | 'PUBLICO';
@@ -42,7 +43,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
     closeToast,
     socios,
     rendiciones,
-  } = useApp();
+  } = useClub();
   
   const [showUserMenu, setShowUserMenu] = useState(false);
 
