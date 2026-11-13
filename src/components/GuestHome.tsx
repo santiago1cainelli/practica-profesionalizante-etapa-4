@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
 import clubHeroBg from '../assets/images/club_hero_bg_1789672186691.jpg';
 import clubArancelesBg from '../assets/images/club_aranceles_bg_1789673337907.jpg';
 import {
@@ -28,18 +28,19 @@ interface GuestHomeProps {
 }
 
 export const GuestHome: React.FC<GuestHomeProps> = () => {
+  // ✅ Extraemos únicamente los métodos que existen en AppProvider (agregarSocio y setCurrentUser)
   const {
     setActiveTab,
     actividades,
     cobradores,
     usersList,
-    addSocio,
+    agregarSocio,
     showToast,
-    quickSwitchUser,
+    setCurrentUser,
     currentUser,
-  } = useApp();
+  } = useClub();
 
-  const isLoggedIn = currentUser?.role !== 'PUBLICO';
+  const isLoggedIn = Boolean(currentUser && currentUser.role !== 'PUBLICO');
 
   // Valores predeterminados para renderizado visual basados en BD/API
   const CUOTA_ACTIVO_REF = 12500;
@@ -63,11 +64,16 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
   const [selectedSportFilter, setSelectedSportFilter] = useState<string>('TODAS');
   const [showDirectLogin, setShowDirectLogin] = useState(false);
 
-  // Obtener nombre de la zona dinámicamente desde los Cobradores de la BD
+  // ✅ Obtener nombre de la zona usando zonaAsignada (definido en AppContext)
   const getNombreZona = (zonaId: number) => {
-    if (zonaId === 0) return 'Zona 0 - Sede Central (Ventanilla)';
-    const c = cobradores.find((cob) => Number(cob.zona) === Number(zonaId));
-    return c ? `Zona ${zonaId} - ${c.nombre} ${c.apellido}` : `Zona ${zonaId}`;
+    if (Number(zonaId) === 0) return 'Zona 0 - Sede Central (Ventanilla)';
+    const c = cobradores.find(
+      (cob) => Number(cob.zonaAsignada ?? (cob as any).zona) === Number(zonaId)
+    );
+    const nombreCob = c
+      ? c.nombreCompleto || `${c.nombre || ''} ${c.apellido || ''}`.trim()
+      : '';
+    return nombreCob ? `Zona ${zonaId} - ${nombreCob}` : `Zona ${zonaId}`;
   };
 
   // Cálculo en tiempo real de la categoría para la vista previa del formulario
@@ -96,6 +102,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
 
   const categoryPreview = getCategoryPreview(formData.fechaNacimiento);
 
+  // ✅ Registro utilizando agregarSocio del contexto
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nombreCompleto.trim() || !formData.dni.trim() || !formData.email.trim()) {
@@ -108,7 +115,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
     const apellido = partesNombre.slice(1).join(' ') || partesNombre[0];
     const hoyStr = new Date().toISOString().split('T')[0];
 
-    const success = await addSocio({
+    await agregarSocio({
       nombre,
       apellido,
       nombreCompleto: formData.nombreCompleto.trim(),
@@ -117,55 +124,66 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
       telefono: formData.telefono.trim() || 'Sin teléfono',
       direccion: formData.direccion.trim() || 'Domicilio no informado',
       zonaCobro: Number(formData.zonaCobro),
+      categoria: categoryPreview.isCadete ? 'CADETE' : 'ACTIVO',
+      estado: 'ACTIVO',
       fechaNacimiento: formData.fechaNacimiento,
       fechaAlta: hoyStr,
       fechaIngreso: hoyStr,
       esTitularFamilia: false,
       familiares: [],
       actividadesIds: formData.actividadInteresId ? [formData.actividadInteresId] : [],
-    } as any);
+    });
 
-    if (success) {
-      setFormSubmittedSuccess({
-        nombre: formData.nombreCompleto,
-        dni: formData.dni,
-        categoria: categoryPreview.label,
-        cuota: categoryPreview.fee,
-        zona: getNombreZona(Number(formData.zonaCobro)),
-      });
+    setFormSubmittedSuccess({
+      nombre: formData.nombreCompleto.trim(),
+      dni: formData.dni.trim(),
+      categoria: categoryPreview.label,
+      cuota: categoryPreview.fee,
+      zona: getNombreZona(Number(formData.zonaCobro)),
+    });
 
-      // Limpiar campos
-      setFormData({
-        nombreCompleto: '',
-        dni: '',
-        email: '',
-        telefono: '',
-        direccion: '',
-        zonaCobro: 0,
-        fechaNacimiento: '2000-05-15',
-        actividadInteresId: '',
-      });
-    }
+    setFormData({
+      nombreCompleto: '',
+      dni: '',
+      email: '',
+      telefono: '',
+      direccion: '',
+      zonaCobro: 0,
+      fechaNacimiento: '2000-05-15',
+      actividadInteresId: '',
+    });
   };
 
   // Filtrado de Deportes
   const categoriesList = ['TODAS', 'Acuáticas', 'Fútbol', 'Básquetbol', 'Voleibol', 'Tenis', 'Gimnasia'];
   const filteredActivities = actividades.filter((act) => {
     if (selectedSportFilter === 'TODAS') return true;
-    const catNorm = (act.categoria || '').toLowerCase();
+    const catNorm = (act.categoria || (act as any).turno || '').toLowerCase();
     const nomNorm = (act.nombre || '').toLowerCase();
     const filtroNorm = selectedSportFilter.toLowerCase();
     return catNorm.includes(filtroNorm) || nomNorm.includes(filtroNorm);
   });
 
-  // Opciones de zonas generadas desde la BD
+  // ✅ Opciones de zonas sin duplicados y usando zonaAsignada
   const zonasOpcionesForm = [
-    { id: 0, label: 'Zona 0 - Sede Central (Pago por Ventanilla)', desc: 'Pago presencial en ventanilla del club' },
-    ...cobradores.map((c) => ({
-      id: Number(c.zona),
-      label: `Zona ${c.zona} - ${c.nombre} ${c.apellido}`,
-      desc: `Cobranza domiciliaria a cargo de ${c.nombre} ${c.apellido}`,
-    })),
+    {
+      id: 0,
+      label: 'Zona 0 - Sede Central (Pago por Ventanilla)',
+      desc: 'Pago presencial en ventanilla del club',
+    },
+    ...[1, 2, 3].map((zonaNum) => {
+      const cob = cobradores.find(
+        (c) => Number(c.zonaAsignada ?? (c as any).zona) === zonaNum
+      );
+      const nombreCob = cob
+        ? cob.nombreCompleto || `${cob.nombre || ''} ${cob.apellido || ''}`.trim()
+        : 'Cobrador Asignado';
+      return {
+        id: zonaNum,
+        label: `Zona ${zonaNum} - ${nombreCob}`,
+        desc: `Cobranza domiciliaria a cargo de ${nombreCob}`,
+      };
+    }),
   ];
 
   return (
@@ -202,8 +220,8 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             </h1>
 
             <p className="mt-5 text-base sm:text-lg text-slate-200 leading-relaxed font-normal max-w-2xl drop-shadow-xs">
-              Bienvenido al Club Social y Deportivo <span className="font-bold text-white">"El Globo"</span>. 
-              Instalaciones climatizadas, canchas profesionales, actividades para todas las edades 
+              Bienvenido al Club Social y Deportivo <span className="font-bold text-white">"El Globo"</span>.
+              Instalaciones climatizadas, canchas profesionales, actividades para todas las edades
               y un padrón sincronizado en tiempo real con nuestra base de datos.
             </p>
 
@@ -216,7 +234,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                   <span>¡Quiero ser Socio!</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </a>
-              ) : currentUser.role === 'SOCIO' ? (
+              ) : currentUser?.role === 'SOCIO' ? (
                 <button
                   onClick={() => setActiveTab('portal_socio')}
                   className="px-6 py-3.5 rounded-lg bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm sm:text-base transition-all shadow-lg hover:shadow-red-900/40 flex items-center space-x-2 group cursor-pointer"
@@ -224,7 +242,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                   <span>Mi Portal de Socio & Carnet</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </button>
-              ) : currentUser.role === 'ADMIN' ? (
+              ) : currentUser?.role === 'ADMIN' ? (
                 <button
                   onClick={() => setActiveTab('dashboard')}
                   className="px-6 py-3.5 rounded-lg bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm sm:text-base transition-all shadow-lg hover:shadow-red-900/40 flex items-center space-x-2 group cursor-pointer"
@@ -253,12 +271,16 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
               <button
                 onClick={() => setShowDirectLogin(true)}
                 className="px-5 py-3.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-slate-200 hover:text-white font-medium text-xs sm:text-sm border border-slate-700 transition-all flex items-center space-x-2 cursor-pointer"
-                title={isLoggedIn ? `Usuario conectado: ${currentUser.nombreCompleto} (${currentUser.role})` : 'Acceder con usuarios de la BD'}
+                title={
+                  isLoggedIn
+                    ? `Usuario conectado: ${currentUser?.nombreCompleto} (${currentUser?.role})`
+                    : 'Acceder con usuarios de la BD'
+                }
               >
                 {isLoggedIn ? (
                   <>
                     <UserCheck className="w-4 h-4 text-emerald-400" />
-                    <span>Conectado: {currentUser.nombreCompleto?.split(' ')[0]}</span>
+                    <span>Conectado: {currentUser?.nombreCompleto?.split(' ')[0]}</span>
                   </>
                 ) : (
                   <>
@@ -314,7 +336,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             </div>
             <h3 className="font-bold text-base text-slate-900 mb-2">Instalaciones de Primer Nivel</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Natatorio climatizado reglamentario, polideportivo cubierto de básquet y vóley, canchas de fútbol 
+              Natatorio climatizado reglamentario, polideportivo cubierto de básquet y vóley, canchas de fútbol
               y tenis de polvo de ladrillo en constante mantenimiento.
             </p>
           </div>
@@ -325,7 +347,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             </div>
             <h3 className="font-bold text-base text-slate-900 mb-2">100 Casilleros con Seguridad</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Vestuarios renovados con 100 casilleros individuales con cerradura propia. Alquiler exclusivo para 
+              Vestuarios renovados con 100 casilleros individuales con cerradura propia. Alquiler exclusivo para
               socios al día por un arancel mensual accesible de ${CASILLERO_MENSUAL_REF.toLocaleString('es-AR')}.
             </p>
           </div>
@@ -336,7 +358,8 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             </div>
             <h3 className="font-bold text-base text-slate-900 mb-2">Plan Grupo Familiar</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Bonificación estatutaria de ${DESCUENTO_HIJO_REF.toLocaleString('es-AR')} mensual por cada hijo menor de 18 años adherido al socio titular. Cuidamos la economía familiar.
+              Bonificación estatutaria de ${DESCUENTO_HIJO_REF.toLocaleString('es-AR')} mensual por cada hijo menor
+              de 18 años adherido al socio titular. Cuidamos la economía familiar.
             </p>
           </div>
 
@@ -346,7 +369,8 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             </div>
             <h3 className="font-bold text-base text-slate-900 mb-2">Reconocimiento al Vitalicio</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Socios con más de 30 años ininterrumpidos en el club quedan 100% exentos de la cuota social como gratitud por su fidelidad e historia compartida.
+              Socios con más de 30 años ininterrumpidos en el club quedan 100% exentos de la cuota social como
+              gratitud por su fidelidad e historia compartida.
             </p>
           </div>
 
@@ -356,7 +380,8 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             </div>
             <h3 className="font-bold text-base text-slate-900 mb-2">Cobranza a Domicilio por Zonas</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Cobradores domiciliarios oficiales asignados por zona recorren la ciudad con recibo troquelado oficial. También podés abonar en ventanilla de Sede Central.
+              Cobradores domiciliarios oficiales asignados por zona recorren la ciudad con recibo troquelado
+              oficial. También podés abonar en ventanilla de Sede Central.
             </p>
           </div>
 
@@ -366,14 +391,18 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             </div>
             <h3 className="font-bold text-base text-slate-900 mb-2">Carnet Digital & Control API</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Portal del socio online con credencial digital y código QR para ingreso ágil, control de asistencia y sincronización directa con el servidor.
+              Portal del socio online con credencial digital y código QR para ingreso ágil, control de asistencia y
+              sincronización directa con el servidor.
             </p>
           </div>
         </div>
       </section>
 
       {/* 3. CATEGORÍAS Y VALORES DE CUOTA SOCIAL */}
-      <section id="aranceles" className="relative overflow-hidden text-white p-8 sm:p-12 rounded-3xl shadow-2xl border border-slate-700/60">
+      <section
+        id="aranceles"
+        className="relative overflow-hidden text-white p-8 sm:p-12 rounded-3xl shadow-2xl border border-slate-700/60"
+      >
         <div className="absolute inset-0 z-0 pointer-events-none">
           <img
             src={clubArancelesBg}
@@ -476,7 +505,9 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                   ${CUOTA_ACTIVO_REF.toLocaleString('es-AR')}
                 </span>
                 <span className="text-xs text-slate-600 font-normal"> / mes</span>
-                <span className="block text-[11px] text-[#C53030] font-semibold mt-1">Apto para Plan Familiar (-$1.500/hijo)</span>
+                <span className="block text-[11px] text-[#C53030] font-semibold mt-1">
+                  Apto para Plan Familiar (-$1.500/hijo)
+                </span>
               </div>
 
               <ul className="space-y-2.5 text-xs text-slate-700">
@@ -525,9 +556,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
               </p>
 
               <div className="my-6 p-4 rounded-xl bg-black/40 border border-white/10">
-                <span className="text-3xl sm:text-4xl font-black text-amber-300 tracking-tight">
-                  $0
-                </span>
+                <span className="text-3xl sm:text-4xl font-black text-amber-300 tracking-tight">$0</span>
                 <span className="text-xs text-slate-300 font-normal"> / mes (Exento)</span>
                 <span className="block text-[11px] text-amber-300/90 mt-1">100% bonificado de por vida</span>
               </div>
@@ -590,11 +619,13 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             <span>
               {isLoggedIn ? (
                 <>
-                  <strong>Gestión Deportiva:</strong> Podés consultar la oferta deportiva conectada a la base de datos de MySQL.
+                  <strong>Gestión Deportiva:</strong> Podés consultar la oferta deportiva conectada a la base de
+                  datos de MySQL.
                 </>
               ) : (
                 <>
-                  <strong>Reglamento Deportivo:</strong> La inscripción a actividades requiere estar registrado como socio del club.
+                  <strong>Reglamento Deportivo:</strong> La inscripción a actividades requiere estar registrado como
+                  socio del club.
                 </>
               )}
             </span>
@@ -614,6 +645,16 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
             const cupoDisponible = cupoMax - cupoOcup;
             const costoMensual = Number(act.costoMensual || act.arancel || 0);
 
+            // ✅ Normalización de días y horarios compatibles con el esquema de BD
+            const diasStr =
+              act.diasSemana ||
+              (Array.isArray(act.dias) ? act.dias.join(', ') : act.dias) ||
+              'Días a coordinar';
+            const horarioStr =
+              act.horaInicio && act.horaFin
+                ? `${act.horaInicio} a ${act.horaFin}`
+                : act.horario || 'Horario a confirmar';
+
             return (
               <div
                 key={act.id}
@@ -622,7 +663,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 uppercase">
-                      {act.categoria || 'Deporte'}
+                      {act.categoria || (act as any).turno || 'Deporte'}
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -643,11 +684,11 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                   <div className="mt-4 space-y-1.5 text-xs text-slate-600 border-t border-slate-100 pt-3">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{Array.isArray(act.dias) ? act.dias.join(', ') : act.dias || 'Días a coordinar'}</span>
+                      <span>{diasStr}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{act.horario} hs</span>
+                      <span>{horarioStr} hs</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <MapPin className="w-3.5 h-3.5 text-slate-400" />
@@ -705,8 +746,8 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                       ¡Felicitaciones, {formSubmittedSuccess.nombre}!
                     </h3>
                     <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
-                      Tu solicitud fue asentada correctamente en la base de datos como 
-                      <strong> {formSubmittedSuccess.categoria}</strong> asignado a 
+                      Tu solicitud fue asentada correctamente en la base de datos como
+                      <strong> {formSubmittedSuccess.categoria}</strong> asignado a
                       <strong> {formSubmittedSuccess.zona}</strong>.
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
@@ -932,7 +973,9 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                       <button
                         key={u.id}
                         onClick={() => {
-                          quickSwitchUser(String(u.id));
+                          // ✅ Reemplazo de quickSwitchUser usando setCurrentUser del contexto
+                          setCurrentUser(u);
+                          showToast('success', `Sesión iniciada como ${nombreStr}`);
                           setShowDirectLogin(false);
                         }}
                         className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all flex items-center justify-between cursor-pointer"

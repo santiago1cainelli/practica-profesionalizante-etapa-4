@@ -13,11 +13,11 @@ import {
   MapPin,
   Award,
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
 import sportsHeroBg from '../assets/images/admin_sports_hero_1789672449602.jpg';
 
 export const Dashboard: React.FC = () => {
-  const { socios, lockers, actividades, cupones, rendiciones, cobradores, instructores, setActiveTab, currentUser } = useApp();
+  const { socios, lockers, actividades, cupones, rendiciones, cobradores, instructores, setActiveTab, currentUser } = useClub();
 
   // Cálculo de estadísticas desde el padrón de la BD
   const totalSocios = socios.length;
@@ -25,7 +25,7 @@ export const Dashboard: React.FC = () => {
   const activos = socios.filter((s) => s.categoria === 'ACTIVO').length;
   const vitalicios = socios.filter((s) => s.categoria === 'VITALICIO').length;
 
-  const morosos = socios.filter((s) => s.estado === 'SUSPENDIDO_MOROSIDAD');
+  const morosos = socios.filter((s) => s.estado === 'SUSPENDIDO');
 
   // Métricas de casilleros desde la BD
   const lockersOcupados = lockers.filter((l) => l.estado === 'OCUPADO').length;
@@ -63,7 +63,7 @@ export const Dashboard: React.FC = () => {
     };
   });
 
-  const nombreUsuario = currentUser?.nombreCompleto || `${currentUser?.nombre || ''} ${currentUser?.apellido || ''}`.trim() || 'Administrador';
+  const nombreUsuario = (currentUser?.nombreCompleto || currentUser?.email || '').trim() || 'Administrador';
 
   return (
     <div className="space-y-6">

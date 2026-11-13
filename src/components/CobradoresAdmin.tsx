@@ -19,7 +19,7 @@ import {
   ArrowLeft,
   X,
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
 import { cobradores } from '../types';
 
 export type CobradorData = cobradores & {
@@ -36,15 +36,15 @@ export type CobradorData = cobradores & {
 };
 
 export const CobradoresAdmin: React.FC = () => {
+  // ✅ Extraemos los nombres exactos definidos en AppProvider
   const {
     currentUser,
     setActiveTab,
     cobradores,
-    addCobrador,
-    updateCobrador,
-    deleteCobrador,
-    toggleCobradorEstado,
-  } = useApp();
+    agregarCobrador,
+    actualizarCobrador,
+    eliminarCobrador,
+  } = useClub();
 
   // Filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,6 +82,32 @@ export const CobradoresAdmin: React.FC = () => {
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+
+  // ✅ useMemo colocado ANTES del return condicional para respetar las Reglas de Hooks de React
+  const filteredCobradores = useMemo(() => {
+    return cobradores.filter((c) => {
+      const nombreNorm = c.nombreCompleto || `${(c as any).nombre || ''} ${(c as any).apellido || ''}`.trim();
+      const dniNorm = c.dni || '';
+      const emailNorm = c.email || '';
+      const telNorm = c.telefono || '';
+      const zonaNorm = String(c.zonaAsignada ?? (c as any).zona ?? 0);
+      const isActivo = c.activo ?? true;
+
+      const matchSearch =
+        nombreNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dniNorm.includes(searchTerm) ||
+        emailNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        telNorm.includes(searchTerm);
+
+      const matchZona = filtroZona === 'TODAS' || zonaNorm === filtroZona;
+      const matchEstado =
+        filtroEstado === 'TODOS' ||
+        (filtroEstado === 'ACTIVOS' && isActivo) ||
+        (filtroEstado === 'INACTIVOS' && !isActivo);
+
+      return matchSearch && matchZona && matchEstado;
+    });
+  }, [cobradores, searchTerm, filtroZona, filtroEstado]);
 
   // Control de Acceso Estricto RBAC: Solo ADMINISTRADOR
   if (currentUser?.role !== 'ADMIN') {
@@ -132,37 +158,11 @@ export const CobradoresAdmin: React.FC = () => {
     }
   };
 
-  // Filtrado de Cobradores desde BD
-  const filteredCobradores = useMemo(() => {
-    return cobradores.filter((c) => {
-      const nombreNorm = c.nombreCompleto || `${(c as any).nombre || ''} ${(c as any).apellido || ''}`.trim();
-      const dniNorm = c.dni || '';
-      const emailNorm = c.email || '';
-      const telNorm = c.telefono || '';
-      const zonaNorm = String(c.zonaAsignada ?? (c as any).zona ?? 0);
-      const isActivo = c.activo ?? true;
-
-      const matchSearch =
-        nombreNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dniNorm.includes(searchTerm) ||
-        emailNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        telNorm.includes(searchTerm);
-
-      const matchZona = filtroZona === 'TODAS' || zonaNorm === filtroZona;
-      const matchEstado =
-        filtroEstado === 'TODOS' ||
-        (filtroEstado === 'ACTIVOS' && isActivo) ||
-        (filtroEstado === 'INACTIVOS' && !isActivo);
-
-      return matchSearch && matchZona && matchEstado;
-    });
-  }, [cobradores, searchTerm, filtroZona, filtroEstado]);
-
   // KPIs
   const totalCobradores = cobradores.length;
-  const activosCount = cobradores.filter((c) => (c.activo ?? true)).length;
+  const activosCount = cobradores.filter((c) => c.activo ?? true).length;
   const zonasCubiertas = new Set(
-    cobradores.filter((c) => (c.activo ?? true)).map((c) => Number(c.zonaAsignada ?? (c as any).zona ?? 0))
+    cobradores.filter((c) => c.activo ?? true).map((c) => Number(c.zonaAsignada ?? (c as any).zona ?? 0))
   ).size;
 
   const handleOpenCreateModal = () => {
@@ -250,18 +250,32 @@ export const CobradoresAdmin: React.FC = () => {
       observaciones: formData.observaciones.trim() || undefined,
     };
 
+    // ✅ Llamada correcta pasando el objeto completo con su id
     if (editingCobrador) {
-      await updateCobrador(String(editingCobrador.id), payload as any);
+      await actualizarCobrador({
+        ...editingCobrador,
+        ...payload,
+      } as any);
     } else {
-      await addCobrador(payload as any);
+      await agregarCobrador(payload);
     }
 
     setIsModalOpen(false);
   };
 
+  // ✅ Reemplazo de toggleCobradorEstado usando actualizarCobrador
+  const handleToggleEstado = async (cobrador: CobradorData) => {
+    const estadoActual = cobrador.activo ?? true;
+    await actualizarCobrador({
+      ...cobrador,
+      activo: !estadoActual,
+    } as any);
+  };
+
   const confirmDelete = async () => {
     if (cobradorToDelete) {
-      await deleteCobrador(String(cobradorToDelete.id));
+      // ✅ Reemplazo de deleteCobrador por eliminarCobrador
+      await eliminarCobrador(cobradorToDelete.id);
       setCobradorToDelete(null);
     }
   };
@@ -522,7 +536,7 @@ export const CobradoresAdmin: React.FC = () => {
 
                       <td className="py-3 px-4 text-center">
                         <button
-                          onClick={() => toggleCobradorEstado(String(cobrador.id))}
+                          onClick={() => handleToggleEstado(cobrador)}
                           className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors cursor-pointer ${
                             isActivo
                               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'

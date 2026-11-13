@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, UserPlus, Users, AlertCircle } from 'lucide-react';
 import { socios, RolGrupoFamiliar } from '../types';
+import { useClub } from '../context/AppProvider'; // ✅ Todos los imports agrupados al inicio
+import titularCardBg from '../assets/images/titular_card_bg_1789672816138.jpg';
 
 export interface FamiliarItem {
   id?: number | string;
@@ -18,16 +20,27 @@ export type SocioConFamiliares = socios & {
   numeroSocio?: number;
   familiares?: FamiliarItem[];
 };
-import { useApp } from '../context/AppContext';
-import titularCardBg from '../assets/images/titular_card_bg_1789672816138.jpg';
 
 interface FamiliarModalProps {
   socio: SocioConFamiliares | null;
   onClose: () => void;
 }
 
+// ✅ Helper reutilizable para calcular la edad exacta
+const calcularEdad = (fechaNacimiento: string): number => {
+  const hoy = new Date();
+  const nac = new Date(fechaNacimiento);
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) {
+    edad--;
+  }
+  return Math.max(0, edad);
+};
+
 export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) => {
-  const { addFamiliar, removeFamiliar } = useApp();
+  // ✅ Usamos socios y actualizarSocio, que sí existen en AppProvider
+  const { socios: sociosList, actualizarSocio } = useClub();
 
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [dni, setDni] = useState('');
@@ -37,37 +50,59 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
 
   if (!socio) return null;
 
-  const nombreTitularNorm = socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
-  const numeroSocioNorm = socio.numeroSocio || socio.id;
-  const familiaresArr = socio.familiares || [];
+  // ✅ Obtenemos la versión más reciente del socio desde el contexto para reflejar cambios en vivo
+  const socioActual =
+    (sociosList.find((s) => String(s.id) === String(socio.id)) as SocioConFamiliares) || socio;
+
+  const nombreTitularNorm =
+    socioActual.nombreCompleto || `${socioActual.nombre || ''} ${socioActual.apellido || ''}`.trim();
+  const numeroSocioNorm = socioActual.numeroSocio || socioActual.id;
+  const familiaresArr = socioActual.familiares || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!nombreCompleto.trim() || !dni.trim() || !fechaNacimiento) {
+    const dniLimpio = dni.replace(/\D/g, '');
+    if (!nombreCompleto.trim() || !dniLimpio || !fechaNacimiento) {
       setErrorMsg('Todos los campos son obligatorios.');
       return;
     }
 
-    // Validar edad para hijos (< 18 años)
-    const hoy = new Date();
-    const nac = new Date(fechaNacimiento);
-    let edad = hoy.getFullYear() - nac.getFullYear();
-    const m = hoy.getMonth() - nac.getMonth();
-    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
-
-    if ((parentesco === 'HIJO' || parentesco === 'HIJA') && edad >= 18) {
-      setErrorMsg('Regla Plan Familiar: Los hijos mayores de 18 años deben registrarse como socios activos individuales.');
+    if (familiaresArr.some((f) => String(f.dni) === dniLimpio)) {
+      setErrorMsg('Este DNI ya se encuentra vinculado al grupo familiar.');
       return;
     }
 
-    await addFamiliar(String(socio.id), {
+    // Validar edad para hijos (< 18 años)
+    const edad = calcularEdad(fechaNacimiento);
+    if ((parentesco === 'HIJO' || parentesco === 'HIJA') && edad >= 18) {
+      setErrorMsg(
+        'Regla Plan Familiar: Los hijos mayores de 18 años deben registrarse como socios activos individuales.'
+      );
+      return;
+    }
+
+    const partes = nombreCompleto.trim().split(' ');
+    const nuevoFamiliar: FamiliarItem = {
+      id: `fam-${Date.now()}`,
+      nombre: partes[0],
+      apellido: partes.slice(1).join(' ') || partes[0],
       nombreCompleto: nombreCompleto.trim(),
-      dni: dni.trim(),
+      dni: dniLimpio,
       parentesco,
       fechaNacimiento,
-    });
+      edad,
+    };
+
+    const nuevosFamiliares = [...familiaresArr, nuevoFamiliar];
+
+    // ✅ Persistimos mediante actualizarSocio del contexto
+    await actualizarSocio({
+      ...socioActual,
+      esTitularFamilia: true,
+      familiares: nuevosFamiliares,
+    } as any);
 
     setNombreCompleto('');
     setDni('');
@@ -75,13 +110,19 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
   };
 
   const handleRemove = async (familiarId: string | number) => {
-    await removeFamiliar(String(socio.id), String(familiarId));
+    const restantes = familiaresArr.filter((f) => String(f.id) !== String(familiarId));
+
+    // ✅ Persistimos la desvinculación mediante actualizarSocio del contexto
+    await actualizarSocio({
+      ...socioActual,
+      esTitularFamilia: restantes.length > 0,
+      familiares: restantes,
+    } as any);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-xs">
       <div className="relative w-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
-        
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-3.5 bg-[#1A365D] text-white border-b-2 border-[#C53030]">
           <div className="flex items-center space-x-2">
@@ -96,7 +137,6 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
         </div>
 
         <div className="p-6 space-y-6 text-xs sm:text-sm text-slate-800">
-          
           {/* Titular info */}
           <div className="relative overflow-hidden rounded-xl border border-blue-200 bg-slate-900 text-white p-4 flex justify-between items-center shadow-md">
             <div className="absolute inset-0 z-0 pointer-events-none">
@@ -115,7 +155,8 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
               </span>
               <h4 className="font-bold text-white text-base mt-0.5">{nombreTitularNorm}</h4>
               <p className="text-slate-200 text-xs mt-0.5">
-                DNI: {socio.dni} • Categoría: <strong className="text-amber-300">{socio.categoria}</strong>
+                DNI: {socioActual.dni} • Categoría:{' '}
+                <strong className="text-amber-300">{socioActual.categoria}</strong>
               </p>
             </div>
             <div className="relative z-10 text-right">
@@ -137,30 +178,28 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
               </p>
             ) : (
               <div className="space-y-2">
-                {familiaresArr.map((fam: any) => {
-                  const nombreFam = fam.nombreCompleto || `${(fam as any).nombre || ''} ${(fam as any).apellido || ''}`.trim();
-                  
-                  // Calcular edad si no viene calculada
-                  let edadFam = fam.edad;
-                  if (!edadFam && fam.fechaNacimiento) {
-                    const hoy = new Date();
-                    const nac = new Date(fam.fechaNacimiento);
-                    edadFam = hoy.getFullYear() - nac.getFullYear();
-                  }
+                {familiaresArr.map((fam, idx) => {
+                  const nombreFam =
+                    fam.nombreCompleto || `${fam.nombre || ''} ${fam.apellido || ''}`.trim();
+                  const edadFam =
+                    fam.edad ?? (fam.fechaNacimiento ? calcularEdad(fam.fechaNacimiento) : null);
+                  const famId = fam.id ?? fam.dni ?? idx;
 
                   return (
                     <div
-                      key={fam.id}
+                      key={famId}
                       className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-slate-300"
                     >
                       <div>
                         <strong className="text-slate-900 text-xs block">{nombreFam}</strong>
                         <span className="text-slate-500 text-[11px]">
-                          Parentesco: <strong className="text-[#2B6CB0]">{fam.parentesco}</strong> • DNI: {fam.dni} • Edad: {edadFam || 'N/A'} años
+                          Parentesco: <strong className="text-[#2B6CB0]">{fam.parentesco}</strong> • DNI:{' '}
+                          {fam.dni} • Edad: {edadFam ?? 'N/A'} años
                         </span>
                       </div>
                       <button
-                        onClick={() => handleRemove(fam.id)}
+                        type="button"
+                        onClick={() => handleRemove(famId)}
                         className="px-2.5 py-1 text-red-600 hover:bg-red-50 rounded text-xs font-semibold transition-colors cursor-pointer"
                       >
                         Desvincular
@@ -186,9 +225,14 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <form
+              onSubmit={handleSubmit}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-lg border border-slate-200"
+            >
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Nombre y Apellido Completo *</label>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Nombre y Apellido Completo *
+                </label>
                 <input
                   type="text"
                   required
@@ -200,7 +244,9 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">DNI del Familiar *</label>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  DNI del Familiar *
+                </label>
                 <input
                   type="text"
                   required
@@ -225,7 +271,9 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Fecha de Nacimiento *</label>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Fecha de Nacimiento *
+                </label>
                 <input
                   type="date"
                   required
@@ -234,7 +282,8 @@ export const FamiliarModal: React.FC<FamiliarModalProps> = ({ socio, onClose }) 
                   className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Nota: Por estatuto del club, los hijos menores de 18 años obtienen un descuento en el recibo unificado familiar.
+                  Nota: Por estatuto del club, los hijos menores de 18 años obtienen un descuento en el recibo
+                  unificado familiar.
                 </p>
               </div>
 

@@ -6,6 +6,8 @@ import {
   Save,
 } from 'lucide-react';
 import { useClub } from '../context/AppProvider';
+import { useApi } from '../hooks/useApi';
+
 export interface AsistenciaItem {
   socioId: string;
   socioNombre: string;
@@ -21,7 +23,26 @@ export interface AsistenciaRegistro {
 }
 
 export const AsistenciaTracker: React.FC = () => {
-  const { actividades, socios, asistencias, saveAsistencia, currentUser } = useClub();
+  // ✅ Extraemos únicamente lo que sí existe en AppProvider (showToast en lugar de saveAsistencia)
+  const { actividades, socios, currentUser, showToast } = useClub();
+
+  // ✅ Gestión local de asistencias conectada directamente al endpoint /asistencias
+  const asistenciasApi = useApi('/asistencias');
+  const [asistencias, setAsistencias] = useState<AsistenciaRegistro[]>([]);
+
+  useEffect(() => {
+    const fetchAsistencias = async () => {
+      try {
+        const data = await asistenciasApi.get();
+        if (Array.isArray(data)) {
+          setAsistencias(data);
+        }
+      } catch (error) {
+        showToast('error', 'Error al cargar asistencias', 'No se pudieron obtener los registros del servidor.');
+      }
+    };
+    fetchAsistencias();
+  }, []);
 
   // Seleccionar actividad inicial respetando la asignación del instructor o la lista de la BD
   const defaultActId = currentUser?.actividadId || (actividades.length > 0 ? String(actividades[0].id) : '');
@@ -46,7 +67,7 @@ export const AsistenciaTracker: React.FC = () => {
     return String(actIds) === String(selectedActId);
   });
 
-  // Buscar registro de asistencia existente en el estado global para la fecha y actividad dada
+  // Buscar registro de asistencia existente para la fecha y actividad dada
   const existingRegistro = asistencias.find(
     (a) => String(a.actividadId) === String(selectedActId) && a.fecha === fecha
   );
@@ -77,6 +98,7 @@ export const AsistenciaTracker: React.FC = () => {
     }));
   };
 
+  // ✅ Guardado directo mediante useApi sin depender de métodos en AppProvider
   const handleSave = async () => {
     if (!currentActividad) return;
 
@@ -97,12 +119,42 @@ export const AsistenciaTracker: React.FC = () => {
       asistencias: asistenciasList,
     };
 
-    await saveAsistencia(nuevoRegistro);
+    try {
+      if (existingRegistro) {
+        await asistenciasApi.update(existingRegistro.id, nuevoRegistro);
+        setAsistencias((prev) =>
+          prev.map((a) => (String(a.id) === String(existingRegistro.id) ? nuevoRegistro : a))
+        );
+        showToast('success', 'Planilla actualizada', 'Los cambios de asistencia se guardaron correctamente.');
+      } else {
+        const creado = await asistenciasApi.create(nuevoRegistro);
+        setAsistencias((prev) => [...prev, creado || nuevoRegistro]);
+        showToast('success', 'Planilla guardada', 'El presentismo fue registrado en la base de datos.');
+      }
+    } catch (error) {
+      showToast('error', 'Error al guardar', 'No se pudo guardar la planilla de asistencia en el servidor.');
+    }
   };
 
-  const presentesCount = Object.values(attendanceState).filter(Boolean).length;
+  // ✅ Cálculo exacto basado únicamente en los socios inscriptos en la actividad actual
+  const presentesCount = enrolledSocios.filter((s) => attendanceState[String(s.id)]).length;
   const totalEnrolled = enrolledSocios.length;
   const percentage = totalEnrolled > 0 ? Math.round((presentesCount / totalEnrolled) * 100) : 0;
+
+  // ✅ Compatibilidad con los campos reales de la BD (diasSemana, horaInicio, horaFin)
+  const diasTexto = currentActividad
+    ? currentActividad.diasSemana ||
+      (Array.isArray(currentActividad.dias)
+        ? currentActividad.dias.join(', ')
+        : currentActividad.dias) ||
+      ''
+    : '';
+
+  const horarioTexto = currentActividad
+    ? currentActividad.horaInicio && currentActividad.horaFin
+      ? `${currentActividad.horaInicio} a ${currentActividad.horaFin}`
+      : currentActividad.horario || ''
+    : '';
 
   return (
     <div className="space-y-6">
@@ -172,8 +224,8 @@ export const AsistenciaTracker: React.FC = () => {
             </h3>
             <p className="text-xs text-slate-500">
               Profesor: <strong>{currentActividad?.instructorNombre || (currentActividad as any)?.instructor?.nombreCompleto || 'Sin asignar'}</strong>
-              {currentActividad?.dias ? ` • ${Array.isArray(currentActividad.dias) ? currentActividad.dias.join(', ') : currentActividad.dias}` : ''} 
-              {currentActividad?.horario ? ` (${currentActividad.horario} hs)` : ''}
+              {diasTexto ? ` • ${diasTexto}` : ''}
+              {horarioTexto ? ` (${horarioTexto} hs)` : ''}
             </p>
           </div>
 

@@ -10,13 +10,13 @@ import {
   MapPin,
   Banknote
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
 import { ReciboModal } from './ReciboModal';
 import { cupones } from '../types';
 import titularCardBg from '../assets/images/titular_card_bg_1789672816138.jpg';
 
 export const SocioPortal: React.FC = () => {
-  const { socios, actividades, cupones, cobradores, currentUser, unenrollSocioFromActividad, setActiveTab } = useApp();
+  const { socios, actividades, cupones, cobradores, currentUser, unenrollSocioFromActividad, setActiveTab } = useClub();
 
   // Socio seleccionado (por defecto currentUser.socioId o el primero del padrón)
   const defaultSocioId = (currentUser?.role === 'SOCIO' && currentUser.socioId)
@@ -44,7 +44,7 @@ export const SocioPortal: React.FC = () => {
     return <div className="p-8 text-center text-slate-500">No hay socios registrados en la base de datos.</div>;
   }
 
-  const isSuspended = socio.estado === 'SUSPENDIDO_MOROSIDAD' || socio.estado === 'SUSPENDIDO';
+  const isSuspended = socio.estado === 'SUSPENDIDO';
 
   // Obtener el cobrador asignado a la zona del socio desde la BD
   const cobradorAsignado = cobradores.find((c) => Number(c.zona) === Number(socio.zonaCobro));

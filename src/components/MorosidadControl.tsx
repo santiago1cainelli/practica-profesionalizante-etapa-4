@@ -1,60 +1,151 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertOctagon,
   ShieldAlert,
   CheckCircle2,
   Printer,
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
+import { useApi } from '../hooks/useApi';
 import { ReciboModal } from './ReciboModal';
 import { cupones } from '../types';
 
 export const MorosidadControl: React.FC = () => {
-  const { socios, cupones, cobradores, regularizarDeudaSocio, reemitirCuponConMora } = useApp();
+  // ✅ Extraemos únicamente lo que existe en AppProvider
+  const {
+    socios,
+    cupones: initialCupones,
+    cobradores,
+    actualizarSocio,
+    showToast,
+  } = useClub();
+
+  // ✅ Conexión a /cupones y estado local sincronizado con el contexto
+  const cuponesApi = useApi('/cupones');
+  const [cuponesList, setCuponesList] = useState<any[]>(initialCupones);
+
+  useEffect(() => {
+    setCuponesList(initialCupones);
+  }, [initialCupones]);
+
   const [filterType, setFilterType] = useState<'TODOS' | 'SUSPENDIDOS' | 'DEUDORES'>('TODOS');
   const [viewingCupon, setViewingCupon] = useState<cupones | any | null>(null);
 
   // Filtrar socios con deuda (no están al día)
   const sociosConDeuda = socios.filter(
-    (s) => s.estado !== 'AL_DIA' && s.estado !== 'ACTIVO'
+    (s) => s.estado !== 'ACTIVO'
   );
 
   const filteredSocios = sociosConDeuda.filter((s) => {
-    if (filterType === 'SUSPENDIDOS') return s.estado === 'SUSPENDIDO' || s.estado === 'SUSPENDIDO_MOROSIDAD' || s.estado === 'BAJA';
-    if (filterType === 'DEUDORES') return s.estado === 'MOROSO' || s.estado === 'DEUDOR_1_MES';
+    if (filterType === 'SUSPENDIDOS') {
+      return (
+        s.estado === 'SUSPENDIDO' ||
+        s.estado === 'BAJA'
+      );
+    }
+    if (filterType === 'DEUDORES') {
+      return s.estado === 'MOROSO';
+    }
     return true;
   });
 
   const totalSuspendidos = socios.filter(
-    (s) => s.estado === 'SUSPENDIDO' || s.estado === 'SUSPENDIDO_MOROSIDAD' || s.estado === 'BAJA'
+    (s) =>
+      s.estado === 'SUSPENDIDO' ||
+      s.estado === 'BAJA'
   ).length;
 
   const totalDeudores1Mes = socios.filter(
-    (s) => s.estado === 'MOROSO' || s.estado === 'DEUDOR_1_MES'
+    (s) => s.estado === 'MOROSO'
   ).length;
 
   // Cálculo del total adeudado en cupones no cancelados
-  const totalDeudaAcumulada = cupones
-    .filter((c) => c.estado === 'PENDIENTE' || c.estado === 'VENCIDO' || (c as any).estadoPago === 'PENDIENTE' || (c as any).estadoPago === 'VENCIDO')
-    .reduce((acc, c) => acc + Number((c as any).totalPagar || c.montoTotal || 0), 0);
+  const totalDeudaAcumulada = cuponesList
+    .filter((c) => {
+      const estado = c.estadoPago || c.estado;
+      return estado === 'PENDIENTE' || estado === 'VENCIDO';
+    })
+    .reduce((acc, c) => acc + Number(c.totalPagar || c.montoTotal || 0), 0);
 
   const handlePrint = () => {
     window.print();
   };
 
-  const getNombreCobradorZona = (zonaCobro: number) => {
-    if (zonaCobro === 0) return 'Sede Central (Ventanilla)';
-    const cobrador = cobradores.find((c) => Number(c.zona) === Number(zonaCobro));
-    return cobrador
-      ? `${cobrador.nombre} ${cobrador.apellido} (Zona ${zonaCobro})`
-      : `Zona ${zonaCobro}`;
+  // ✅ Uso de zonaAsignada y normalización del nombre del cobrador
+  const getNombreCobradorZona = (zonaCobro?: number) => {
+    const zonaNum = Number(zonaCobro ?? 0);
+    if (zonaNum === 0) return 'Sede Central (Ventanilla)';
+    const cobrador = cobradores.find(
+      (c) => Number(c.zonaAsignada ?? (c as any).zona) === zonaNum
+    );
+    const nombreCob = cobrador
+      ? cobrador.nombreCompleto || `${cobrador.nombre || ''} ${cobrador.apellido || ''}`.trim()
+      : '';
+    return nombreCob ? `${nombreCob} (Zona ${zonaNum})` : `Zona ${zonaNum}`;
+  };
+
+  // ✅ Aplicar 5% de recargo por mora a los cupones impagos del socio
+  const handleAplicarMora = async (cuponesSinMora: any[]) => {
+    try {
+      const idsActualizados = new Map<string, any>();
+
+      for (const cup of cuponesSinMora) {
+        const base = Number(cup.subtotal ?? cup.totalPagar ?? cup.montoTotal ?? 0);
+        const recargo = Math.round(base * 0.05);
+        const actualizado = {
+          ...cup,
+          recargoMoraPorcentaje: 5,
+          montoRecargoMora: recargo,
+          totalPagar: base + recargo,
+          estadoPago: 'VENCIDO',
+        };
+        await cuponesApi.update(cup.id, actualizado);
+        idsActualizados.set(String(cup.id), actualizado);
+      }
+
+      setCuponesList((prev) =>
+        prev.map((c) => idsActualizados.get(String(c.id)) || c)
+      );
+      showToast('warning', 'Mora aplicada (+5%)', 'Se reemitieron los cupones con el 5% de recargo.');
+    } catch (error) {
+      showToast('error', 'Error al aplicar mora', 'No se pudieron actualizar los comprobantes en la BD.');
+    }
+  };
+
+  // ✅ Regularizar deuda: marca cupones impagos como PAGADO y pasa el socio a AL_DIA
+  const handleRegularizarDeuda = async (socio: any, impagos: any[]) => {
+    try {
+      const idsPagados = new Map<string, any>();
+
+      for (const cup of impagos) {
+        const actualizado = {
+          ...cup,
+          estadoPago: 'PAGADO',
+          metodoPago: 'EFECTIVO',
+        };
+        await cuponesApi.update(cup.id, actualizado);
+        idsPagados.set(String(cup.id), actualizado);
+      }
+
+      if (idsPagados.size > 0) {
+        setCuponesList((prev) =>
+          prev.map((c) => idsPagados.get(String(c.id)) || c)
+        );
+      }
+
+      await actualizarSocio({
+        ...socio,
+        estado: 'AL_DIA',
+      });
+    } catch (error) {
+      showToast('error', 'Error al regularizar', 'No se pudo completar la regularización en la BD.');
+    }
   };
 
   return (
     <div className="space-y-6">
-      
       {/* Header */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -91,7 +182,10 @@ export const MorosidadControl: React.FC = () => {
               Regla de Negocio - Control de Morosidad:
             </h4>
             <p className="leading-relaxed">
-              Si la API registra que el socio acumula <strong>cuotas impagas</strong>, el sistema bloquea automáticamente la inscripción a actividades, alquiler de casilleros y emite la alerta de suspensión temporal hasta que se regularice la deuda. Toda reemisión aplica un <strong>recargo por mora (5%)</strong>.
+              Si la API registra que el socio acumula <strong>cuotas impagas</strong>, el sistema bloquea
+              automáticamente la inscripción a actividades, alquiler de casilleros y emite la alerta de suspensión
+              temporal hasta que se regularice la deuda. Toda reemisión aplica un{' '}
+              <strong>recargo por mora (5%)</strong>.
             </p>
           </div>
         </div>
@@ -131,13 +225,14 @@ export const MorosidadControl: React.FC = () => {
 
       {/* Lista de Socios Morosos */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        
         {/* Pestañas de Filtro */}
         <div className="p-4 border-b border-slate-200 flex flex-wrap gap-2">
           <button
             onClick={() => setFilterType('TODOS')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-              filterType === 'TODOS' ? 'bg-[#1A365D] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              filterType === 'TODOS'
+                ? 'bg-[#1A365D] text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             Todos con Deuda ({sociosConDeuda.length})
@@ -145,7 +240,9 @@ export const MorosidadControl: React.FC = () => {
           <button
             onClick={() => setFilterType('SUSPENDIDOS')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-              filterType === 'SUSPENDIDOS' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'
+              filterType === 'SUSPENDIDOS'
+                ? 'bg-red-600 text-white'
+                : 'bg-red-50 text-red-700 hover:bg-red-100'
             }`}
           >
             Suspendidos ({totalSuspendidos})
@@ -153,7 +250,9 @@ export const MorosidadControl: React.FC = () => {
           <button
             onClick={() => setFilterType('DEUDORES')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-              filterType === 'DEUDORES' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+              filterType === 'DEUDORES'
+                ? 'bg-amber-500 text-white'
+                : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
             }`}
           >
             Morosos / Aviso ({totalDeudores1Mes})
@@ -169,23 +268,32 @@ export const MorosidadControl: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-200">
             {filteredSocios.map((socio) => {
-              const isSuspended = socio.estado === 'SUSPENDIDO' || socio.estado === 'SUSPENDIDO_MOROSIDAD' || socio.estado === 'BAJA';
-              const nombreCompleto = socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+              const isSuspended =
+                socio.estado === 'SUSPENDIDO' ||
+                socio.estado === 'BAJA';
+              const nombreCompleto =
+                socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
               const numeroSocio = socio.numeroSocio || socio.id;
 
-              const impagos = cupones.filter(
-                (c) => String(c.socioId) === String(socio.id) && 
-                       (c.estado === 'PENDIENTE' || c.estado === 'VENCIDO' || (c as any).estadoPago === 'PENDIENTE' || (c as any).estadoPago === 'VENCIDO')
-              );
-              
+              const impagos = cuponesList.filter((c) => {
+                const estadoCup = c.estadoPago || c.estado;
+                return (
+                  String(c.socioId) === String(socio.id) &&
+                  (estadoCup === 'PENDIENTE' || estadoCup === 'VENCIDO')
+                );
+              });
+
               const deudaSocio = impagos.reduce(
-                (acc, c) => acc + Number((c as any).totalPagar || c.montoTotal || 0),
+                (acc, c) => acc + Number(c.totalPagar || c.montoTotal || 0),
                 0
+              );
+
+              const impagosSinMora = impagos.filter(
+                (c) => !Number(c.recargoMoraPorcentaje || c.recargoPorcentaje || c.montoRecargoMora || 0)
               );
 
               return (
                 <div key={socio.id} className="p-5 hover:bg-slate-50/80 transition-colors text-xs space-y-3">
-                  
                   {/* Fila Superior: Datos del Socio y Estado */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -204,7 +312,8 @@ export const MorosidadControl: React.FC = () => {
                       </div>
                       <h4 className="text-base font-bold text-slate-900">{nombreCompleto}</h4>
                       <p className="text-slate-600 text-xs">
-                        DNI: {socio.dni} • Tel: {socio.telefono || 'Sin registrar'} • Domicilio: {socio.direccion || 'Sin registrar'}
+                        DNI: {socio.dni} • Tel: {socio.telefono || 'Sin registrar'} • Domicilio:{' '}
+                        {socio.direccion || 'Sin registrar'}
                       </p>
                     </div>
 
@@ -229,18 +338,26 @@ export const MorosidadControl: React.FC = () => {
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                         {impagos.map((cup) => {
-                          const montoCup = Number((cup as any).totalPagar || cup.montoTotal || 0);
-                          const periodoStr = cup.periodo || (cup as any).periodoMes || 'S/N';
-                          const comprobanteStr = (cup as any).numeroComprobante || `CUP-${cup.id}`;
-                          const tieneMora = Number(cup.recargoPorcentaje || (cup as any).montoRecargoMora || 0) > 0;
+                          const montoCup = Number(cup.totalPagar || cup.montoTotal || 0);
+                          const periodoStr = cup.periodoMes || cup.periodo || 'S/N';
+                          const comprobanteStr = cup.numeroComprobante || `CUP-${cup.id}`;
+                          const tieneMora =
+                            Number(
+                              cup.recargoMoraPorcentaje || cup.recargoPorcentaje || cup.montoRecargoMora || 0
+                            ) > 0;
 
                           return (
-                            <div key={cup.id} className="bg-white p-2.5 rounded border border-slate-200 text-xs flex justify-between items-center">
+                            <div
+                              key={cup.id}
+                              className="bg-white p-2.5 rounded border border-slate-200 text-xs flex justify-between items-center"
+                            >
                               <div>
                                 <strong className="text-slate-800 block text-[11px]">{periodoStr}</strong>
                                 <span className="text-[10px] text-slate-500 font-mono">{comprobanteStr}</span>
                                 {tieneMora && (
-                                  <span className="text-[10px] text-red-600 font-bold block">+5% Mora Aplicada</span>
+                                  <span className="text-[10px] text-red-600 font-bold block">
+                                    +5% Mora Aplicada
+                                  </span>
                                 )}
                               </div>
                               <div className="text-right">
@@ -270,13 +387,9 @@ export const MorosidadControl: React.FC = () => {
 
                     <div className="flex items-center space-x-2">
                       {/* Reemitir aplicando 5% de recargo en la BD */}
-                      {impagos.some((c) => !c.recargoPorcentaje && !(c as any).montoRecargoMora) && (
+                      {impagosSinMora.length > 0 && (
                         <button
-                          onClick={() => {
-                            impagos
-                              .filter((c) => !c.recargoPorcentaje && !(c as any).montoRecargoMora)
-                              .forEach((c) => reemitirCuponConMora(String(c.id)));
-                          }}
+                          onClick={() => handleAplicarMora(impagosSinMora)}
                           className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-bold transition-colors shadow-xs cursor-pointer"
                         >
                           Aplicar 5% Mora
@@ -285,7 +398,7 @@ export const MorosidadControl: React.FC = () => {
 
                       {/* Regularización en 1-click */}
                       <button
-                        onClick={() => regularizarDeudaSocio(String(socio.id))}
+                        onClick={() => handleRegularizarDeuda(socio, impagos)}
                         className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition-colors shadow-xs flex items-center space-x-1.5 cursor-pointer"
                       >
                         <CheckCircle2 className="w-4 h-4" />

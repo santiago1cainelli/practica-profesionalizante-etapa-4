@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Receipt,
   Search,
   PlusCircle,
 } from 'lucide-react';
 import { cupones } from '../types';
+import { useClub } from '../context/AppProvider';
+import { useApi } from '../hooks/useApi';
+import { ReciboModal } from './ReciboModal';
 
 export type CuponData = cupones & {
   numeroComprobante?: string;
@@ -16,20 +19,27 @@ export type CuponData = cupones & {
   montoRecargoMora?: number;
   totalPagar?: number;
   estadoPago?: string;
+  metodoPago?: string;
 };
-import { useApp } from '../context/AppContext';
-import { ReciboModal } from './ReciboModal';
 
 export const CobranzaZones: React.FC = () => {
+  // ✅ Extraemos solo lo que existe en AppProvider
   const {
-    cupones,
+    cupones: initialCupones,
     socios,
     cobradores,
-    marcarCuponPagado,
-    reemitirCuponConMora,
-    generarCuponMesActual,
+    actividades,
     currentUser,
-  } = useApp();
+    showToast,
+  } = useClub();
+
+  // ✅ Conexión directa a /cupones y estado local sincronizado con el contexto
+  const cuponesApi = useApi('/cupones');
+  const [cuponesList, setCuponesList] = useState<CuponData[]>(initialCupones as CuponData[]);
+
+  useEffect(() => {
+    setCuponesList(initialCupones as CuponData[]);
+  }, [initialCupones]);
 
   const [selectedZone, setSelectedZone] = useState<string>('TODAS');
   const [selectedEstado, setSelectedEstado] = useState<string>('TODOS');
@@ -39,7 +49,7 @@ export const CobranzaZones: React.FC = () => {
   const [targetSocioEmit, setTargetSocioEmit] = useState('');
 
   // Auto-filtrar por zona asignada si es Cobrador
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentUser?.role === 'COBRADOR' && currentUser?.zonaAsignada !== undefined) {
       setSelectedZone(currentUser.zonaAsignada.toString());
     }
@@ -54,9 +64,12 @@ export const CobranzaZones: React.FC = () => {
         cobrador: 'Ventanilla Central',
       };
     }
-    const cobradorAsignado = cobradores.find((c) => Number(c.zona) === zNum);
+    const cobradorAsignado = cobradores.find(
+      (c) => Number(c.zonaAsignada ?? (c as any).zona) === zNum
+    );
     const nombreCobrador = cobradorAsignado
-      ? cobradorAsignado.nombreCompleto || `${cobradorAsignado.nombre || ''} ${cobradorAsignado.apellido || ''}`.trim()
+      ? cobradorAsignado.nombreCompleto ||
+        `${cobradorAsignado.nombre || ''} ${cobradorAsignado.apellido || ''}`.trim()
       : 'Cobrador Asignado';
 
     return {
@@ -71,10 +84,11 @@ export const CobranzaZones: React.FC = () => {
     return z ? z.nombre : `Zona ${zonaNum}`;
   };
 
-  const filteredCupones = cupones.filter((c) => {
-    const zonaCuponStr = String(c.zona ?? (c as any).zonaCobro ?? 0);
+  const filteredCupones = cuponesList.filter((c) => {
+    const zonaCuponStr = String(c.zonaCobro ?? (c as any).zona ?? 0);
+    const estadoCupon = c.estadoPago || (c as any).estado || 'PENDIENTE';
     const matchesZone = selectedZone === 'TODAS' || zonaCuponStr === selectedZone;
-    const matchesEstado = selectedEstado === 'TODOS' || c.estado === selectedEstado || (c as any).estadoPago === selectedEstado;
+    const matchesEstado = selectedEstado === 'TODOS' || estadoCupon === selectedEstado;
     const term = searchTerm.toLowerCase();
 
     const nombreSocioNorm = (c.socioNombre || (c as any).socio?.nombreCompleto || '').toLowerCase();
@@ -89,25 +103,114 @@ export const CobranzaZones: React.FC = () => {
     return matchesZone && matchesEstado && matchesSearch;
   });
 
+  // ✅ Emisión de nuevo cupón sin la propiedad inexistente subtotal
   const handleEmitirNuevo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetSocioEmit) return;
-    await generarCuponMesActual(targetSocioEmit);
-    setIsEmitModalOpen(false);
-    setTargetSocioEmit('');
+
+    const socio = socios.find((s) => String(s.id) === String(targetSocioEmit));
+    if (!socio) {
+      showToast('error', 'Socio no encontrado');
+      return;
+    }
+
+    const cuotaBase =
+      socio.categoria === 'VITALICIO' ? 0 : socio.categoria === 'CADETE' ? 4500 : 7500;
+
+    const actIds = socio.actividadesIds || [];
+    const detalleActividades = actividades
+      .filter((a) => actIds.some((id) => String(id) === String(a.id)))
+      .map((a) => ({
+        nombre: a.nombre,
+        monto: Number(a.costoMensual ?? a.arancel ?? 0),
+      }));
+
+    const totalActividades = detalleActividades.reduce((acc, item) => acc + item.monto, 0);
+    const costoCasillero = socio.casilleroAsignadoId ? 2500 : 0;
+    const descuentoFamiliar =
+      socio.esTitularFamilia && socio.categoria !== 'VITALICIO' ? Math.round(cuotaBase * 0.15) : 0;
+    const totalPagar = Math.max(
+      0,
+      cuotaBase + totalActividades + costoCasillero - descuentoFamiliar
+    );
+
+    const hoy = new Date();
+    const periodoMes = hoy.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    const vencimiento = new Date(hoy.getFullYear(), hoy.getMonth(), 15).toISOString().split('T')[0];
+
+    const nuevoCupon: any = {
+      numeroComprobante: `REC-${Date.now().toString().slice(-6)}`,
+      socioId: socio.id,
+      socioNombre: socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim(),
+      socioDni: socio.dni,
+      zonaCobro: Number((socio as any).zonaCobro ?? 0),
+      periodoMes: periodoMes.charAt(0).toUpperCase() + periodoMes.slice(1),
+      fechaVencimiento: vencimiento,
+      cuotaSocialBase: cuotaBase,
+      detalleActividades,
+      costoCasillero,
+      recargoMoraPorcentaje: 0,
+      montoRecargoMora: 0,
+      descuentoFamiliar,
+      totalPagar,
+      estadoPago: 'PENDIENTE',
+    };
+
+    try {
+      const creado = await cuponesApi.create(nuevoCupon);
+      setCuponesList((prev) => [creado || { ...nuevoCupon, id: Date.now() }, ...prev]);
+      showToast('success', 'Recibo emitido', `Comprobante generado para ${nuevoCupon.socioNombre}.`);
+      setIsEmitModalOpen(false);
+      setTargetSocioEmit('');
+    } catch (error) {
+      showToast('error', 'Error al emitir recibo', 'No se pudo registrar el cupón en el servidor.');
+    }
   };
 
-  const handleMarcarPagado = async (cuponId: string | number) => {
-    await marcarCuponPagado(String(cuponId), 'EFECTIVO', String(currentUser?.id || ''));
+  // ✅ Marcar cupón como PAGADO mediante cuponesApi.update
+  const handleMarcarPagado = async (cupon: CuponData) => {
+    const actualizado: CuponData = {
+      ...cupon,
+      estadoPago: 'PAGADO',
+      metodoPago: 'EFECTIVO',
+    };
+
+    try {
+      await cuponesApi.update(cupon.id, actualizado);
+      setCuponesList((prev) =>
+        prev.map((c) => (String(c.id) === String(cupon.id) ? actualizado : c))
+      );
+      showToast('success', 'Cobro registrado', 'El recibo fue marcado como PAGADO.');
+    } catch (error) {
+      showToast('error', 'Error al registrar cobro', 'No se pudo actualizar el estado del cupón.');
+    }
   };
 
-  const handleReemitirMora = async (cuponId: string | number) => {
-    await reemitirCuponConMora(String(cuponId));
+  // ✅ Reemitir cupón aplicando recargo del 5% por mora sin depender de cupon.subtotal
+  const handleReemitirMora = async (cupon: CuponData) => {
+    const base = Number(cupon.totalPagar ?? (cupon as any).montoTotal ?? 0);
+    const recargo = Math.round(base * 0.05);
+    const actualizado: CuponData = {
+      ...cupon,
+      recargoPorcentaje: 5,
+      montoRecargoMora: recargo,
+      totalPagar: base + recargo,
+      estadoPago: 'VENCIDO',
+    };
+
+    try {
+      await cuponesApi.update(cupon.id, actualizado);
+      setCuponesList((prev) =>
+        prev.map((c) => (String(c.id) === String(cupon.id) ? actualizado : c))
+      );
+      showToast('warning', 'Mora aplicada (+5%)', 'El cupón fue reemitido con recargo por mora.');
+    } catch (error) {
+      showToast('error', 'Error al aplicar mora', 'No se pudo actualizar el cupón en el servidor.');
+    }
   };
 
   return (
     <div className="space-y-6">
-      
       {/* Header */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -138,8 +241,12 @@ export const CobranzaZones: React.FC = () => {
       {/* Zones Overview Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {zonasInfoMap.map((zInfo) => {
-          const zCupones = cupones.filter((c) => Number(c.zonaCobro) === zInfo.num);
-          const zCobrados = zCupones.filter((c) => c.estadoPago === 'PAGADO');
+          const zCupones = cuponesList.filter(
+            (c) => Number(c.zonaCobro ?? (c as any).zona ?? 0) === zInfo.num
+          );
+          const zCobrados = zCupones.filter(
+            (c) => (c.estadoPago || (c as any).estado) === 'PAGADO'
+          );
           const zTotalCobrado = zCobrados.reduce(
             (acc, c) => acc + Number(c.totalPagar || (c as any).montoTotal || (c as any).monto || 0),
             0
@@ -165,7 +272,9 @@ export const CobranzaZones: React.FC = () => {
               <p className="text-[11px] text-slate-500 truncate mb-2">{zInfo.cobrador}</p>
               <div className="text-xs text-slate-800 flex justify-between items-center pt-1.5 border-t border-slate-100">
                 <span className="text-slate-500 text-[10px]">Cobrado:</span>
-                <strong className="text-emerald-700 font-bold">${zTotalCobrado.toLocaleString('es-AR')}</strong>
+                <strong className="text-emerald-700 font-bold">
+                  ${zTotalCobrado.toLocaleString('es-AR')}
+                </strong>
               </div>
             </button>
           );
@@ -237,10 +346,14 @@ export const CobranzaZones: React.FC = () => {
                 </tr>
               ) : (
                 filteredCupones.map((cupon) => {
-                  const isPagado = cupon.estadoPago === 'PAGADO';
-                  const isVencido = cupon.estadoPago === 'VENCIDO';
-                  const totalPagarNorm = Number(cupon.totalPagar || (cupon as any).montoTotal || (cupon as any).monto || 0);
-                  const nombreSocioNorm = cupon.socioNombre || (cupon as any).socio?.nombreCompleto || 'Socio';
+                  const estadoActual = cupon.estadoPago || (cupon as any).estado || 'PENDIENTE';
+                  const isPagado = estadoActual === 'PAGADO';
+                  const isVencido = estadoActual === 'VENCIDO';
+                  const totalPagarNorm = Number(
+                    cupon.totalPagar || (cupon as any).montoTotal || (cupon as any).monto || 0
+                  );
+                  const nombreSocioNorm =
+                    cupon.socioNombre || (cupon as any).socio?.nombreCompleto || 'Socio';
                   const dniSocioNorm = cupon.socioDni || (cupon as any).socio?.dni || 'N/A';
                   const numComprobanteNorm = cupon.numeroComprobante || `REC-${cupon.id}`;
                   const recargoMora = Number(cupon.montoRecargoMora || 0);
@@ -256,7 +369,7 @@ export const CobranzaZones: React.FC = () => {
                       </td>
                       <td className="p-3.5">
                         <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
-                          {getNombreZona(Number(cupon.zonaCobro)).split('-')[0]}
+                          {getNombreZona(Number(cupon.zonaCobro ?? (cupon as any).zona ?? 0)).split('-')[0]}
                         </span>
                       </td>
                       <td className="p-3.5 text-slate-600">
@@ -278,7 +391,7 @@ export const CobranzaZones: React.FC = () => {
                               : 'bg-amber-100 text-amber-800'
                           }`}
                         >
-                          {cupon.estadoPago}
+                          {estadoActual}
                         </span>
                       </td>
                       <td className="p-3.5 text-right space-x-1.5">
@@ -294,7 +407,7 @@ export const CobranzaZones: React.FC = () => {
                         {!isPagado && (
                           <>
                             <button
-                              onClick={() => handleMarcarPagado(cupon.id)}
+                              onClick={() => handleMarcarPagado(cupon)}
                               className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold text-xs transition-colors cursor-pointer"
                               title="Cobrar en Efectivo"
                             >
@@ -303,7 +416,7 @@ export const CobranzaZones: React.FC = () => {
 
                             {recargoMora === 0 && (
                               <button
-                                onClick={() => handleReemitirMora(cupon.id)}
+                                onClick={() => handleReemitirMora(cupon)}
                                 className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-semibold text-xs transition-colors cursor-pointer"
                                 title="Reemitir con 5% Recargo por Mora"
                               >
@@ -328,7 +441,10 @@ export const CobranzaZones: React.FC = () => {
           <div className="relative w-full max-w-md bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
             <div className="flex items-center justify-between px-6 py-3.5 bg-[#1A365D] text-white border-b-2 border-[#C53030]">
               <span className="font-bold text-sm tracking-wide">EMITIR NUEVO RECIBO DE CUOTA EN BD</span>
-              <button onClick={() => setIsEmitModalOpen(false)} className="p-1 text-white/80 hover:text-white rounded cursor-pointer">
+              <button
+                onClick={() => setIsEmitModalOpen(false)}
+                className="p-1 text-white/80 hover:text-white rounded cursor-pointer"
+              >
                 &times;
               </button>
             </div>
@@ -346,7 +462,8 @@ export const CobranzaZones: React.FC = () => {
                 >
                   <option value="">-- Seleccionar socio --</option>
                   {socios.map((s) => {
-                    const nombreSocio = s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim();
+                    const nombreSocio =
+                      s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim();
                     return (
                       <option key={s.id} value={String(s.id)}>
                         {nombreSocio} (DNI: {s.dni}) • Cat: {s.categoria}

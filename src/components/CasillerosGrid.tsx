@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import {
   Grid,
   Search,
-  Info
+  Info,
 } from 'lucide-react';
 import { casilleros } from '../types';
+import { useClub } from '../context/AppProvider'; // ✅ Todos los imports agrupados al inicio
 
 export type LockerData = casilleros & {
   estado?: 'DISPONIBLE' | 'OCUPADO' | 'RESERVADO';
@@ -12,11 +13,12 @@ export type LockerData = casilleros & {
   socioDni?: string;
   socioId?: string;
   fechaAsignacion?: string;
+  costoMensual?: number; // ✅ Declarado para evitar error de tipado en línea 264
 };
-import { useApp } from '../context/AppContext';
 
 export const CasillerosGrid: React.FC = () => {
-  const { lockers, socios, assignLocker, releaseLocker, reserveLocker } = useApp();
+  // ✅ Usamos únicamente los métodos que existen en AppProvider
+  const { lockers, socios, actualizarCasillero, actualizarSocio, showToast } = useClub();
 
   const [selectedLocker, setSelectedLocker] = useState<LockerData | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>('TODOS');
@@ -26,8 +28,10 @@ export const CasillerosGrid: React.FC = () => {
   // Aranceles de referencia desde BD / API
   const COSTO_CASILLERO_MENSUAL = 2500;
 
-  // Socios disponibles para asignación (no suspendidos por morosidad y sin casillero activo)
-  const eligibleSocios = socios.filter((s) => !(s as any).casilleroAsignadoId && !(s as any).casilleroId);
+  // Socios disponibles para asignación (sin casillero activo)
+  const eligibleSocios = socios.filter(
+    (s) => !s.casilleroAsignadoId && !(s as any).casilleroId
+  );
 
   // Estadísticas en tiempo real basadas en la BD
   const total = lockers.length;
@@ -40,39 +44,98 @@ export const CasillerosGrid: React.FC = () => {
     const term = searchQuery.toLowerCase();
     const socioNombreNorm = (l.socioNombre || (l as any).socio?.nombreCompleto || '').toLowerCase();
     const socioDniNorm = l.socioDni || (l as any).socio?.dni || '';
+    const numStr = String(l.numero ?? l.id ?? '');
 
     const matchesSearch =
-      l.numero.toString().includes(term) ||
+      numStr.includes(term) ||
       socioNombreNorm.includes(term) ||
       socioDniNorm.includes(term);
 
     return matchesEstado && matchesSearch;
   });
 
+  // ✅ Asignar casillero usando actualizarCasillero + actualizarSocio del contexto
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLocker || !selectedSocioId) return;
 
-    const success = await assignLocker(selectedLocker.numero, selectedSocioId);
-    if (success) {
-      setSelectedLocker(null);
-      setSelectedSocioId('');
+    const socio = socios.find((s) => String(s.id) === String(selectedSocioId));
+    if (!socio) {
+      showToast('error', 'Socio no encontrado');
+      return;
     }
+
+    if (socio.estado === 'SUSPENDIDO') {
+      showToast('error', 'Socio suspendido', 'No se puede asignar un casillero a un socio moroso.');
+      return;
+    }
+
+    const nombreSocio =
+      socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+
+    await actualizarCasillero({
+      ...selectedLocker,
+      estado: 'OCUPADO',
+      socioId: String(socio.id),
+      socioNombre: nombreSocio,
+      socioDni: socio.dni,
+      fechaAsignacion: new Date().toISOString().split('T')[0],
+    });
+
+    await actualizarSocio({
+      ...socio,
+      casilleroAsignadoId: Number(selectedLocker.numero ?? selectedLocker.id),
+    });
+
+    setSelectedLocker(null);
+    setSelectedSocioId('');
   };
 
-  const handleRelease = async (numLocker: number) => {
-    await releaseLocker(numLocker);
+  // ✅ Liberar casillero y desvincularlo del socio correspondiente
+  const handleRelease = async (locker: LockerData) => {
+    const socioVinculado = socios.find(
+      (s) =>
+        String(s.id) === String(locker.socioId) ||
+        Number(s.casilleroAsignadoId) === Number(locker.numero)
+    );
+
+    await actualizarCasillero({
+      ...locker,
+      estado: 'DISPONIBLE',
+      socioId: undefined,
+      socioNombre: undefined,
+      socioDni: undefined,
+      fechaAsignacion: undefined,
+    });
+
+    if (socioVinculado) {
+      await actualizarSocio({
+        ...socioVinculado,
+        casilleroAsignadoId: undefined,
+      });
+    }
+
     setSelectedLocker(null);
   };
 
-  const handleReserve = async (numLocker: number) => {
-    await reserveLocker(numLocker);
+  // ✅ Alternar reserva usando actualizarCasillero
+  const handleReserve = async (locker: LockerData) => {
+    const nuevoEstado = locker.estado === 'RESERVADO' ? 'DISPONIBLE' : 'RESERVADO';
+
+    await actualizarCasillero({
+      ...locker,
+      estado: nuevoEstado,
+      socioId: undefined,
+      socioNombre: undefined,
+      socioDni: undefined,
+      fechaAsignacion: undefined,
+    });
+
     setSelectedLocker(null);
   };
 
   return (
     <div className="space-y-6">
-      
       {/* Header */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -86,7 +149,8 @@ export const CasillerosGrid: React.FC = () => {
             <span>Grilla Interactiva de Casilleros ({total})</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Mapeo en tiempo real de casilleros en MySQL. Regla estatutaria: 1 casillero por socio. Tarifa: ${COSTO_CASILLERO_MENSUAL.toLocaleString('es-AR')}/mes.
+            Mapeo en tiempo real de casilleros en MySQL. Regla estatutaria: 1 casillero por socio. Tarifa: $
+            {COSTO_CASILLERO_MENSUAL.toLocaleString('es-AR')}/mes.
           </p>
         </div>
 
@@ -142,10 +206,11 @@ export const CasillerosGrid: React.FC = () => {
             const isOcupado = locker.estado === 'OCUPADO';
             const isReservado = locker.estado === 'RESERVADO';
             const nombreSocioNorm = locker.socioNombre || (locker as any).socio?.nombreCompleto || '';
+            const numLocker = locker.numero ?? locker.id;
 
             return (
               <button
-                key={locker.numero}
+                key={locker.id ?? locker.numero}
                 onClick={() => setSelectedLocker(locker)}
                 className={`group relative flex flex-col items-center justify-center p-2 rounded-lg border transition-all duration-150 aspect-square cursor-pointer ${
                   isOcupado
@@ -154,9 +219,11 @@ export const CasillerosGrid: React.FC = () => {
                     ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
                     : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                 }`}
-                title={`Casillero N° ${locker.numero}: ${locker.estado} ${nombreSocioNorm ? `(${nombreSocioNorm})` : ''}`}
+                title={`Casillero N° ${numLocker}: ${locker.estado} ${
+                  nombreSocioNorm ? `(${nombreSocioNorm})` : ''
+                }`}
               >
-                <span className="text-xs sm:text-sm font-black tracking-tight">{locker.numero}</span>
+                <span className="text-xs sm:text-sm font-black tracking-tight">{numLocker}</span>
                 <span className="text-[8px] sm:text-[9px] uppercase font-bold tracking-wider opacity-85 mt-0.5 truncate w-full text-center px-1">
                   {isOcupado ? 'Ocupado' : isReservado ? 'Reserva' : 'Libre'}
                 </span>
@@ -176,13 +243,12 @@ export const CasillerosGrid: React.FC = () => {
       {selectedLocker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="relative w-full max-w-md bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
-            
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-3.5 bg-[#1A365D] text-white border-b-2 border-[#C53030]">
               <div className="flex items-center space-x-2">
                 <Grid className="w-5 h-5 text-red-400" />
                 <span className="font-bold text-sm tracking-wide">
-                  CASILLERO N° {selectedLocker.numero}
+                  CASILLERO N° {selectedLocker.numero ?? selectedLocker.id}
                 </span>
               </div>
               <button
@@ -218,21 +284,29 @@ export const CasillerosGrid: React.FC = () => {
                       Socio Asignado en BD:
                     </span>
                     <h4 className="text-sm font-bold text-slate-900">
-                      {selectedLocker.socioNombre || (selectedLocker as any).socio?.nombreCompleto || 'Socio Asignado'}
+                      {selectedLocker.socioNombre ||
+                        (selectedLocker as any).socio?.nombreCompleto ||
+                        'Socio Asignado'}
                     </h4>
                     <p className="text-xs text-slate-600">
                       DNI: {selectedLocker.socioDni || (selectedLocker as any).socio?.dni || 'N/A'}
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      Asignado el: {selectedLocker.fechaAsignacion || (selectedLocker as any).fechaIngreso || 'Activo'}
+                      Asignado el:{' '}
+                      {selectedLocker.fechaAsignacion ||
+                        (selectedLocker as any).fechaIngreso ||
+                        'Activo'}
                     </p>
                     <p className="text-[11px] text-slate-600 font-medium pt-1">
-                      Costo mensual incluido en cuota: <strong>${Number(selectedLocker.costoMensual || COSTO_CASILLERO_MENSUAL).toLocaleString('es-AR')}</strong>
+                      Costo mensual incluido en cuota:{' '}
+                      <strong>
+                        ${Number(selectedLocker.costoMensual || COSTO_CASILLERO_MENSUAL).toLocaleString('es-AR')}
+                      </strong>
                     </p>
                   </div>
 
                   <button
-                    onClick={() => handleRelease(selectedLocker.numero)}
+                    onClick={() => handleRelease(selectedLocker)}
                     className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded font-bold text-xs transition-colors shadow-xs cursor-pointer"
                   >
                     Liberar Casillero (Dar de Baja Asignación en BD)
@@ -253,11 +327,14 @@ export const CasillerosGrid: React.FC = () => {
                     >
                       <option value="">-- Seleccione un socio sin casillero --</option>
                       {eligibleSocios.map((s) => {
-                        const nombreSocio = s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim();
-                        const isMoroso = s.estado === 'SUSPENDIDO_MOROSIDAD';
+                        const nombreSocio =
+                          s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim();
+                        const isMoroso =
+                          s.estado === 'SUSPENDIDO';
                         return (
                           <option key={s.id} value={String(s.id)} disabled={isMoroso}>
-                            {nombreSocio} (DNI: {s.dni}) {isMoroso ? ' [SUSPENDIDO POR MOROSIDAD]' : ''}
+                            {nombreSocio} (DNI: {s.dni}){' '}
+                            {isMoroso ? ' [SUSPENDIDO POR MOROSIDAD]' : ''}
                           </option>
                         );
                       })}
@@ -268,14 +345,15 @@ export const CasillerosGrid: React.FC = () => {
                   <div className="p-2.5 bg-blue-50 text-blue-900 rounded text-[11px] flex items-start space-x-1.5">
                     <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                     <span>
-                      Al asignar este casillero, se sumará automáticamente ${COSTO_CASILLERO_MENSUAL.toLocaleString('es-AR')} al próximo recibo de cobranza del socio.
+                      Al asignar este casillero, se sumará automáticamente $
+                      {COSTO_CASILLERO_MENSUAL.toLocaleString('es-AR')} al próximo recibo de cobranza del socio.
                     </span>
                   </div>
 
                   <div className="flex space-x-2 pt-2">
                     <button
                       type="button"
-                      onClick={() => handleReserve(selectedLocker.numero)}
+                      onClick={() => handleReserve(selectedLocker)}
                       className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded text-xs transition-colors cursor-pointer"
                     >
                       {selectedLocker.estado === 'RESERVADO' ? 'Quitar Reserva' : 'Poner en Reserva'}

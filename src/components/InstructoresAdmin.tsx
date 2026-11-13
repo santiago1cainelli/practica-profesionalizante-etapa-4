@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Trophy,
   UserCheck,
@@ -20,7 +20,8 @@ import {
   DollarSign,
   BookOpen,
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useClub } from '../context/AppProvider';
+import { useApi } from '../hooks/useApi';
 import { instructores } from '../types';
 
 export type ModalidadInstructor = 'PLANTA_PERMANENTE' | 'HONORARIOS' | 'POR_HORA';
@@ -39,16 +40,24 @@ export type InstructorData = instructores & {
 };
 
 export const InstructoresAdmin: React.FC = () => {
+  // ✅ Extraemos únicamente lo que existe en AppProvider
   const {
     currentUser,
     setActiveTab,
-    instructores,
+    instructores: initialInstructores,
     actividades,
-    addInstructor,
-    updateInstructor,
-    deleteInstructor,
-    toggleInstructorEstado,
-  } = useApp();
+    showToast,
+  } = useClub();
+
+  // ✅ Conexión directa a /instructores y estado local sincronizado con el contexto
+  const instructoresApi = useApi('/instructores');
+  const [instructoresList, setInstructoresList] = useState<InstructorData[]>(
+    initialInstructores as InstructorData[]
+  );
+
+  useEffect(() => {
+    setInstructoresList(initialInstructores as InstructorData[]);
+  }, [initialInstructores]);
 
   // Filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,6 +103,40 @@ export const InstructoresAdmin: React.FC = () => {
 
   const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
 
+  // ✅ useMemo ubicado ANTES del return condicional para cumplir las Reglas de Hooks de React
+  const filteredInstructores = useMemo(() => {
+    return instructoresList.filter((inst) => {
+      const nombreNorm =
+        inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
+      const dniNorm = inst.dni || '';
+      const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || '';
+      const emailNorm = inst.email || '';
+      const telNorm = inst.telefono || '';
+      const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
+
+      const matchSearch =
+        nombreNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dniNorm.includes(searchTerm) ||
+        tituloNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emailNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        telNorm.includes(searchTerm);
+
+      const matchDisciplina =
+        filtroDisciplina === 'TODAS' || disciplinasArr.includes(String(filtroDisciplina));
+
+      const matchModalidad =
+        filtroModalidad === 'TODAS' || inst.modalidadContrato === filtroModalidad;
+
+      const isActivo = inst.activo ?? true;
+      const matchEstado =
+        filtroEstado === 'TODOS' ||
+        (filtroEstado === 'ACTIVOS' && isActivo) ||
+        (filtroEstado === 'INACTIVOS' && !isActivo);
+
+      return matchSearch && matchDisciplina && matchModalidad && matchEstado;
+    });
+  }, [instructoresList, searchTerm, filtroDisciplina, filtroModalidad, filtroEstado]);
+
   // Control de Acceso Estricto RBAC: Solo ADMINISTRADOR
   if (currentUser?.role !== 'ADMIN') {
     return (
@@ -126,44 +169,11 @@ export const InstructoresAdmin: React.FC = () => {
     );
   }
 
-  // Filtrado de Instructores desde la API / BD
-  const filteredInstructores = useMemo(() => {
-    return instructores.filter((inst) => {
-      const nombreNorm = inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
-      const dniNorm = inst.dni || '';
-      const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || '';
-      const emailNorm = inst.email || '';
-      const telNorm = inst.telefono || '';
-      const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
-
-      const matchSearch =
-        nombreNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dniNorm.includes(searchTerm) ||
-        tituloNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emailNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        telNorm.includes(searchTerm);
-
-      const matchDisciplina =
-        filtroDisciplina === 'TODAS' || disciplinasArr.includes(String(filtroDisciplina));
-
-      const matchModalidad =
-        filtroModalidad === 'TODAS' || inst.modalidadContrato === filtroModalidad;
-
-      const isActivo = inst.activo ?? true;
-      const matchEstado =
-        filtroEstado === 'TODOS' ||
-        (filtroEstado === 'ACTIVOS' && isActivo) ||
-        (filtroEstado === 'INACTIVOS' && !isActivo);
-
-      return matchSearch && matchDisciplina && matchModalidad && matchEstado;
-    });
-  }, [instructores, searchTerm, filtroDisciplina, filtroModalidad, filtroEstado]);
-
   // KPIs
-  const totalInstructores = instructores.length;
-  const activosCount = instructores.filter((i) => (i.activo ?? true)).length;
+  const totalInstructores = instructoresList.length;
+  const activosCount = instructoresList.filter((i) => i.activo ?? true).length;
   const disciplinasAsignadasCount = new Set(
-    instructores.flatMap((i) => i.disciplinasIds || (i as any).actividadesIds || [])
+    instructoresList.flatMap((i) => i.disciplinasIds || (i as any).actividadesIds || [])
   ).size;
 
   const handleOpenCreateModal = () => {
@@ -187,7 +197,8 @@ export const InstructoresAdmin: React.FC = () => {
 
   const handleOpenEditModal = (inst: InstructorData) => {
     setEditingInstructor(inst);
-    const nombreNorm = inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
+    const nombreNorm =
+      inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
     const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
 
     setFormData({
@@ -232,6 +243,7 @@ export const InstructoresAdmin: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // ✅ Alta y Edición directamente contra instructoresApi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -240,7 +252,7 @@ export const InstructoresAdmin: React.FC = () => {
     const nombre = partesNombre[0];
     const apellido = partesNombre.slice(1).join(' ') || partesNombre[0];
 
-    const payload = {
+    const payload: any = {
       nombre,
       apellido,
       nombreCompleto: formData.nombreCompleto.trim(),
@@ -260,19 +272,58 @@ export const InstructoresAdmin: React.FC = () => {
       observaciones: formData.observaciones.trim() || undefined,
     };
 
-    if (editingInstructor) {
-      await updateInstructor(String(editingInstructor.id), payload as any);
-    } else {
-      await addInstructor(payload as any);
+    try {
+      if (editingInstructor) {
+        const actualizado = { ...editingInstructor, ...payload };
+        await instructoresApi.update(editingInstructor.id, actualizado);
+        setInstructoresList((prev) =>
+          prev.map((item) => (String(item.id) === String(editingInstructor.id) ? actualizado : item))
+        );
+        showToast('success', 'Instructor actualizado', `Se actualizaron los datos de ${payload.nombreCompleto}.`);
+      } else {
+        const creado = await instructoresApi.create(payload);
+        setInstructoresList((prev) => [...prev, creado || { ...payload, id: Date.now() }]);
+        showToast('success', 'Instructor registrado', `${payload.nombreCompleto} fue dado de alta en la BD.`);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      showToast('error', 'Error al guardar', 'No se pudo persistir el instructor en el servidor.');
     }
-
-    setIsModalOpen(false);
   };
 
+  // ✅ Alternar estado activo/inactivo usando instructoresApi.update
+  const handleToggleEstado = async (inst: InstructorData) => {
+    const nuevoEstado = !(inst.activo ?? true);
+    const actualizado = { ...inst, activo: nuevoEstado };
+
+    try {
+      await instructoresApi.update(inst.id, actualizado);
+      setInstructoresList((prev) =>
+        prev.map((item) => (String(item.id) === String(inst.id) ? actualizado : item))
+      );
+      showToast(
+        'info',
+        nuevoEstado ? 'Instructor activado' : 'Instructor desactivado',
+        `Estado actualizado correctamente.`
+      );
+    } catch (error) {
+      showToast('error', 'Error al cambiar estado', 'No se pudo actualizar el estado del instructor.');
+    }
+  };
+
+  // ✅ Eliminación usando instructoresApi.remove
   const confirmDelete = async () => {
-    if (instructorToDelete) {
-      await deleteInstructor(String(instructorToDelete.id));
+    if (!instructorToDelete) return;
+
+    try {
+      await instructoresApi.remove(instructorToDelete.id);
+      setInstructoresList((prev) =>
+        prev.filter((item) => String(item.id) !== String(instructorToDelete.id))
+      );
+      showToast('success', 'Instructor eliminado', 'El legajo fue removido de la base de datos.');
       setInstructorToDelete(null);
+    } catch (error) {
+      showToast('error', 'Error al eliminar', 'No se pudo eliminar el instructor del servidor.');
     }
   };
 
@@ -298,7 +349,8 @@ export const InstructoresAdmin: React.FC = () => {
     });
   };
 
-  const getModalidadLabel = (mod: ModalidadInstructor) => {
+  // ✅ Parámetro opcional para evitar error de tipos cuando modalidadContrato es undefined
+  const getModalidadLabel = (mod?: ModalidadInstructor | string) => {
     switch (mod) {
       case 'PLANTA_PERMANENTE':
         return { label: 'Planta Permanente', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
@@ -372,7 +424,9 @@ export const InstructoresAdmin: React.FC = () => {
         <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Deportes Asignados</p>
-            <p className="text-2xl font-black text-blue-700 mt-1">{disciplinasAsignadasCount} / {actividades.length}</p>
+            <p className="text-2xl font-black text-blue-700 mt-1">
+              {disciplinasAsignadasCount} / {actividades.length}
+            </p>
             <p className="text-[11px] text-slate-500 mt-0.5">Disciplinas con profesor</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -452,7 +506,10 @@ export const InstructoresAdmin: React.FC = () => {
             </select>
           </div>
 
-          {(searchTerm || filtroDisciplina !== 'TODAS' || filtroModalidad !== 'TODAS' || filtroEstado !== 'TODOS') && (
+          {(searchTerm ||
+            filtroDisciplina !== 'TODAS' ||
+            filtroModalidad !== 'TODAS' ||
+            filtroEstado !== 'TODOS') && (
             <button
               onClick={() => {
                 setSearchTerm('');
@@ -488,18 +545,26 @@ export const InstructoresAdmin: React.FC = () => {
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
                     <UserX className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                    <p className="font-semibold">No se encontraron instructores registrados en la BD con los filtros seleccionados.</p>
+                    <p className="font-semibold">
+                      No se encontraron instructores registrados en la BD con los filtros seleccionados.
+                    </p>
                   </td>
                 </tr>
               ) : (
                 filteredInstructores.map((inst) => {
-                  const nombreNorm = inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
+                  const nombreNorm =
+                    inst.nombreCompleto ||
+                    `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
                   const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || 'Instructor';
                   const remuNorm = Number(inst.remuneracionMensual || (inst as any).montoMensual || 0);
                   const isActivo = inst.activo ?? true;
                   const modBadge = getModalidadLabel(inst.modalidadContrato);
 
-                  const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
+                  const disciplinasArr = (
+                    inst.disciplinasIds ||
+                    (inst as any).actividadesIds ||
+                    []
+                  ).map(String);
                   const actividadesAsignadas = actividades.filter((a) =>
                     disciplinasArr.includes(String(a.id))
                   );
@@ -573,7 +638,7 @@ export const InstructoresAdmin: React.FC = () => {
                           {(inst.diasDisponibles || ['Lunes', 'Miércoles', 'Viernes']).map((dia: string) => (
                             <span
                               key={dia}
-                              className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200"
+                              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200"
                             >
                               {dia.slice(0, 2)}
                             </span>
@@ -583,7 +648,7 @@ export const InstructoresAdmin: React.FC = () => {
 
                       <td className="py-3.5 px-4 text-center">
                         <button
-                          onClick={() => toggleInstructorEstado(String(inst.id))}
+                          onClick={() => handleToggleEstado(inst)}
                           className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors cursor-pointer ${
                             isActivo
                               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
@@ -641,7 +706,9 @@ export const InstructoresAdmin: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Trophy className="w-5 h-5 text-white" />
                 <h3 className="font-black text-sm uppercase tracking-wider">
-                  {editingInstructor ? `Editar Legajo #${editingInstructor.id}` : 'Registrar Nuevo Instructor en BD'}
+                  {editingInstructor
+                    ? `Editar Legajo #${editingInstructor.id}`
+                    : 'Registrar Nuevo Instructor en BD'}
                 </h3>
               </div>
               <button
@@ -723,7 +790,9 @@ export const InstructoresAdmin: React.FC = () => {
                       formErrors.telefono ? 'border-red-500 bg-red-50' : 'border-slate-300'
                     }`}
                   />
-                  {formErrors.telefono && <p className="text-[11px] text-red-600 mt-1">{formErrors.telefono}</p>}
+                  {formErrors.telefono && (
+                    <p className="text-[11px] text-red-600 mt-1">{formErrors.telefono}</p>
+                  )}
                 </div>
               </div>
 
@@ -757,7 +826,9 @@ export const InstructoresAdmin: React.FC = () => {
                       <label
                         key={act.id}
                         className={`flex items-center space-x-2 text-xs p-1.5 rounded cursor-pointer transition-colors ${
-                          isChecked ? 'bg-blue-100/70 font-semibold text-blue-900' : 'hover:bg-slate-200/50 text-slate-700'
+                          isChecked
+                            ? 'bg-blue-100/70 font-semibold text-blue-900'
+                            : 'hover:bg-slate-200/50 text-slate-700'
                         }`}
                       >
                         <input
@@ -781,7 +852,9 @@ export const InstructoresAdmin: React.FC = () => {
                   </label>
                   <select
                     value={formData.modalidadContrato}
-                    onChange={(e) => setFormData({ ...formData, modalidadContrato: e.target.value as ModalidadInstructor })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, modalidadContrato: e.target.value as ModalidadInstructor })
+                    }
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] bg-white text-slate-800"
                   >
                     <option value="PLANTA_PERMANENTE">Planta Permanente</option>
@@ -803,7 +876,9 @@ export const InstructoresAdmin: React.FC = () => {
                       min="0"
                       step="5000"
                       value={formData.remuneracionMensual}
-                      onChange={(e) => setFormData({ ...formData, remuneracionMensual: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, remuneracionMensual: Number(e.target.value) })
+                      }
                       className={`w-full pl-7 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] ${
                         formErrors.remuneracionMensual ? 'border-red-500 bg-red-50' : 'border-slate-300'
                       }`}
