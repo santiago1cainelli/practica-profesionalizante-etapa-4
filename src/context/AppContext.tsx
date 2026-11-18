@@ -99,11 +99,14 @@ export type RendicionLiquidacion = rendiciones & {
   estado?: string;
 };
 
-export type AppUser = users & {
+export type AppUser = Omit<users, 'password'> & {
+  password?: string;
   nombreCompleto?: string;
   zonaAsignada?: number;
   actividadId?: string;
-  socioId?: string | number; // ✅ Agregado para vincular usuario con socio
+  socioId?: string | number | null; // ✅ Agregado para vincular usuario con socio
+  instructorId?: string | number | null;
+  cobradorId?: string | number | null;
 };
 
 export type ActiveTab =
@@ -131,6 +134,9 @@ export interface ToastMessage {
 export interface AppContextType {
   currentUser: AppUser | null;
   setCurrentUser: (user: AppUser) => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  logout: () => void;
+  refrescarDatos: () => Promise<void>;
   quickSwitchUser: (userIdOrRole: string) => void; // ✅ Agregado
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;

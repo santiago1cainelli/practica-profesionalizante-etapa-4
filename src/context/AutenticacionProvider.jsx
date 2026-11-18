@@ -1,6 +1,6 @@
 import { useState } from "react";
 import api from "../api/axios";
-import { useApp } from "./AppContext.tsx";
+import { AppContext } from "./AppContext.tsx";
 
 const [usuarioActual, setUsuarioActual] = useState(() => {
   const tokenGuardado = localStorage.getItem("token");
@@ -43,7 +43,7 @@ const valoresContexto = {
   cerrarSesion,
 };
 return (
-  <useApp.Provider value={valoresContexto}>
+  <AppContext.Provider value={valoresContexto}>
     {children}
-  </useApp.Provider>
+  </AppContext.Provider>
 );

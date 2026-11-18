@@ -1,4 +1,19 @@
 import api from "../api/axios";
+
+/**
+ * Desempaqueta automáticamente la respuesta si viene en el sobre estándar de NestJS: { data, timestamp }
+ */
+const extractData = (res) => {
+  if (res && res.data !== undefined) {
+    const body = res.data;
+    if (body && typeof body === 'object' && 'data' in body && 'timestamp' in body) {
+      return body.data;
+    }
+    return body;
+  }
+  return res;
+};
+
 /**
  * Hook genérico para manipulación de datos (CRUD)
  * @param {*} endpoint El endpoint a manipular
@@ -14,7 +29,7 @@ export const useApi = (endpoint) => {
     try {
       const url = id ? `${endpoint}/${id}` : endpoint;
       const response = await api.get(url);
-      return response.data;
+      return extractData(response);
     } catch (error) {
       console.error(`Error al obtener ${endpoint}: `, error);
       throw error;
@@ -28,7 +43,7 @@ export const useApi = (endpoint) => {
   const create = async (data) => {
     try {
       const response = await api.post(endpoint, data);
-      return response.data;
+      return extractData(response);
     } catch (error) {
       console.error(`Error al crear ${endpoint}: `, error);
       throw error;
@@ -43,7 +58,7 @@ export const useApi = (endpoint) => {
   const update = async (id, data) => {
     try {
       const response = await api.patch(`${endpoint}/${id}`, data);
-      return response.data;
+      return extractData(response);
     } catch (error) {
       console.error(`Error al actualizar ${endpoint}: `, error);
       throw error;
@@ -55,7 +70,8 @@ export const useApi = (endpoint) => {
    */
   const remove = async (id) => {
     try {
-      await api.delete(`${endpoint}/${id}`);
+      const response = await api.delete(`${endpoint}/${id}`);
+      return extractData(response);
     } catch (error) {
       console.error(`Error al eliminar ${endpoint}: `, error);
       throw error;

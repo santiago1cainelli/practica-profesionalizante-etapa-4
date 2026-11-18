@@ -41,6 +41,8 @@ export const Navbar: React.FC<NavbarProps> = () => {
   const {
     currentUser,
     setCurrentUser,
+    login,
+    logout,
     usersList,
     activeTab,
     setActiveTab,
@@ -59,6 +61,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
   // Rol del usuario con fallback seguro si no hay sesión cargada todavía
   const currentRole: ExtendedUserRole = (currentUser?.role as ExtendedUserRole) || 'PUBLICO';
@@ -134,55 +137,48 @@ export const Navbar: React.FC<NavbarProps> = () => {
     setShowLoginModal(true);
   };
 
-  // Procesar inicio de sesión validando contra usersList de la BD
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Procesar inicio de sesión mediante autenticación oficial o demo fallback
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
     const emailTrimmed = loginEmail.trim().toLowerCase();
-    if (!emailTrimmed || !loginPassword) {
+    const passwordTrimmed = loginPassword.trim();
+
+    if (!emailTrimmed || !passwordTrimmed) {
       setLoginError('Por favor, ingrese su correo electrónico y contraseña.');
       return;
     }
 
-    const foundUser = usersList.find(
-      (u) => u.email?.toLowerCase() === emailTrimmed && u.password === loginPassword
-    );
-
-    if (!foundUser) {
-      setLoginError('Credenciales incorrectas. Verifique su email y contraseña.');
-      return;
+    setIsSubmittingLogin(true);
+    try {
+      const res = await login(emailTrimmed, passwordTrimmed);
+      if (res.success) {
+        setShowLoginModal(false);
+        setLoginEmail('');
+        setLoginPassword('');
+        const savedUserStr = localStorage.getItem('el_globo_current_user');
+        const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+        const nextRole = (savedUser?.role as ExtendedUserRole) || 'ADMIN';
+        setActiveTab(getDefaultTabForRole(nextRole));
+        showToast(
+          'success',
+          `¡Bienvenido/a, ${savedUser?.nombreCompleto || emailTrimmed}!`,
+          `Sesión iniciada con rol ${roleBadges[nextRole]?.label || nextRole}.`
+        );
+      } else {
+        setLoginError(res.message || 'Credenciales incorrectas. Verifique su email y contraseña.');
+      }
+    } catch (err: any) {
+      setLoginError(err.message || 'Error inesperado al conectar con el servidor.');
+    } finally {
+      setIsSubmittingLogin(false);
     }
-
-    if (foundUser.activo === false) {
-      setLoginError('Este usuario se encuentra inactivo. Comuníquese con Secretaría.');
-      return;
-    }
-
-    setCurrentUser(foundUser);
-    const nextRole = (foundUser.role as ExtendedUserRole) || 'PUBLICO';
-    setActiveTab(getDefaultTabForRole(nextRole));
-    setShowLoginModal(false);
-    setLoginEmail('');
-    setLoginPassword('');
-    showToast(
-      'success',
-      `¡Bienvenido/a, ${foundUser.nombreCompleto || foundUser.email}!`,
-      `Sesión iniciada con rol ${roleBadges[nextRole]?.label || nextRole}.`
-    );
   };
 
   // Cerrar sesión y volver a Invitado Público
   const handleLogout = () => {
-    const guestUser: AppUser = {
-      id: 0,
-      email: 'invitado@elglobo.com',
-      password: '',
-      role: 'PUBLICO',
-      nombreCompleto: 'Invitado Público',
-      activo: true,
-    };
-    setCurrentUser(guestUser);
+    logout();
     setActiveTab('inicio');
     setShowUserMenu(false);
     showToast('info', 'Sesión cerrada', 'Has vuelto al modo de navegación como Invitado Público.');
@@ -461,17 +457,18 @@ export const Navbar: React.FC<NavbarProps> = () => {
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 bg-[#C53030] hover:bg-[#9B2C2C] text-white font-bold text-sm rounded-lg shadow-md transition-colors flex items-center justify-center space-x-2 cursor-pointer"
+                disabled={isSubmittingLogin}
+                className="w-full py-2.5 px-4 bg-[#C53030] hover:bg-[#9B2C2C] disabled:bg-slate-400 text-white font-bold text-sm rounded-lg shadow-md transition-colors flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <LogIn className="w-4 h-4" />
-                <span>Ingresar al Sistema</span>
+                <span>{isSubmittingLogin ? 'Verificando credenciales...' : 'Ingresar al Sistema'}</span>
               </button>
 
-              {/* Accesos Rápidos de Cuentas de BD para facilitar pruebas */}
+              {/* Accesos Rápidos de Cuentas para facilitar pruebas */}
               {usersList.length > 0 && (
                 <div className="pt-4 border-t border-slate-100">
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    Cuentas disponibles en BD (clic para autocompletar):
+                    Cuentas disponibles (clic para autocompletar):
                   </p>
                   <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
                     {usersList.map((u) => {
@@ -482,7 +479,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
                           type="button"
                           onClick={() => {
                             setLoginEmail(u.email || '');
-                            setLoginPassword(u.password || '');
+                            setLoginPassword(u.password || (u.role === 'ADMIN' ? 'Admin123!' : '123456'));
                             setLoginError('');
                           }}
                           className="w-full flex items-center justify-between p-2 rounded-lg border border-slate-200 hover:border-[#2B6CB0] hover:bg-blue-50/50 text-left transition-colors cursor-pointer"

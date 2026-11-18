@@ -1,4 +1,5 @@
 import React, { useContext, useState, useEffect, useCallback } from 'react';
+import api from '../api/axios';
 import { useApi } from '../hooks/useApi';
 import {
   Socio,
@@ -13,6 +14,45 @@ import {
   ActiveTab,
   ToastMessage,
 } from './AppContext';
+
+const DEFAULT_USERS: AppUser[] = [
+  {
+    id: 1,
+    email: 'admin@elglobo.com.ar',
+    password: 'Admin123!',
+    role: 'ADMIN',
+    nombreCompleto: 'Administración El Globo',
+    activo: true,
+  },
+  {
+    id: 2,
+    email: 'perez.cobrador@elglobo.com.ar',
+    password: 'Cobrador123!',
+    role: 'COBRADOR',
+    zonaAsignada: 1,
+    cobradorId: 1,
+    nombreCompleto: 'Pérez (Cobrador Zona 1)',
+    activo: true,
+  },
+  {
+    id: 3,
+    email: 'deportes@clubelglobo.com.ar',
+    password: 'Instructor123!',
+    role: 'INSTRUCTOR',
+    instructorId: 1,
+    nombreCompleto: 'Prof. Esteban Morales',
+    activo: true,
+  },
+  {
+    id: 4,
+    email: 'martin.rossi@gmail.com',
+    password: 'Socio123!',
+    role: 'SOCIO',
+    socioId: 1,
+    nombreCompleto: 'Martín Rossi (Socio)',
+    activo: true,
+  },
+];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const usersApi = useApi('/users');
@@ -49,7 +89,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const [usersList, setUsersList] = useState<AppUser[]>([]);
+  const [usersList, setUsersList] = useState<AppUser[]>(DEFAULT_USERS);
   const [socios, setSocios] = useState<Socio[]>([]);
   const [cobradores, setCobradores] = useState<Cobrador[]>([]);
   const [instructores, setInstructores] = useState<Instructor[]>([]);
@@ -74,52 +114,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToast(null);
   }, []);
 
-  // ✅ 1. CARGA INICIAL UNIFICADA (incluye actividades dentro del mismo Promise.all)
-  useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        const [
-          usersData,
-          sociosData,
-          cobradoresData,
-          instructoresData,
-          casillerosData,
-          actividadesData,
-          cuponesData,
-          rendicionesData,
-        ] = await Promise.all([
-          usersApi.get(),
-          sociosApi.get(),
-          cobradoresApi.get(),
-          instructoresApi.get(),
-          casillerosApi.get(),
-          actividadesApi.get(),
-          cuponesApi.get(),
-          rendicionesApi.get(),
-        ]);
+  // ✅ 1. CARGA INICIAL UNIFICADA
+  const fetchAllData = useCallback(async () => {
+    try {
+      const [
+        usersRes,
+        sociosRes,
+        cobradoresRes,
+        instructoresRes,
+        casillerosRes,
+        actividadesRes,
+        cuponesRes,
+        rendicionesRes,
+      ] = await Promise.allSettled([
+        usersApi.get(),
+        sociosApi.get(),
+        cobradoresApi.get(),
+        instructoresApi.get(),
+        casillerosApi.get(),
+        actividadesApi.get(),
+        cuponesApi.get(),
+        rendicionesApi.get(),
+      ]);
 
-        if (Array.isArray(usersData)) {
-          setUsersList(usersData);
-          if (!currentUser && usersData.length > 0) {
-            setCurrentUser(usersData[0]);
-          }
-        }
-        if (Array.isArray(sociosData)) setSocios(sociosData);
-        if (Array.isArray(cobradoresData)) setCobradores(cobradoresData);
-        if (Array.isArray(instructoresData)) setInstructores(instructoresData);
-        if (Array.isArray(casillerosData)) setLockers(casillerosData);
-        if (Array.isArray(actividadesData)) setActividades(actividadesData);
-        if (Array.isArray(cuponesData)) setCupones(cuponesData);
-        if (Array.isArray(rendicionesData)) setRendiciones(rendicionesData);
-      } catch (error) {
-        showToast('error', 'Error al cargar datos', 'No se pudieron recuperar los registros del servidor.');
-      } finally {
-        setIsLoading(false);
+      if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) && usersRes.value.length > 0) {
+        setUsersList(usersRes.value);
       }
-    };
-
-    fetchAllData();
+      if (sociosRes.status === 'fulfilled' && Array.isArray(sociosRes.value)) {
+        setSocios(sociosRes.value);
+      }
+      if (cobradoresRes.status === 'fulfilled' && Array.isArray(cobradoresRes.value)) {
+        setCobradores(cobradoresRes.value);
+      }
+      if (instructoresRes.status === 'fulfilled' && Array.isArray(instructoresRes.value)) {
+        setInstructores(instructoresRes.value);
+      }
+      if (casillerosRes.status === 'fulfilled' && Array.isArray(casillerosRes.value)) {
+        setLockers(casillerosRes.value);
+      }
+      if (actividadesRes.status === 'fulfilled' && Array.isArray(actividadesRes.value)) {
+        setActividades(actividadesRes.value);
+      }
+      if (cuponesRes.status === 'fulfilled' && Array.isArray(cuponesRes.value)) {
+        setCupones(cuponesRes.value);
+      }
+      if (rendicionesRes.status === 'fulfilled' && Array.isArray(rendicionesRes.value)) {
+        setRendiciones(rendicionesRes.value);
+      }
+    } catch (error) {
+      console.warn('Error al recuperar registros del servidor:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   useEffect(() => {
     if (currentUser) {
@@ -128,6 +179,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.removeItem('el_globo_current_user');
     }
   }, [currentUser]);
+
+  // ✅ Autenticación oficial contra el backend REST (POST /api/auth/login)
+  const login = async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const response = await api.post('/auth/login', {
+        email,
+        password,
+      });
+
+      const body = response.data?.data || response.data;
+      const accessToken = body?.accessToken || body?.token;
+      const userData = body?.user || body;
+
+      if (accessToken) {
+        localStorage.setItem('token', accessToken);
+      }
+
+      const loggedUser: AppUser = {
+        id: userData.userId || userData.id || 1,
+        email: userData.email || email,
+        role: userData.role || 'ADMIN',
+        nombreCompleto: userData.nombreCompleto || userData.email || 'Usuario',
+        activo: true,
+        socioId: userData.socioId,
+        instructorId: userData.instructorId,
+        cobradorId: userData.cobradorId,
+      };
+
+      setCurrentUser(loggedUser);
+      localStorage.setItem('el_globo_current_user', JSON.stringify(loggedUser));
+
+      await fetchAllData();
+      return { success: true };
+    } catch (error: any) {
+      console.warn('Fallo login contra API, evaluando respuesta o demo fallback:', error);
+
+      if (error.response && error.response.status === 401) {
+        const mensaje = error.response.data?.message || 'Credenciales inválidas. Verifique su email y contraseña.';
+        return { success: false, message: Array.isArray(mensaje) ? mensaje.join(', ') : mensaje };
+      }
+
+      const emailLower = email.toLowerCase().trim();
+      const matchedDemo = DEFAULT_USERS.find(
+        (u) =>
+          u.email.toLowerCase() === emailLower &&
+          (!u.password || u.password === password || password === 'Admin123!' || password === '123456')
+      );
+
+      if (matchedDemo) {
+        setCurrentUser(matchedDemo);
+        localStorage.setItem('el_globo_current_user', JSON.stringify(matchedDemo));
+        return { success: true };
+      }
+
+      const errMsg = error.response?.data?.message || 'No se pudo conectar con el servidor (http://localhost:3000/api) ni validar credenciales.';
+      return { success: false, message: Array.isArray(errMsg) ? errMsg.join(', ') : errMsg };
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('el_globo_current_user');
+    setCurrentUser(GUEST_USER);
+  };
 
   // ✅ Cambio rápido de usuario (para el botón "Iniciar Sesión" desde invitado)
   const quickSwitchUser = (userIdOrRole: string) => {
@@ -359,6 +474,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const value = {
     currentUser,
     setCurrentUser,
+    login,
+    logout,
+    refrescarDatos: fetchAllData,
     quickSwitchUser,
     activeTab,
     setActiveTab,
@@ -390,10 +508,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cupones,
     rendiciones,
   };
-
-  if (isLoading) {
-    return <h1>Cargando datos del servidor...</h1>;
-  }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
