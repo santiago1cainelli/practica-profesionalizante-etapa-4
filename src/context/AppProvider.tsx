@@ -141,7 +141,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUsersList(usersRes.value);
       }
       if (sociosRes.status === 'fulfilled' && Array.isArray(sociosRes.value)) {
-        setSocios(sociosRes.value);
+        const enrichedSocios = sociosRes.value.map((s: any) => ({
+          ...s,
+          actividadesIds:
+            s.actividadesIds ||
+            s.inscripciones
+              ?.filter((i: any) => i.activa !== false)
+              .map((i: any) => i.actividad?.id || i.actividadId)
+              .filter(Boolean) ||
+            [],
+          casilleroAsignadoId: s.casilleroAsignadoId || s.casillero?.id,
+          edad:
+            s.edad ||
+            (s.fechaNacimiento
+              ? Math.floor(
+                  (Date.now() - new Date(s.fechaNacimiento).getTime()) / (365.25 * 24 * 3600 * 1000),
+                )
+              : 30),
+        }));
+        setSocios(enrichedSocios);
       }
       if (cobradoresRes.status === 'fulfilled' && Array.isArray(cobradoresRes.value)) {
         setCobradores(cobradoresRes.value);
@@ -244,14 +262,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser(GUEST_USER);
   };
 
+  // Helper para sanitizar objetos de socio antes de enviar al backend (evita errores 400 por forbidNonWhitelisted)
+  const sanitizeSocioPayload = (socio: any) => {
+    const payload: any = {};
+    if (socio.nombre !== undefined) payload.nombre = socio.nombre;
+    if (socio.apellido !== undefined) payload.apellido = socio.apellido;
+    if (socio.dni !== undefined) payload.dni = String(socio.dni);
+    if (socio.fechaNacimiento !== undefined) {
+      payload.fechaNacimiento =
+        socio.fechaNacimiento instanceof Date
+          ? socio.fechaNacimiento.toISOString().split('T')[0]
+          : String(socio.fechaNacimiento).split('T')[0];
+    }
+    if (socio.fechaAlta !== undefined) {
+      payload.fechaAlta =
+        socio.fechaAlta instanceof Date
+          ? socio.fechaAlta.toISOString().split('T')[0]
+          : String(socio.fechaAlta).split('T')[0];
+    }
+    if (socio.direccion !== undefined) payload.direccion = socio.direccion;
+    if (socio.localidad !== undefined) payload.localidad = socio.localidad;
+    if (socio.telefono !== undefined) payload.telefono = socio.telefono;
+    if (socio.email !== undefined) payload.email = socio.email;
+    if (socio.zonaCobro !== undefined) payload.zonaCobro = socio.zonaCobro;
+    return payload;
+  };
+
   // ✅ Cambio rápido de usuario (para el botón "Iniciar Sesión" desde invitado)
-  const quickSwitchUser = (userIdOrRole: string) => {
+  const quickSwitchUser = async (userIdOrRole: string) => {
     const found =
       usersList.find((u) => String(u.id) === userIdOrRole) ||
       usersList.find((u) => u.role === 'SOCIO');
 
     if (found) {
-      setCurrentUser(found);
+      const pass = found.password || (found.role === 'ADMIN' ? 'Admin123!' : '123456');
+      const res = await login(found.email, pass);
+      if (!res.success) {
+        setCurrentUser(found);
+        localStorage.setItem('el_globo_current_user', JSON.stringify(found));
+      }
       showToast('success', `Sesión iniciada como ${found.nombreCompleto || found.email}`);
     } else {
       showToast('warning', 'Usuario no encontrado', 'No hay usuarios de tipo Socio cargados en la base de datos.');
@@ -261,21 +310,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 2. SOCIOS
   const agregarSocio = async (nuevoSocio: any) => {
     try {
-      const data = await sociosApi.create(nuevoSocio);
-      setSocios((prev) => [...prev, data]);
+      const payload = sanitizeSocioPayload(nuevoSocio);
+      const data = await sociosApi.create(payload);
+      const enriched = {
+        ...data,
+        actividadesIds: [],
+        edad:
+          data.edad ||
+          (data.fechaNacimiento
+            ? Math.floor(
+                (Date.now() - new Date(data.fechaNacimiento).getTime()) / (365.25 * 24 * 3600 * 1000),
+              )
+            : 30),
+      };
+      setSocios((prev) => [...prev, enriched]);
       showToast('success', 'Socio agregado');
-    } catch (error) {
-      showToast('error', 'Error al agregar socio');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al agregar socio';
+      showToast('error', 'Error al agregar socio', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
   const actualizarSocio = async (socioActualizado: Socio) => {
     try {
-      await sociosApi.update(socioActualizado.id, socioActualizado);
-      setSocios((prev) => prev.map((s) => (s.id === socioActualizado.id ? socioActualizado : s)));
+      const payload = sanitizeSocioPayload(socioActualizado);
+      const res = await sociosApi.update(socioActualizado.id, payload);
+      setSocios((prev) =>
+        prev.map((s) => (s.id === socioActualizado.id ? { ...s, ...socioActualizado, ...res } : s)),
+      );
       showToast('success', 'Socio actualizado');
-    } catch (error) {
-      showToast('error', 'Error al actualizar socio');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al actualizar socio';
+      showToast('error', 'Error al actualizar socio', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
@@ -290,23 +356,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // 3. COBRADORES
+  const sanitizeCobradorPayload = (cobrador: any) => {
+    const payload: any = {};
+    if (cobrador.nombre !== undefined) payload.nombre = cobrador.nombre;
+    if (cobrador.apellido !== undefined) payload.apellido = cobrador.apellido;
+    const correo = cobrador.correo || cobrador.email;
+    if (correo !== undefined) payload.correo = correo;
+
+    const zonaVal = cobrador.zona !== undefined ? cobrador.zona : cobrador.zonaAsignada;
+    if (zonaVal !== undefined) {
+      payload.zona = Number(zonaVal);
+    }
+
+    if (cobrador.comisionPorcentaje !== undefined) {
+      payload.comisionPorcentaje = Number(cobrador.comisionPorcentaje);
+    } else if (cobrador.porcentajeComision !== undefined) {
+      const p = Number(cobrador.porcentajeComision);
+      payload.comisionPorcentaje = p <= 1 ? Math.round(p * 100) : p;
+    }
+    return payload;
+  };
+
   const agregarCobrador = async (nuevoCobrador: any) => {
     try {
-      const data = await cobradoresApi.create(nuevoCobrador);
-      setCobradores((prev) => [...prev, data]);
+      const payload = sanitizeCobradorPayload(nuevoCobrador);
+      const data = await cobradoresApi.create(payload);
+      setCobradores((prev) => [...prev, { ...nuevoCobrador, ...data }]);
       showToast('success', 'Cobrador agregado');
-    } catch (error) {
-      showToast('error', 'Error al agregar cobrador');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al agregar cobrador';
+      showToast('error', 'Error al agregar cobrador', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
   const actualizarCobrador = async (cobradorActualizado: Cobrador) => {
     try {
-      await cobradoresApi.update(cobradorActualizado.id, cobradorActualizado);
-      setCobradores((prev) => prev.map((c) => (c.id === cobradorActualizado.id ? cobradorActualizado : c)));
+      const payload = sanitizeCobradorPayload(cobradorActualizado);
+      const res = await cobradoresApi.update(cobradorActualizado.id, payload);
+      setCobradores((prev) =>
+        prev.map((c) => (c.id === cobradorActualizado.id ? { ...c, ...cobradorActualizado, ...res } : c)),
+      );
       showToast('success', 'Cobrador actualizado');
-    } catch (error) {
-      showToast('error', 'Error al actualizar cobrador');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al actualizar cobrador';
+      showToast('error', 'Error al actualizar cobrador', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
@@ -321,23 +414,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // 4. INSTRUCTORES
+  const sanitizeInstructorPayload = (instructor: any) => {
+    const payload: any = {};
+    if (instructor.nombre !== undefined) payload.nombre = instructor.nombre;
+    if (instructor.apellido !== undefined) payload.apellido = instructor.apellido;
+    if (instructor.email !== undefined) payload.email = instructor.email;
+    if (instructor.telefono !== undefined) payload.telefono = instructor.telefono;
+    if (instructor.sueldo !== undefined) payload.sueldo = Number(instructor.sueldo);
+    return payload;
+  };
+
   const agregarInstructor = async (nuevoInstructor: any) => {
     try {
-      const data = await instructoresApi.create(nuevoInstructor);
-      setInstructores((prev) => [...prev, data]);
+      const payload = sanitizeInstructorPayload(nuevoInstructor);
+      const data = await instructoresApi.create(payload);
+      setInstructores((prev) => [...prev, { ...nuevoInstructor, ...data }]);
       showToast('success', 'Instructor agregado');
-    } catch (error) {
-      showToast('error', 'Error al agregar instructor');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al agregar instructor';
+      showToast('error', 'Error al agregar instructor', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
   const actualizarInstructor = async (instructorActualizado: Instructor) => {
     try {
-      await instructoresApi.update(instructorActualizado.id, instructorActualizado);
-      setInstructores((prev) => prev.map((i) => (i.id === instructorActualizado.id ? instructorActualizado : i)));
+      const payload = sanitizeInstructorPayload(instructorActualizado);
+      const res = await instructoresApi.update(instructorActualizado.id, payload);
+      setInstructores((prev) =>
+        prev.map((i) => (i.id === instructorActualizado.id ? { ...i, ...instructorActualizado, ...res } : i)),
+      );
       showToast('success', 'Instructor actualizado');
-    } catch (error) {
-      showToast('error', 'Error al actualizar instructor');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al actualizar instructor';
+      showToast('error', 'Error al actualizar instructor', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
@@ -352,23 +461,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // 5. ACTIVIDADES E INSCRIPCIONES
+  const sanitizeActividadPayload = (actividad: any) => {
+    const payload: any = {};
+    if (actividad.nombre !== undefined) payload.nombre = actividad.nombre;
+    if (actividad.descripcion !== undefined) payload.descripcion = actividad.descripcion;
+    if (actividad.arancel !== undefined) {
+      payload.arancel = Number(actividad.arancel);
+    } else if (actividad.costoMensual !== undefined) {
+      payload.arancel = Number(actividad.costoMensual);
+    }
+    if (actividad.turno !== undefined) payload.turno = actividad.turno;
+    if (actividad.diasSemana !== undefined) {
+      payload.diasSemana = Array.isArray(actividad.diasSemana)
+        ? actividad.diasSemana.join(', ')
+        : String(actividad.diasSemana);
+    } else if (actividad.dias !== undefined) {
+      payload.diasSemana = Array.isArray(actividad.dias)
+        ? actividad.dias.join(', ')
+        : String(actividad.dias);
+    }
+    if (actividad.horaInicio !== undefined) payload.horaInicio = actividad.horaInicio;
+    if (actividad.horaFin !== undefined) payload.horaFin = actividad.horaFin;
+    if (actividad.cupoMaximo !== undefined) payload.cupoMaximo = Number(actividad.cupoMaximo);
+    if (actividad.instructorId !== undefined && actividad.instructorId !== 'sin-asignar') {
+      const instId = Number(actividad.instructorId);
+      if (!isNaN(instId) && instId > 0) payload.instructorId = instId;
+    }
+    return payload;
+  };
+
   const agregarActividad = async (nuevaActividad: any) => {
     try {
-      const data = await actividadesApi.create(nuevaActividad);
-      setActividades((prev) => [...prev, data]);
+      const payload = sanitizeActividadPayload(nuevaActividad);
+      const data = await actividadesApi.create(payload);
+      setActividades((prev) => [...prev, { ...nuevaActividad, ...data }]);
       showToast('success', 'Actividad agregada');
-    } catch (error) {
-      showToast('error', 'Error al agregar actividad');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al agregar actividad';
+      showToast('error', 'Error al agregar actividad', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
   const actualizarActividad = async (actividadActualizada: Actividad) => {
     try {
-      await actividadesApi.update(actividadActualizada.id, actividadActualizada);
-      setActividades((prev) => prev.map((a) => (a.id === actividadActualizada.id ? actividadActualizada : a)));
+      const payload = sanitizeActividadPayload(actividadActualizada);
+      const res = await actividadesApi.update(actividadActualizada.id, payload);
+      setActividades((prev) =>
+        prev.map((a) => (a.id === actividadActualizada.id ? { ...a, ...actividadActualizada, ...res } : a)),
+      );
       showToast('success', 'Actividad actualizada');
-    } catch (error) {
-      showToast('error', 'Error al actualizar actividad');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al actualizar actividad';
+      showToast('error', 'Error al actualizar actividad', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 
@@ -382,8 +526,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // ✅ Inscribir socio en actividad y actualizar cupo en BD
+  // ✅ Inscribir socio en actividad mediante POST /api/inscripciones y sincronizar estado
   const enrollSocioInActividad = async (socioId: string, actividadId: string): Promise<boolean> => {
+    const sId = Number(socioId);
+    const aId = Number(actividadId);
     const socio = socios.find((s) => String(s.id) === String(socioId));
     const actividad = actividades.find((a) => String(a.id) === String(actividadId));
 
@@ -399,6 +545,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
+      await api.post('/inscripciones', { socioId: sId, actividadId: aId });
+
       const socioActualizado: Socio = {
         ...socio,
         actividadesIds: [...actuales, actividad.id],
@@ -409,30 +557,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cupoOcupado: Number(actividad.cupoOcupado || 0) + 1,
       };
 
-      await Promise.all([
-        sociosApi.update(socio.id, socioActualizado),
-        actividadesApi.update(actividad.id, actividadActualizada),
-      ]);
-
       setSocios((prev) => prev.map((s) => (s.id === socio.id ? socioActualizado : s)));
       setActividades((prev) => prev.map((a) => (a.id === actividad.id ? actividadActualizada : a)));
 
       showToast('success', 'Inscripción confirmada', `Inscripto en ${actividad.nombre}.`);
       return true;
-    } catch (error) {
-      showToast('error', 'Error al inscribir', 'No se pudo guardar la inscripción en el servidor.');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'No se pudo guardar la inscripción en el servidor.';
+      showToast('error', 'Error al inscribir', Array.isArray(msg) ? msg.join(', ') : msg);
       return false;
     }
   };
 
-  // ✅ Dar de baja socio de actividad y liberar cupo en BD
+  // ✅ Dar de baja socio de actividad mediante DELETE /api/inscripciones y liberar cupo
   const unenrollSocioFromActividad = async (socioId: string, actividadId: string): Promise<boolean> => {
+    const sId = Number(socioId);
+    const aId = Number(actividadId);
     const socio = socios.find((s) => String(s.id) === String(socioId));
     const actividad = actividades.find((a) => String(a.id) === String(actividadId));
 
     if (!socio || !actividad) return false;
 
     try {
+      await api.delete(`/inscripciones/socio/${sId}/actividad/${aId}`);
+
       const actuales = socio.actividadesIds || [];
       const socioActualizado: Socio = {
         ...socio,
@@ -444,18 +592,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cupoOcupado: Math.max(0, Number(actividad.cupoOcupado || 1) - 1),
       };
 
-      await Promise.all([
-        sociosApi.update(socio.id, socioActualizado),
-        actividadesApi.update(actividad.id, actividadActualizada),
-      ]);
-
       setSocios((prev) => prev.map((s) => (s.id === socio.id ? socioActualizado : s)));
       setActividades((prev) => prev.map((a) => (a.id === actividad.id ? actividadActualizada : a)));
 
       showToast('info', 'Baja confirmada', `Se dio de baja de ${actividad.nombre}.`);
       return true;
-    } catch (error) {
-      showToast('error', 'Error al dar de baja', 'No se pudo actualizar el registro en el servidor.');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'No se pudo actualizar el registro en el servidor.';
+      showToast('error', 'Error al dar de baja', Array.isArray(msg) ? msg.join(', ') : msg);
       return false;
     }
   };
@@ -463,11 +607,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 6. CASILLEROS
   const actualizarCasillero = async (casilleroActualizado: Locker) => {
     try {
-      await casillerosApi.update(casilleroActualizado.id, casilleroActualizado);
-      setLockers((prev) => prev.map((l) => (l.id === casilleroActualizado.id ? casilleroActualizado : l)));
+      const socioId = casilleroActualizado.socioId || (casilleroActualizado as any).socio?.id;
+      const esLibre =
+        casilleroActualizado.estado === 'DISPONIBLE' ||
+        (casilleroActualizado.estado as string) === 'LIBRE' ||
+        !socioId;
+      if (esLibre) {
+        await casillerosApi.update(casilleroActualizado.id, { estado: 'LIBRE', socioId: null });
+      } else {
+        await casillerosApi.update(casilleroActualizado.id, { socioId });
+      }
+      setLockers((prev) =>
+        prev.map((l) => (l.id === casilleroActualizado.id ? casilleroActualizado : l)),
+      );
       showToast('success', 'Casillero actualizado');
-    } catch (error) {
-      showToast('error', 'Error al actualizar casillero');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Error al actualizar casillero';
+      showToast('error', 'Error al actualizar casillero', Array.isArray(msg) ? msg.join(', ') : msg);
     }
   };
 

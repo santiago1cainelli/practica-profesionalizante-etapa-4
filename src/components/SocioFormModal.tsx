@@ -38,7 +38,7 @@ const calcularCategoriaEstatuto = (
   let categoria: SocioCategoria = 'ACTIVO';
   if (edadSegura < 18) {
     categoria = 'CADETE';
-  } else if (antiguedadSegura >= 30) {
+  } else if (edadSegura >= 60 && antiguedadSegura >= 30) {
     categoria = 'VITALICIO';
   }
 

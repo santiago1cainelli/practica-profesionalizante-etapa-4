@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.MOCK_SERVER_PORT || 3001);
 
   // Middleware
   app.use(express.json());

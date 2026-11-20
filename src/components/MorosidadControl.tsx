@@ -137,7 +137,8 @@ export const MorosidadControl: React.FC = () => {
 
       await actualizarSocio({
         ...socio,
-        estado: 'AL_DIA',
+        estado: 'ACTIVO',
+        mesesImpagosConsecutivos: 0,
       });
     } catch (error) {
       showToast('error', 'Error al regularizar', 'No se pudo completar la regularización en la BD.');

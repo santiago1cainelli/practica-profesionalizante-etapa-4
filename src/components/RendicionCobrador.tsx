@@ -85,8 +85,25 @@ export const RendicionCobrador: React.FC = () => {
     const hoyStr = hoy.toISOString().split('T')[0];
     const inicioStr = hace7Dias.toISOString().split('T')[0];
 
+    const cobradorIdNum = Number(cobradorActual?.id || currentUser?.cobradorId || 1);
+    const dto = {
+      cobradorId: cobradorIdNum,
+      semanaInicio: inicioStr,
+      semanaFin: hoyStr,
+      detalles: selectedCuponesIds.map((id) => {
+        const cup = cupones.find((c) => String(c.id) === String(id));
+        const monto = Number(cup?.totalPagar ?? (cup as any)?.montoTotal ?? 0);
+        return {
+          cuponId: Number(id),
+          importeCobrado: monto,
+          cobrado: true,
+        };
+      }),
+      esUltimaSemanaDelMes: false,
+    };
+
     const nuevaRendicion: any = {
-      cobradorId: String(cobradorActual?.id || currentUser?.id || ''),
+      cobradorId: String(cobradorIdNum),
       cobradorNombre,
       zonaCobro: Number(selectedZona),
       fechaRendicion: hoyStr,
@@ -105,8 +122,13 @@ export const RendicionCobrador: React.FC = () => {
     };
 
     try {
-      const creada = await rendicionesApi.create(nuevaRendicion);
-      setRendicionesList((prev) => [creada || { ...nuevaRendicion, id: Date.now() }, ...prev]);
+      const creada = await rendicionesApi.create(dto);
+      const guardada = {
+        ...nuevaRendicion,
+        ...(creada || {}),
+        id: creada?.id || Date.now(),
+      };
+      setRendicionesList((prev) => [guardada, ...prev]);
       showToast(
         'success',
         'Rendición generada',

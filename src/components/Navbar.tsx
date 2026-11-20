@@ -463,44 +463,6 @@ export const Navbar: React.FC<NavbarProps> = () => {
                 <LogIn className="w-4 h-4" />
                 <span>{isSubmittingLogin ? 'Verificando credenciales...' : 'Ingresar al Sistema'}</span>
               </button>
-
-              {/* Accesos Rápidos de Cuentas para facilitar pruebas */}
-              {usersList.length > 0 && (
-                <div className="pt-4 border-t border-slate-100">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    Cuentas disponibles (clic para autocompletar):
-                  </p>
-                  <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-                    {usersList.map((u) => {
-                      const badge = roleBadges[(u.role as ExtendedUserRole) || 'PUBLICO'] || roleBadges.PUBLICO;
-                      return (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onClick={() => {
-                            setLoginEmail(u.email || '');
-                            setLoginPassword(u.password || (u.role === 'ADMIN' ? 'Admin123!' : '123456'));
-                            setLoginError('');
-                          }}
-                          className="w-full flex items-center justify-between p-2 rounded-lg border border-slate-200 hover:border-[#2B6CB0] hover:bg-blue-50/50 text-left transition-colors cursor-pointer"
-                        >
-                          <div className="min-w-0 pr-2">
-                            <p className="text-xs font-semibold text-slate-800 truncate">
-                              {u.nombreCompleto || u.email}
-                            </p>
-                            <p className="text-[11px] text-slate-500 truncate">{u.email}</p>
-                          </div>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${badge.bg} ${badge.text}`}
-                          >
-                            {u.role}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </form>
           </div>
         </div>

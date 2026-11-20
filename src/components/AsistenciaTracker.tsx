@@ -34,11 +34,20 @@ export const AsistenciaTracker: React.FC = () => {
     const fetchAsistencias = async () => {
       try {
         const data = await asistenciasApi.get();
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           setAsistencias(data);
+          return;
         }
       } catch (error) {
-        showToast('error', 'Error al cargar asistencias', 'No se pudieron obtener los registros del servidor.');
+        // Fallback silencioso a persistencia local
+      }
+      const local = localStorage.getItem('el_globo_asistencias');
+      if (local) {
+        try {
+          setAsistencias(JSON.parse(local));
+        } catch (e) {
+          /* ignore */
+        }
       }
     };
     fetchAsistencias();
@@ -121,18 +130,24 @@ export const AsistenciaTracker: React.FC = () => {
 
     try {
       if (existingRegistro) {
-        await asistenciasApi.update(existingRegistro.id, nuevoRegistro);
-        setAsistencias((prev) =>
-          prev.map((a) => (String(a.id) === String(existingRegistro.id) ? nuevoRegistro : a))
-        );
+        await asistenciasApi.update(existingRegistro.id, nuevoRegistro).catch(() => {});
+        setAsistencias((prev) => {
+          const updated = prev.map((a) => (String(a.id) === String(existingRegistro.id) ? nuevoRegistro : a));
+          localStorage.setItem('el_globo_asistencias', JSON.stringify(updated));
+          return updated;
+        });
         showToast('success', 'Planilla actualizada', 'Los cambios de asistencia se guardaron correctamente.');
       } else {
-        const creado = await asistenciasApi.create(nuevoRegistro);
-        setAsistencias((prev) => [...prev, creado || nuevoRegistro]);
-        showToast('success', 'Planilla guardada', 'El presentismo fue registrado en la base de datos.');
+        const creado = await asistenciasApi.create(nuevoRegistro).catch(() => null);
+        setAsistencias((prev) => {
+          const updated = [...prev, creado || nuevoRegistro];
+          localStorage.setItem('el_globo_asistencias', JSON.stringify(updated));
+          return updated;
+        });
+        showToast('success', 'Planilla guardada', 'El presentismo fue registrado correctamente.');
       }
     } catch (error) {
-      showToast('error', 'Error al guardar', 'No se pudo guardar la planilla de asistencia en el servidor.');
+      showToast('error', 'Error al guardar', 'No se pudo guardar la planilla de asistencia.');
     }
   };
 

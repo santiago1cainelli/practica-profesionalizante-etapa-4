@@ -192,13 +192,14 @@ export const db = {
 
   async addSocio(input: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>): Promise<Socio> {
     const data = initDatabase();
-    const existe = data.socios.some((s) => s.dni.trim() === input.dni.trim());
+    const dniInput = String(input.dni || '').trim();
+    const existe = data.socios.some((s) => String(s.dni || '').trim() === dniInput);
     if (existe) {
       throw new Error(`Ya existe un socio registrado con el DNI ${input.dni}`);
     }
 
-    const { categoria, edad, antiguedadAnios } = calculateSocioCategoria(input.fechaNacimiento, input.fechaIngreso);
-    const maxNum = data.socios.reduce((max, s) => Math.max(max, s.numeroSocio), 1000);
+    const { categoria, edad, antiguedadAnios } = calculateSocioCategoria(input.fechaNacimiento || '', input.fechaIngreso || '');
+    const maxNum = data.socios.reduce((max, s) => Math.max(max, s.numeroSocio || 0), 1000);
     const nuevoNumero = maxNum + 1;
 
     const newSocio: Socio = {
@@ -228,7 +229,7 @@ export const db = {
 
     const existing = data.socios[index];
     const merged = { ...existing, ...updates };
-    const { categoria, edad, antiguedadAnios } = calculateSocioCategoria(merged.fechaNacimiento, merged.fechaIngreso);
+    const { categoria, edad, antiguedadAnios } = calculateSocioCategoria(merged.fechaNacimiento || '', merged.fechaIngreso || '');
 
     data.socios[index] = {
       ...merged,
@@ -284,7 +285,7 @@ export const db = {
       edad,
     };
 
-    socio.familiares = [...socio.familiares, newFam];
+    socio.familiares = [...(socio.familiares || []), newFam];
     socio.esTitularFamilia = true;
     await persistDatabaseAsync();
     return newFam;
@@ -295,7 +296,7 @@ export const db = {
     const socio = data.socios.find((s) => s.id === socioId);
     if (!socio) return false;
 
-    socio.familiares = socio.familiares.filter((f) => f.id !== familiarId);
+    socio.familiares = (socio.familiares || []).filter((f) => f.id !== familiarId);
     socio.esTitularFamilia = socio.familiares.length > 0;
     await persistDatabaseAsync();
     return true;
@@ -408,14 +409,15 @@ export const db = {
     // Sincronizar actividades
     if (updates.nombreCompleto !== undefined || updates.disciplinasIds !== undefined) {
       data.actividades = data.actividades.map((a) => {
-        if (updates.disciplinasIds?.includes(a.id)) {
+        const aIdStr = String(a.id);
+        if (updates.disciplinasIds?.includes(aIdStr)) {
           return {
             ...a,
             instructorId: id,
             instructorNombre: updates.nombreCompleto || a.instructorNombre,
           };
         }
-        if (a.instructorId === id && updates.disciplinasIds && !updates.disciplinasIds.includes(a.id)) {
+        if (a.instructorId === id && updates.disciplinasIds && !updates.disciplinasIds.includes(aIdStr)) {
           return { ...a, instructorId: 'sin-asignar', instructorNombre: 'A designar' };
         }
         if (a.instructorId === id && updates.nombreCompleto) {
@@ -519,11 +521,11 @@ export const db = {
     const actividad = data.actividades.find((a) => a.id === actividadId);
     if (!socio || !actividad) throw new Error('Socio o actividad no encontrada');
     if (socio.estado === 'SUSPENDIDO_MOROSIDAD') throw new Error('Socio suspendido por morosidad');
-    if (socio.actividadesIds.includes(actividadId)) throw new Error('Ya inscripto en la actividad');
-    if (actividad.cupoOcupado >= actividad.cupoMaximo) throw new Error('Cupo máximo alcanzado');
+    if ((socio.actividadesIds || []).includes(actividadId)) throw new Error('Ya inscripto en la actividad');
+    if (Number(actividad.cupoOcupado || 0) >= Number(actividad.cupoMaximo || 0)) throw new Error('Cupo máximo alcanzado');
 
-    socio.actividadesIds = [...socio.actividadesIds, actividadId];
-    actividad.cupoOcupado += 1;
+    socio.actividadesIds = [...(socio.actividadesIds || []), actividadId];
+    actividad.cupoOcupado = Number(actividad.cupoOcupado || 0) + 1;
     await persistDatabaseAsync();
     return { socio, actividad };
   },
@@ -534,8 +536,8 @@ export const db = {
     const actividad = data.actividades.find((a) => a.id === actividadId);
     if (!socio || !actividad) throw new Error('Socio o actividad no encontrada');
 
-    socio.actividadesIds = socio.actividadesIds.filter((id) => id !== actividadId);
-    actividad.cupoOcupado = Math.max(0, actividad.cupoOcupado - 1);
+    socio.actividadesIds = (socio.actividadesIds || []).filter((id) => id !== actividadId);
+    actividad.cupoOcupado = Math.max(0, Number(actividad.cupoOcupado || 0) - 1);
     await persistDatabaseAsync();
     return { socio, actividad };
   },
@@ -554,7 +556,7 @@ export const db = {
     if (socio.categoria === 'CADETE') cuotaSocialBase = CUOTA_VALORES.CADETE;
     if (socio.categoria === 'VITALICIO') cuotaSocialBase = CUOTA_VALORES.VITALICIO;
 
-    const detalleActividades = socio.actividadesIds
+    const detalleActividades = (socio.actividadesIds || [])
       .map((actId) => {
         const act = data.actividades.find((a) => a.id === actId);
         return act ? { nombre: act.nombre, monto: act.costoMensual } : null;
@@ -563,11 +565,11 @@ export const db = {
 
     const costoActividades = detalleActividades.reduce((sum, a) => sum + a.monto, 0);
     const costoCasillero = socio.casilleroAsignadoId ? CUOTA_VALORES.CASILLERO_MENSUAL : 0;
-    const hijosCount = socio.familiares.filter((f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
+    const hijosCount = (socio.familiares || []).filter((f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
     const descuentoFamiliar = hijosCount * CUOTA_VALORES.DESCUENTO_FAMILIAR_POR_HIJO;
 
     const subtotal = Math.max(0, cuotaSocialBase + costoActividades + costoCasillero - descuentoFamiliar);
-    const tieneMora = socio.cuotasAdeudadas > 0;
+    const tieneMora = Number(socio.cuotasAdeudadas || 0) > 0;
     const recargoMoraPorcentaje = tieneMora ? CUOTA_VALORES.RECARGO_MORA_PORCENTAJE : 0;
     const montoRecargoMora = tieneMora ? Math.round(subtotal * CUOTA_VALORES.RECARGO_MORA_PORCENTAJE) : 0;
     const totalPagar = subtotal + montoRecargoMora;

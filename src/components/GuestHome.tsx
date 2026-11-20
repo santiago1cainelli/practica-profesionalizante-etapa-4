@@ -28,7 +28,7 @@ interface GuestHomeProps {
 }
 
 export const GuestHome: React.FC<GuestHomeProps> = () => {
-  // ✅ Extraemos únicamente los métodos que existen en AppProvider (agregarSocio y setCurrentUser)
+  // ✅ Extraemos únicamente los métodos que existen en AppProvider (agregarSocio, setCurrentUser y login)
   const {
     setActiveTab,
     actividades,
@@ -38,6 +38,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
     showToast,
     setCurrentUser,
     currentUser,
+    login,
   } = useClub();
 
   const isLoggedIn = Boolean(currentUser && currentUser.role !== 'PUBLICO');
@@ -972,9 +973,13 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                     return (
                       <button
                         key={u.id}
-                        onClick={() => {
-                          // ✅ Reemplazo de quickSwitchUser usando setCurrentUser del contexto
-                          setCurrentUser(u);
+                        onClick={async () => {
+                          const pass = u.password || (u.role === 'ADMIN' ? 'Admin123!' : '123456');
+                          const res = await login(u.email, pass);
+                          if (!res.success) {
+                            setCurrentUser(u);
+                            localStorage.setItem('el_globo_current_user', JSON.stringify(u));
+                          }
                           showToast('success', `Sesión iniciada como ${nombreStr}`);
                           setShowDirectLogin(false);
                         }}

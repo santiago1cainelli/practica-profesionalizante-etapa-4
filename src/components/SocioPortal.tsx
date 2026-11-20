@@ -47,18 +47,18 @@ export const SocioPortal: React.FC = () => {
   const isSuspended = socio.estado === 'SUSPENDIDO';
 
   // Obtener el cobrador asignado a la zona del socio desde la BD
-  const cobradorAsignado = cobradores.find((c) => Number(c.zona) === Number(socio.zonaCobro));
-  const nombreZona = socio.zonaCobro === 0 
+  const cobradorAsignado = cobradores.find((c) => Number(c.zona ?? (c as any).zonaAsignada) === Number(socio.zonaCobro));
+  const nombreZona = Number(socio.zonaCobro) === 0 
     ? 'Sede Central (Club)' 
-    : `Zona ${socio.zonaCobro} - ${cobradorAsignado ? `${cobradorAsignado.nombre} ${cobradorAsignado.apellido}` : 'Cobrador de Zona'}`;
+    : `Zona ${socio.zonaCobro} - ${cobradorAsignado ? `${cobradorAsignado.nombre || ''} ${cobradorAsignado.apellido || ''}`.trim() : 'Cobrador de Zona'}`;
 
   // Actividades del socio traídas desde la BD
   const misActividades = actividades.filter((a) => 
     socio.actividadesIds?.includes(a.id) || (socio.actividadesIds as any)?.includes(Number(a.id))
   );
   
-  // Cupones del socio traídos desde la BD
-  const misCupones = cupones.filter((c) => String(c.socioId) === String(socio.id));
+  // Cupones del socio traídos desde la BD (soporta tanto c.socioId como c.socio.id)
+  const misCupones = cupones.filter((c) => String((c as any).socioId || (c as any).socio?.id) === String(socio.id));
 
   // Importes de cuota y aranceles según datos reales de la BD
   const cuotaBase = (socio as any).montoCuotaSocial ?? 0;
