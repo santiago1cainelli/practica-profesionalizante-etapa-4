@@ -165,7 +165,7 @@ export interface users {
   createdAt?: string;
 }
 
-// Aliases y tipos enriquecidos para compatibilidad con vistas, mockData y backend
+// Aliases y tipos enriquecidos para compatibilidad con vistas y backend
 export type Socio = Omit<Partial<socios>, 'id' | 'cobradorId' | 'instructorId'> & {
   id?: string | number;
   numeroSocio?: number;

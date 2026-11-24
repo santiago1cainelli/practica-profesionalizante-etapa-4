@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CreditCard,
   QrCode,
@@ -11,12 +11,22 @@ import {
   Banknote
 } from 'lucide-react';
 import { useClub } from '../context/AppProvider';
+import api from '../api/axios';
 import { ReciboModal } from './ReciboModal';
 import { cupones } from '../types';
 import titularCardBg from '../assets/images/titular_card_bg_1789672816138.jpg';
 
 export const SocioPortal: React.FC = () => {
-  const { socios, actividades, cupones, cobradores, currentUser, unenrollSocioFromActividad, setActiveTab } = useClub();
+  const {
+    socios,
+    actividades,
+    cupones,
+    cobradores,
+    currentUser,
+    unenrollSocioFromActividad,
+    setActiveTab,
+    isLoading,
+  } = useClub();
 
   // Socio seleccionado (por defecto currentUser.socioId o el primero del padrón)
   const defaultSocioId = (currentUser?.role === 'SOCIO' && currentUser.socioId)
@@ -25,26 +35,99 @@ export const SocioPortal: React.FC = () => {
 
   const [selectedSocioId, setSelectedSocioId] = useState<string>(String(defaultSocioId));
   const [viewingCupon, setViewingCupon] = useState<cupones | any | null>(null);
+  const [socioDirecto, setSocioDirecto] = useState<any>(null);
+  const [cargandoDirecto, setCargandoDirecto] = useState<boolean>(false);
 
   // Sincronizar socio si el usuario con rol SOCIO cambia de sesión
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentUser?.role === 'SOCIO' && currentUser.socioId) {
       setSelectedSocioId(String(currentUser.socioId));
     }
   }, [currentUser]);
+
+  // Si el usuario es de tipo SOCIO y aún no se encontraron sus datos en el contexto,
+  // consultar directamente el endpoint /socios/me (CUD-05)
+  useEffect(() => {
+    let cancelado = false;
+    const fetchSocioMe = async () => {
+      if (currentUser?.role === 'SOCIO') {
+        const yaExiste = socios.some(
+          (s) =>
+            String(s.id) === String(currentUser.socioId) ||
+            (currentUser.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+        );
+        if (!yaExiste && !socioDirecto) {
+          setCargandoDirecto(true);
+          try {
+            const res = await api.get('/socios/me');
+            const data = res.data?.data || res.data;
+            if (!cancelado && data) {
+              setSocioDirecto(data);
+            }
+          } catch (e) {
+            if (currentUser.socioId) {
+              try {
+                const resId = await api.get(`/socios/${currentUser.socioId}`);
+                const dataId = resId.data?.data || resId.data;
+                if (!cancelado && dataId) {
+                  setSocioDirecto(dataId);
+                }
+              } catch (err) {
+                /* fallback a datos precargados */
+              }
+            }
+          } finally {
+            if (!cancelado) setCargandoDirecto(false);
+          }
+        }
+      }
+    };
+    fetchSocioMe();
+    return () => {
+      cancelado = true;
+    };
+  }, [currentUser, socios, socioDirecto]);
 
   // Si el rol es SOCIO, solo puede visualizaciones de su propio perfil
   const effectiveSocioId = (currentUser?.role === 'SOCIO' && currentUser.socioId)
     ? currentUser.socioId
     : selectedSocioId;
 
-  const socio = socios.find((s) => String(s.id) === String(effectiveSocioId)) || socios[0];
+  const socio =
+    socios.find((s) => {
+      if (currentUser?.role === 'SOCIO') {
+        if (currentUser.socioId && String(s.id) === String(currentUser.socioId)) return true;
+        if (
+          currentUser.socioId &&
+          String(s.id).replace(/\D/g, '') === String(currentUser.socioId).replace(/\D/g, '')
+        )
+          return true;
+        if (currentUser.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+          return true;
+      }
+      return String(s.id) === String(effectiveSocioId);
+    }) ||
+    socioDirecto ||
+    (currentUser?.role === 'SOCIO' ? socios[0] : socios[0]);
+
+  if (isLoading || cargandoDirecto) {
+    return (
+      <div className="bg-white p-12 rounded-xl border border-slate-200 text-center flex flex-col items-center justify-center space-y-3 shadow-xs">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-semibold text-slate-700">Cargando credencial y datos del socio...</p>
+      </div>
+    );
+  }
 
   if (!socio) {
     return <div className="p-8 text-center text-slate-500">No hay socios registrados en la base de datos.</div>;
   }
 
-  const isSuspended = socio.estado === 'SUSPENDIDO';
+  const numeroSocio = socio.numeroSocio || socio.id;
+  const isSuspended =
+    socio.estado === 'SUSPENDIDO' ||
+    socio.estado === 'MOROSO' ||
+    (socio.mesesImpagosConsecutivos || 0) >= 3;
 
   // Obtener el cobrador asignado a la zona del socio desde la BD
   const cobradorAsignado = cobradores.find((c) => Number(c.zona ?? (c as any).zonaAsignada) === Number(socio.zonaCobro));
@@ -54,22 +137,57 @@ export const SocioPortal: React.FC = () => {
 
   // Actividades del socio traídas desde la BD
   const misActividades = actividades.filter((a) => 
-    socio.actividadesIds?.includes(a.id) || (socio.actividadesIds as any)?.includes(Number(a.id))
+    socio.actividadesIds?.includes(a.id) ||
+    socio.actividadesIds?.includes(Number(a.id)) ||
+    (socio.inscripciones || []).some(
+      (i: any) =>
+        i.activa !== false &&
+        (String(i.actividad?.id || i.actividadId) === String(a.id))
+    )
   );
   
-  // Cupones del socio traídos desde la BD (soporta tanto c.socioId como c.socio.id)
+  // Cupones del socio traídos desde la BD (soporta tanto c.socioId como c.socio.id o socio.cupones)
   const misCupones = cupones.filter((c) => String((c as any).socioId || (c as any).socio?.id) === String(socio.id));
+  const cuponesAMostrar = misCupones.length > 0 ? misCupones : ((socio as any).cupones || []);
 
   // Importes de cuota y aranceles según datos reales de la BD
-  const cuotaBase = (socio as any).montoCuotaSocial ?? 0;
+  const cuotaPorCat = socio.categoria === 'VITALICIO' ? 0 : socio.categoria === 'CADETE' ? 4500 : 8500;
+  const cuotaBase = (socio as any).montoCuotaSocial ?? cuotaPorCat;
   const costoActividades = misActividades.reduce((sum, a) => sum + Number((a as any).costoMensual || a.arancel || 0), 0);
-  const costoCasillero = (socio as any).casilleroAsignadoId ? Number((socio as any).costoCasillero || 2500) : 0;
-  const hijosCount = ((socio as any).familiares || []).filter((f: any) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
+  const casilleroNum = (socio as any).casilleroAsignadoId || (socio as any).casillero?.numero || (socio as any).casillero?.id;
+  const costoCasillero = casilleroNum ? Number((socio as any).costoCasillero || 2500) : 0;
+  
+  // Grupo familiar normalizado
+  const listaFamiliares =
+    (socio as any).familiares && (socio as any).familiares.length > 0
+      ? (socio as any).familiares
+      : ((socio as any).grupoFamiliar?.integrantes || []).filter(
+          (i: any) => String(i.id) !== String(socio.id)
+        );
+
+  const hijosCount = listaFamiliares.filter(
+    (f: any) =>
+      f.parentesco === 'HIJO' ||
+      f.parentesco === 'HIJA' ||
+      f.rolGrupoFamiliar === 'HIJO'
+  ).length;
   
   const subtotal = Math.max(0, cuotaBase + costoActividades + costoCasillero);
   const tieneMora = (socio.mesesImpagosConsecutivos || 0) > 0 || ((socio as any).cuotasAdeudadas || 0) > 0;
   const montoRecargoMora = tieneMora ? Math.round(subtotal * 0.05) : 0; // Recargo por mora del 5%
   const totalMes = subtotal + montoRecargoMora;
+
+  const anioIngreso = socio.fechaIngreso
+    ? String(socio.fechaIngreso).slice(0, 4)
+    : (socio as any).fechaAlta
+    ? String((socio as any).fechaAlta).slice(0, 4)
+    : '-';
+
+  const antiguedad =
+    socio.antiguedadAnios ??
+    ((socio as any).fechaAlta
+      ? Math.max(0, new Date().getFullYear() - new Date((socio as any).fechaAlta).getFullYear())
+      : 0);
 
   return (
     <div className="space-y-6">
@@ -129,7 +247,7 @@ export const SocioPortal: React.FC = () => {
               >
                 {socios.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.nombreCompleto || `${s.nombre} ${s.apellido}`} (Socio N° {s.numeroSocio})
+                    {s.nombreCompleto || `${s.nombre} ${s.apellido}`} (Socio N° {s.numeroSocio || s.id})
                   </option>
                 ))}
               </select>
@@ -180,7 +298,7 @@ export const SocioPortal: React.FC = () => {
                 </div>
 
                 <span className="font-mono text-xs bg-white/10 backdrop-blur-xs px-2 py-1 rounded text-blue-100 font-bold border border-white/10">
-                  N° {socio.numeroSocio}
+                  N° {numeroSocio}
                 </span>
               </div>
 
@@ -229,7 +347,7 @@ export const SocioPortal: React.FC = () => {
                   <div className="flex items-center justify-between mt-1 text-xs text-blue-200 font-mono">
                     <span>DNI: {socio.dni}</span>
                     <span className="text-[10px] text-slate-300 font-sans">
-                      Ingreso: {socio.fechaIngreso ? socio.fechaIngreso.slice(0, 4) : '-'}
+                      Ingreso: {anioIngreso}
                     </span>
                   </div>
                 </div>
@@ -242,11 +360,11 @@ export const SocioPortal: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-[9px] text-blue-300 block uppercase">Antigüedad</span>
-                  <strong>{socio.antiguedadAnios || 0} años</strong>
+                  <strong>{antiguedad} años</strong>
                 </div>
                 <div>
                   <span className="text-[9px] text-blue-300 block uppercase">Casillero</span>
-                  <strong>{socio.casilleroAsignadoId ? `N° ${socio.casilleroAsignadoId}` : 'Sin asignar'}</strong>
+                  <strong>{casilleroNum ? `N° ${casilleroNum}` : 'Sin asignar'}</strong>
                 </div>
               </div>
             </div>
@@ -256,7 +374,7 @@ export const SocioPortal: React.FC = () => {
               <div className="space-y-0.5">
                 <span className="text-[9px] text-blue-300 uppercase tracking-widest block">Código de Acceso</span>
                 <span className="text-xs font-mono text-white font-bold tracking-widest">
-                  GLOBO-{socio.numeroSocio}-{socio.dni.slice(-4)}
+                  GLOBO-{numeroSocio}-{String(socio.dni || '0000').slice(-4)}
                 </span>
               </div>
 
@@ -455,18 +573,31 @@ export const SocioPortal: React.FC = () => {
                 <span>Grupo Familiar Asociado</span>
               </div>
 
-              {(!(socio as any).familiares || (socio as any).familiares.length === 0) ? (
+              {listaFamiliares.length === 0 ? (
                 <p className="text-slate-400 text-xs italic">No tienes familiares vinculados en tu plan.</p>
               ) : (
                 <div className="space-y-2">
-                  {((socio as any).familiares || []).map((fam: any) => (
-                    <div key={fam.id} className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs">
-                      <strong className="text-slate-900 block">{fam.nombreCompleto || fam.nombre}</strong>
-                      <span className="text-[11px] text-slate-500">
-                        {fam.parentesco} • DNI: {fam.dni} • {fam.edad || 0} años
-                      </span>
-                    </div>
-                  ))}
+                  {listaFamiliares.map((fam: any) => {
+                    const edad =
+                      fam.edad ||
+                      (fam.fechaNacimiento
+                        ? Math.floor(
+                            (Date.now() - new Date(fam.fechaNacimiento).getTime()) /
+                              (365.25 * 24 * 3600 * 1000)
+                          )
+                        : 0);
+                    const parentesco = fam.parentesco || fam.rolGrupoFamiliar || 'Familiar';
+                    return (
+                      <div key={fam.id} className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs">
+                        <strong className="text-slate-900 block">
+                          {fam.nombreCompleto || `${fam.nombre || ''} ${fam.apellido || ''}`.trim()}
+                        </strong>
+                        <span className="text-[11px] text-slate-500">
+                          {parentesco} • DNI: {fam.dni} • {edad} años
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -479,11 +610,11 @@ export const SocioPortal: React.FC = () => {
               <span>Historial de Comprobantes y Recibos</span>
             </h3>
 
-            {misCupones.length === 0 ? (
+            {cuponesAMostrar.length === 0 ? (
               <p className="text-slate-400 text-xs italic">No hay cupones emitidos todavía en la base de datos.</p>
             ) : (
               <div className="divide-y divide-slate-100">
-                {misCupones.map((cup) => (
+                {cuponesAMostrar.map((cup: any) => (
                   <div key={cup.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
                       <strong className="text-slate-900 block font-mono">

@@ -39,6 +39,7 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
     setCurrentUser,
     currentUser,
     login,
+    openLoginModal,
   } = useClub();
 
   const isLoggedIn = Boolean(currentUser && currentUser.role !== 'PUBLICO');
@@ -973,14 +974,8 @@ export const GuestHome: React.FC<GuestHomeProps> = () => {
                     return (
                       <button
                         key={u.id}
-                        onClick={async () => {
-                          const pass = u.password || (u.role === 'ADMIN' ? 'Admin123!' : '123456');
-                          const res = await login(u.email, pass);
-                          if (!res.success) {
-                            setCurrentUser(u);
-                            localStorage.setItem('el_globo_current_user', JSON.stringify(u));
-                          }
-                          showToast('success', `Sesión iniciada como ${nombreStr}`);
+                        onClick={() => {
+                          openLoginModal(u.email);
                           setShowDirectLogin(false);
                         }}
                         className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all flex items-center justify-between cursor-pointer"

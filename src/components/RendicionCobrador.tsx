@@ -170,6 +170,45 @@ export const RendicionCobrador: React.FC = () => {
     return nombreCob ? `Zona ${zonaCobro} - ${nombreCob}` : `Zona ${zonaCobro}`;
   };
 
+  const getNombreCobrador = (rend: any): string => {
+    // 1. Si la rendición trae la relación cobrador (objeto desde la API)
+    if (rend.cobrador) {
+      const nombreCompleto =
+        rend.cobrador.nombreCompleto ||
+        `${rend.cobrador.nombre || ''} ${rend.cobrador.apellido || ''}`.trim();
+      if (nombreCompleto) return nombreCompleto;
+    }
+
+    // 2. Si ya trae cobradorNombre asignado
+    if (rend.cobradorNombre && typeof rend.cobradorNombre === 'string' && rend.cobradorNombre.trim()) {
+      return rend.cobradorNombre.trim();
+    }
+
+    // 3. Buscar en la lista de cobradores del contexto por cobradorId
+    const targetId = rend.cobradorId || rend.cobrador?.id;
+    if (targetId) {
+      const c = cobradores.find((cob) => String(cob.id) === String(targetId));
+      if (c) {
+        const nombreCompleto = c.nombreCompleto || `${c.nombre || ''} ${c.apellido || ''}`.trim();
+        if (nombreCompleto) return nombreCompleto;
+      }
+    }
+
+    // 4. Buscar en la lista de cobradores por zonaCobro
+    const zonaNum = Number(rend.zonaCobro ?? rend.cobrador?.zona ?? 0);
+    if (zonaNum > 0) {
+      const c = cobradores.find(
+        (cob) => Number(cob.zonaAsignada ?? (cob as any).zona) === zonaNum
+      );
+      if (c) {
+        const nombreCompleto = c.nombreCompleto || `${c.nombre || ''} ${c.apellido || ''}`.trim();
+        if (nombreCompleto) return nombreCompleto;
+      }
+    }
+
+    return 'Cobrador de Zona';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}

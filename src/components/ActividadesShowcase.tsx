@@ -23,7 +23,7 @@ export const ActividadesShowcase: React.FC = () => {
     unenrollSocioFromActividad,
     currentUser,
     setActiveTab,
-    quickSwitchUser
+    quickSwitchUser,
   } = useClub(); // ✅ Reemplaza a useContext(AppContext)
 
   const [selectedCategoria, setSelectedCategoria] = useState<string>('TODAS');

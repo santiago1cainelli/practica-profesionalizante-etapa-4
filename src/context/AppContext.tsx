@@ -136,6 +136,10 @@ export interface AppContextType {
   setCurrentUser: (user: AppUser) => void;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
+  isLoginModalOpen: boolean;
+  openLoginModal: (prefillEmail?: string) => void;
+  closeLoginModal: () => void;
+  loginModalEmail?: string;
   refrescarDatos: () => Promise<void>;
   quickSwitchUser: (userIdOrRole: string) => void; // ✅ Agregado
   activeTab: ActiveTab;

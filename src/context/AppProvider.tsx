@@ -15,45 +15,6 @@ import {
   ToastMessage,
 } from './AppContext';
 
-const DEFAULT_USERS: AppUser[] = [
-  {
-    id: 1,
-    email: 'admin@elglobo.com.ar',
-    password: 'Admin123!',
-    role: 'ADMIN',
-    nombreCompleto: 'Administración El Globo',
-    activo: true,
-  },
-  {
-    id: 2,
-    email: 'perez.cobrador@elglobo.com.ar',
-    password: 'Cobrador123!',
-    role: 'COBRADOR',
-    zonaAsignada: 1,
-    cobradorId: 1,
-    nombreCompleto: 'Pérez (Cobrador Zona 1)',
-    activo: true,
-  },
-  {
-    id: 3,
-    email: 'deportes@clubelglobo.com.ar',
-    password: 'Instructor123!',
-    role: 'INSTRUCTOR',
-    instructorId: 1,
-    nombreCompleto: 'Prof. Esteban Morales',
-    activo: true,
-  },
-  {
-    id: 4,
-    email: 'martin.rossi@gmail.com',
-    password: 'Socio123!',
-    role: 'SOCIO',
-    socioId: 1,
-    nombreCompleto: 'Martín Rossi (Socio)',
-    activo: true,
-  },
-];
-
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const usersApi = useApi('/users');
   const sociosApi = useApi('/socios');
@@ -85,11 +46,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return GUEST_USER;
   });
 
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginModalEmail, setLoginModalEmail] = useState('');
+
+  const openLoginModal = (prefillEmail: string = '') => {
+    setLoginModalEmail(prefillEmail);
+    setIsLoginModalOpen(true);
+  };
+
+  const closeLoginModal = () => {
+    setIsLoginModalOpen(false);
+    setLoginModalEmail('');
+  };
+
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const [usersList, setUsersList] = useState<AppUser[]>(DEFAULT_USERS);
+  const [usersList, setUsersList] = useState<AppUser[]>([]);
   const [socios, setSocios] = useState<Socio[]>([]);
   const [cobradores, setCobradores] = useState<Cobrador[]>([]);
   const [instructores, setInstructores] = useState<Instructor[]>([]);
@@ -117,6 +91,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ✅ 1. CARGA INICIAL UNIFICADA
   const fetchAllData = useCallback(async () => {
     try {
+      const savedUserStr = localStorage.getItem('el_globo_current_user');
+      const activeUser: AppUser | null = savedUserStr ? JSON.parse(savedUserStr) : null;
+      const isSocio = activeUser?.role === 'SOCIO' || currentUser?.role === 'SOCIO';
+
+      // Si el rol es SOCIO, intentar obtener datos propios vía /socios/me
+      const sociosPromise = isSocio
+        ? api
+            .get('/socios/me')
+            .then((res) => {
+              const d = res.data?.data || res.data;
+              return Array.isArray(d) ? d : (d ? [d] : []);
+            })
+            .catch(() => sociosApi.get())
+        : sociosApi.get();
+
       const [
         usersRes,
         sociosRes,
@@ -128,7 +117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rendicionesRes,
       ] = await Promise.allSettled([
         usersApi.get(),
-        sociosApi.get(),
+        sociosPromise,
         cobradoresApi.get(),
         instructoresApi.get(),
         casillerosApi.get(),
@@ -137,12 +126,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rendicionesApi.get(),
       ]);
 
-      if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) && usersRes.value.length > 0) {
-        setUsersList(usersRes.value);
+      if (usersRes.status === 'fulfilled') {
+        const val = usersRes.value;
+        setUsersList(Array.isArray(val) ? val : []);
       }
-      if (sociosRes.status === 'fulfilled' && Array.isArray(sociosRes.value)) {
-        const enrichedSocios = sociosRes.value.map((s: any) => ({
+      if (sociosRes.status === 'fulfilled') {
+        const raw = sociosRes.value;
+        const rawSocios = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+        const enrichedSocios = rawSocios.map((s: any) => ({
           ...s,
+          numeroSocio: s.numeroSocio || s.id,
+          nombreCompleto: s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim(),
           actividadesIds:
             s.actividadesIds ||
             s.inscripciones
@@ -150,7 +144,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               .map((i: any) => i.actividad?.id || i.actividadId)
               .filter(Boolean) ||
             [],
-          casilleroAsignadoId: s.casilleroAsignadoId || s.casillero?.id,
+          casilleroAsignadoId: s.casilleroAsignadoId || s.casillero?.id || s.casillero?.numero,
           edad:
             s.edad ||
             (s.fechaNacimiento
@@ -158,33 +152,88 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   (Date.now() - new Date(s.fechaNacimiento).getTime()) / (365.25 * 24 * 3600 * 1000),
                 )
               : 30),
+          antiguedadAnios:
+            s.antiguedadAnios ||
+            (s.fechaAlta
+              ? Math.max(0, new Date().getFullYear() - new Date(s.fechaAlta).getFullYear())
+              : 0),
+          montoCuotaSocial:
+            s.montoCuotaSocial ??
+            (s.categoria === 'VITALICIO'
+              ? 0
+              : s.categoria === 'CADETE'
+              ? 4500
+              : 8500),
+          familiares:
+            s.familiares ||
+            s.grupoFamiliar?.integrantes
+              ?.filter((i: any) => String(i.id) !== String(s.id))
+              .map((fam: any) => ({
+                id: fam.id,
+                nombreCompleto: fam.nombreCompleto || `${fam.nombre || ''} ${fam.apellido || ''}`.trim(),
+                dni: fam.dni,
+                parentesco: fam.parentesco || fam.rolGrupoFamiliar || 'FAMILIAR',
+                edad:
+                  fam.edad ||
+                  (fam.fechaNacimiento
+                    ? Math.floor(
+                        (Date.now() - new Date(fam.fechaNacimiento).getTime()) /
+                          (365.25 * 24 * 3600 * 1000),
+                      )
+                    : 0),
+              })) ||
+            [],
         }));
         setSocios(enrichedSocios);
       }
-      if (cobradoresRes.status === 'fulfilled' && Array.isArray(cobradoresRes.value)) {
-        setCobradores(cobradoresRes.value);
+      if (cobradoresRes.status === 'fulfilled') {
+        const val = cobradoresRes.value;
+        const list = Array.isArray(val) ? val : [];
+        const enrichedCobradores = list.map((c: any) => ({
+          ...c,
+          nombreCompleto:
+            c.nombreCompleto ||
+            (c.nombre && c.apellido ? `${c.nombre} ${c.apellido}`.trim() : c.nombre || c.apellido || `Cobrador ${c.id}`),
+          zonaAsignada: c.zonaAsignada ?? (c.zona !== undefined ? Number(String(c.zona).replace(/\D/g, '')) || c.zona : 0),
+        }));
+        setCobradores(enrichedCobradores);
       }
-      if (instructoresRes.status === 'fulfilled' && Array.isArray(instructoresRes.value)) {
-        setInstructores(instructoresRes.value);
+      if (instructoresRes.status === 'fulfilled') {
+        const val = instructoresRes.value;
+        setInstructores(Array.isArray(val) ? val : []);
       }
-      if (casillerosRes.status === 'fulfilled' && Array.isArray(casillerosRes.value)) {
-        setLockers(casillerosRes.value);
+      if (casillerosRes.status === 'fulfilled') {
+        const val = casillerosRes.value;
+        setLockers(Array.isArray(val) ? val : []);
       }
-      if (actividadesRes.status === 'fulfilled' && Array.isArray(actividadesRes.value)) {
-        setActividades(actividadesRes.value);
+      if (actividadesRes.status === 'fulfilled') {
+        const val = actividadesRes.value;
+        setActividades(Array.isArray(val) ? val : []);
       }
-      if (cuponesRes.status === 'fulfilled' && Array.isArray(cuponesRes.value)) {
-        setCupones(cuponesRes.value);
+      if (cuponesRes.status === 'fulfilled') {
+        const val = cuponesRes.value;
+        setCupones(Array.isArray(val) ? val : []);
       }
-      if (rendicionesRes.status === 'fulfilled' && Array.isArray(rendicionesRes.value)) {
-        setRendiciones(rendicionesRes.value);
+      if (rendicionesRes.status === 'fulfilled') {
+        const val = rendicionesRes.value;
+        const list = Array.isArray(val) ? val : [];
+        const enrichedRendiciones = list.map((r: any) => ({
+          ...r,
+          cobradorId: r.cobradorId || r.cobrador?.id,
+          cobradorNombre:
+            r.cobradorNombre ||
+            r.cobrador?.nombreCompleto ||
+            (r.cobrador ? `${r.cobrador.nombre || ''} ${r.cobrador.apellido || ''}`.trim() : undefined),
+          zonaCobro: r.zonaCobro ?? (r.cobrador?.zona !== undefined ? Number(String(r.cobrador.zona).replace(/\D/g, '')) || r.cobrador.zona : 0),
+        }));
+        setRendiciones(enrichedRendiciones);
       }
     } catch (error) {
       console.warn('Error al recuperar registros del servidor:', error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     fetchAllData();
@@ -231,24 +280,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await fetchAllData();
       return { success: true };
     } catch (error: any) {
-      console.warn('Fallo login contra API, evaluando respuesta o demo fallback:', error);
+      console.warn('Fallo login contra API:', error);
 
       if (error.response && error.response.status === 401) {
         const mensaje = error.response.data?.message || 'Credenciales inválidas. Verifique su email y contraseña.';
         return { success: false, message: Array.isArray(mensaje) ? mensaje.join(', ') : mensaje };
-      }
-
-      const emailLower = email.toLowerCase().trim();
-      const matchedDemo = DEFAULT_USERS.find(
-        (u) =>
-          u.email.toLowerCase() === emailLower &&
-          (!u.password || u.password === password || password === 'Admin123!' || password === '123456')
-      );
-
-      if (matchedDemo) {
-        setCurrentUser(matchedDemo);
-        localStorage.setItem('el_globo_current_user', JSON.stringify(matchedDemo));
-        return { success: true };
       }
 
       const errMsg = error.response?.data?.message || 'No se pudo conectar con el servidor (http://localhost:3000/api) ni validar credenciales.';
@@ -260,6 +296,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('token');
     localStorage.removeItem('el_globo_current_user');
     setCurrentUser(GUEST_USER);
+    setUsersList([]);
+    setSocios([]);
+    setCobradores([]);
+    setInstructores([]);
+    setLockers([]);
+    setActividades([]);
+    setCupones([]);
+    setRendiciones([]);
   };
 
   // Helper para sanitizar objetos de socio antes de enviar al backend (evita errores 400 por forbidNonWhitelisted)
@@ -295,15 +339,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       usersList.find((u) => u.role === 'SOCIO');
 
     if (found) {
-      const pass = found.password || (found.role === 'ADMIN' ? 'Admin123!' : '123456');
-      const res = await login(found.email, pass);
-      if (!res.success) {
-        setCurrentUser(found);
-        localStorage.setItem('el_globo_current_user', JSON.stringify(found));
-      }
-      showToast('success', `Sesión iniciada como ${found.nombreCompleto || found.email}`);
+      openLoginModal(found.email);
     } else {
-      showToast('warning', 'Usuario no encontrado', 'No hay usuarios de tipo Socio cargados en la base de datos.');
+      openLoginModal();
     }
   };
 
@@ -632,6 +670,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser,
     login,
     logout,
+    isLoginModalOpen,
+    openLoginModal,
+    closeLoginModal,
+    loginModalEmail,
     refrescarDatos: fetchAllData,
     quickSwitchUser,
     activeTab,
