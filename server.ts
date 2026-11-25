@@ -16,7 +16,7 @@ async function startServer() {
   app.use(express.json());
 
   // Initialize DB immediately
-  db.getData();
+  //db.getData();
 
   // Logging API requests
   app.use('/api', (req, res, next) => {

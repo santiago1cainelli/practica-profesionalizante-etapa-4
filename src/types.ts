@@ -78,6 +78,7 @@ export interface instructores {
   telefono?: string;
   sueldo?: number;
   createdAt?: string;
+  dni: string;
 }
 
 export interface cobradores {

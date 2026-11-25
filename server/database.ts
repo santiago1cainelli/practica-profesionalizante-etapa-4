@@ -14,16 +14,7 @@ import {
   SocioEstado,
   SocioCategoria,
 } from '../src/types';
-import {
-  INITIAL_SOCIOS,
-  INITIAL_ACTIVIDADES,
-  generateInitialLockers,
-  INITIAL_CUPONES,
-  INITIAL_RENDICIONES,
-  INITIAL_COBRADORES,
-  INITIAL_INSTRUCTORES,
-  CUOTA_VALORES,
-} from '../src/data/mockData';
+import { CUOTA_VALORES } from '../src/data/mockData';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,7 +38,22 @@ export interface DatabaseSchema {
 let dbCache: DatabaseSchema | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 
-function calculateSocioCategoria(fechaNacimiento: string, fechaIngreso: string): { categoria: SocioCategoria; edad: number; antiguedadAnios: number } {
+function createEmptyLockers(cantidad = 100): Locker[] {
+  const lockers: Locker[] = [];
+  for (let i = 1; i <= cantidad; i++) {
+    lockers.push({
+      numero: i,
+      estado: 'DISPONIBLE',
+      costoMensual: CUOTA_VALORES.CASILLERO_MENSUAL,
+    });
+  }
+  return lockers;
+}
+
+function calculateSocioCategoria(
+  fechaNacimiento: string,
+  fechaIngreso: string
+): { categoria: SocioCategoria; edad: number; antiguedadAnios: number } {
   const hoy = new Date();
   const nac = new Date(fechaNacimiento);
   let edad = hoy.getFullYear() - nac.getFullYear();
@@ -97,26 +103,14 @@ function getInitialDatabase(): DatabaseSchema {
   return {
     version: '1.0.0',
     updatedAt: new Date().toISOString(),
-    socios: INITIAL_SOCIOS,
-    cobradores: INITIAL_COBRADORES,
-    instructores: INITIAL_INSTRUCTORES,
-    lockers: generateInitialLockers(INITIAL_SOCIOS),
-    actividades: INITIAL_ACTIVIDADES,
-    cupones: INITIAL_CUPONES,
-    rendiciones: INITIAL_RENDICIONES,
-    asistencias: [
-      {
-        id: 'asis-1',
-        actividadId: 'act-1',
-        fecha: '2026-09-15',
-        instructorId: 'user-instructor',
-        asistencias: [
-          { socioId: 'soc-1', socioNombre: 'Martín Rossi', presente: true },
-          { socioId: 'soc-4', socioNombre: 'Lucía Lapenta Olmos', presente: true },
-          { socioId: 'soc-6', socioNombre: 'Claudio Domínguez', presente: false },
-        ],
-      },
-    ],
+    socios: [],
+    cobradores: [],
+    instructores: [],
+    lockers: createEmptyLockers(100),
+    actividades: [],
+    cupones: [],
+    rendiciones: [],
+    asistencias: [],
   };
 }
 
@@ -136,13 +130,13 @@ export function initDatabase(): DatabaseSchema {
         return dbCache;
       }
     } catch (e) {
-      console.error('[Database] Failed to read existing database. Re-seeding...', e);
+      console.error('[Database] Failed to read existing database. Creating empty database...', e);
     }
   }
 
   dbCache = getInitialDatabase();
   persistDatabaseSync(dbCache);
-  console.log(`[Database] Initialized new persistent database at ${DB_FILE}`);
+  console.log(`[Database] Initialized new empty persistent database at ${DB_FILE}`);
   return dbCache;
 }
 
@@ -177,7 +171,7 @@ export const db = {
     return initDatabase();
   },
 
-  // RESET
+  // RESET (deja la base completamente vacía)
   async reset(): Promise<DatabaseSchema> {
     dbCache = getInitialDatabase();
     await persistDatabaseAsync();
@@ -190,7 +184,12 @@ export const db = {
     return data.socios;
   },
 
-  async addSocio(input: Omit<Socio, 'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'>): Promise<Socio> {
+  async addSocio(
+    input: Omit<
+      Socio,
+      'id' | 'numeroSocio' | 'edad' | 'antiguedadAnios' | 'categoria' | 'estado' | 'cuotasAdeudadas'
+    >
+  ): Promise<Socio> {
     const data = initDatabase();
     const dniInput = String(input.dni || '').trim();
     const existe = data.socios.some((s) => String(s.dni || '').trim() === dniInput);
@@ -198,7 +197,10 @@ export const db = {
       throw new Error(`Ya existe un socio registrado con el DNI ${input.dni}`);
     }
 
-    const { categoria, edad, antiguedadAnios } = calculateSocioCategoria(input.fechaNacimiento || '', input.fechaIngreso || '');
+    const { categoria, edad, antiguedadAnios } = calculateSocioCategoria(
+      input.fechaNacimiento || '',
+      input.fechaIngreso || ''
+    );
     const maxNum = data.socios.reduce((max, s) => Math.max(max, s.numeroSocio || 0), 1000);
     const nuevoNumero = maxNum + 1;
 
@@ -229,7 +231,10 @@ export const db = {
 
     const existing = data.socios[index];
     const merged = { ...existing, ...updates };
-    const { categoria, edad, antiguedadAnios } = calculateSocioCategoria(merged.fechaNacimiento || '', merged.fechaIngreso || '');
+    const { categoria, edad, antiguedadAnios } = calculateSocioCategoria(
+      merged.fechaNacimiento || '',
+      merged.fechaIngreso || ''
+    );
 
     data.socios[index] = {
       ...merged,
@@ -522,7 +527,8 @@ export const db = {
     if (!socio || !actividad) throw new Error('Socio o actividad no encontrada');
     if (socio.estado === 'SUSPENDIDO_MOROSIDAD') throw new Error('Socio suspendido por morosidad');
     if ((socio.actividadesIds || []).includes(actividadId)) throw new Error('Ya inscripto en la actividad');
-    if (Number(actividad.cupoOcupado || 0) >= Number(actividad.cupoMaximo || 0)) throw new Error('Cupo máximo alcanzado');
+    if (Number(actividad.cupoOcupado || 0) >= Number(actividad.cupoMaximo || 0))
+      throw new Error('Cupo máximo alcanzado');
 
     socio.actividadesIds = [...(socio.actividadesIds || []), actividadId];
     actividad.cupoOcupado = Number(actividad.cupoOcupado || 0) + 1;
@@ -565,7 +571,9 @@ export const db = {
 
     const costoActividades = detalleActividades.reduce((sum, a) => sum + a.monto, 0);
     const costoCasillero = socio.casilleroAsignadoId ? CUOTA_VALORES.CASILLERO_MENSUAL : 0;
-    const hijosCount = (socio.familiares || []).filter((f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA').length;
+    const hijosCount = (socio.familiares || []).filter(
+      (f) => f.parentesco === 'HIJO' || f.parentesco === 'HIJA'
+    ).length;
     const descuentoFamiliar = hijosCount * CUOTA_VALORES.DESCUENTO_FAMILIAR_POR_HIJO;
 
     const subtotal = Math.max(0, cuotaSocialBase + costoActividades + costoCasillero - descuentoFamiliar);
@@ -606,7 +614,11 @@ export const db = {
     return nuevoCupon;
   },
 
-  async pagarCupon(cuponId: string, metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL', cobradorId?: string): Promise<CuponRecibo> {
+  async pagarCupon(
+    cuponId: string,
+    metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'SEDE_CENTRAL',
+    cobradorId?: string
+  ): Promise<CuponRecibo> {
     const data = initDatabase();
     const cupon = data.cupones.find((c) => c.id === cuponId);
     if (!cupon) throw new Error('Cupón no encontrado');

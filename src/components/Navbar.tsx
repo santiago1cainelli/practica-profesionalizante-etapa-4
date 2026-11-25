@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Home,
   Users,
@@ -43,6 +43,10 @@ export const Navbar: React.FC<NavbarProps> = () => {
     setCurrentUser,
     login,
     logout,
+    isLoginModalOpen,
+    openLoginModal,
+    closeLoginModal,
+    loginModalEmail,
     usersList,
     activeTab,
     setActiveTab,
@@ -56,12 +60,22 @@ export const Navbar: React.FC<NavbarProps> = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Estados para la pantalla/modal de Inicio de Sesión
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+
+  // Sincronizar cuando otro componente (como ActividadesShowcase) abre el modal
+  useEffect(() => {
+    if (isLoginModalOpen) {
+      setLoginEmail(loginModalEmail || '');
+      setLoginPassword('');
+      setLoginError('');
+      setShowPassword(false);
+      setShowUserMenu(false);
+    }
+  }, [isLoginModalOpen, loginModalEmail]);
 
   // Rol del usuario con fallback seguro si no hay sesión cargada todavía
   const currentRole: ExtendedUserRole = (currentUser?.role as ExtendedUserRole) || 'PUBLICO';
@@ -129,12 +143,8 @@ export const Navbar: React.FC<NavbarProps> = () => {
 
   // Abrir modal de login limpiando errores previos
   const handleOpenLogin = (prefillEmail = '') => {
-    setLoginEmail(prefillEmail);
-    setLoginPassword('');
-    setLoginError('');
-    setShowPassword(false);
     setShowUserMenu(false);
-    setShowLoginModal(true);
+    openLoginModal(prefillEmail);
   };
 
   // Procesar inicio de sesión mediante autenticación oficial o demo fallback
@@ -154,7 +164,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
     try {
       const res = await login(emailTrimmed, passwordTrimmed);
       if (res.success) {
-        setShowLoginModal(false);
+        closeLoginModal();
         setLoginEmail('');
         setLoginPassword('');
         const savedUserStr = localStorage.getItem('el_globo_current_user');
@@ -378,13 +388,13 @@ export const Navbar: React.FC<NavbarProps> = () => {
       </header>
 
       {/* PANTALLA MODAL DE INICIO DE SESIÓN */}
-      {showLoginModal && (
+      {isLoginModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800">
             {/* Cabecera Institucional */}
             <div className="bg-[#1A365D] px-6 py-5 text-white border-b-4 border-[#C53030] relative">
               <button
-                onClick={() => setShowLoginModal(false)}
+                onClick={closeLoginModal}
                 className="absolute top-4 right-4 text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                 aria-label="Cerrar ventana de inicio de sesión"
               >

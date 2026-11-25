@@ -22,6 +22,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const instructoresApi = useApi('/instructores');
   const casillerosApi = useApi('/casilleros');
   const actividadesApi = useApi('/actividades');
+  const inscripcionesApi = useApi('/inscripciones');
   const cuponesApi = useApi('/cupones');
   const rendicionesApi = useApi('/rendiciones');
 
@@ -113,6 +114,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         instructoresRes,
         casillerosRes,
         actividadesRes,
+        inscripcionesRes,
         cuponesRes,
         rendicionesRes,
       ] = await Promise.allSettled([
@@ -122,6 +124,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         instructoresApi.get(),
         casillerosApi.get(),
         actividadesApi.get(),
+        inscripcionesApi.get(),
         cuponesApi.get(),
         rendicionesApi.get(),
       ]);
@@ -206,9 +209,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const val = casillerosRes.value;
         setLockers(Array.isArray(val) ? val : []);
       }
+      // 1. Normalizar instructores
+      let normalizedInstructores: Instructor[] = [];
+      if (instructoresRes.status === 'fulfilled') {
+        const val = instructoresRes.value;
+        const list = Array.isArray(val) ? val : [];
+        normalizedInstructores = list.map((inst: any) => ({
+          ...inst,
+          nombreCompleto:
+            inst.nombreCompleto ||
+            `${inst.nombre || ''} ${inst.apellido || ''}`.trim() ||
+            `Instructor ${inst.id}`,
+        }));
+        setInstructores(normalizedInstructores);
+      }
+
+      // 2. Normalizar actividades vinculando el nombre del instructor
       if (actividadesRes.status === 'fulfilled') {
         const val = actividadesRes.value;
-        setActividades(Array.isArray(val) ? val : []);
+        const list = Array.isArray(val) ? val : [];
+        const allInscripciones =
+          inscripcionesRes.status === 'fulfilled' && Array.isArray(inscripcionesRes.value)
+            ? inscripcionesRes.value
+            : [];
+
+        const enrichedActividades = list.map((a: any) => {
+          const insFromEndpoint = allInscripciones.filter(
+            (ins: any) =>
+              String(ins.actividadId || ins.actividad?.id) === String(a.id) &&
+              ins.activa !== false
+          );
+          const insFromRelation = Array.isArray(a.inscripciones)
+            ? a.inscripciones.filter((ins: any) => ins.activa !== false)
+            : [];
+
+          const totalInscriptos = Math.max(
+            Number(a.cupoOcupado ?? a.inscriptosCount ?? a._count?.inscripciones ?? 0),
+            insFromEndpoint.length,
+            insFromRelation.length
+          );
+
+          return {
+            ...a,
+            cupoOcupado: totalInscriptos,
+            inscripciones: insFromEndpoint.length > 0 ? insFromEndpoint : a.inscripciones,
+          };
+        });
+
+        setActividades(enrichedActividades);
       }
       if (cuponesRes.status === 'fulfilled') {
         const val = cuponesRes.value;
@@ -568,7 +616,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const enrollSocioInActividad = async (socioId: string, actividadId: string): Promise<boolean> => {
     const sId = Number(socioId);
     const aId = Number(actividadId);
-    const socio = socios.find((s) => String(s.id) === String(socioId));
+    const socio = socios.find((s) => String(s.id) === String(socioId)) || (currentUser?.socioId && Number(currentUser.socioId) === sId ? { id: sId, actividadesIds: [] } as any : null);
     const actividad = actividades.find((a) => String(a.id) === String(actividadId));
 
     if (!socio || !actividad) {
@@ -577,7 +625,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const actuales = socio.actividadesIds || [];
-    if (actuales.some((id) => String(id) === String(actividadId))) {
+    if (actuales.some((id: any) => String(id) === String(actividadId))) {
       showToast('warning', 'Ya inscripto', 'El socio ya forma parte de esta actividad.');
       return false;
     }
@@ -599,6 +647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActividades((prev) => prev.map((a) => (a.id === actividad.id ? actividadActualizada : a)));
 
       showToast('success', 'Inscripción confirmada', `Inscripto en ${actividad.nombre}.`);
+      fetchAllData();
       return true;
     } catch (error: any) {
       const msg = error.response?.data?.message || 'No se pudo guardar la inscripción en el servidor.';
@@ -611,10 +660,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const unenrollSocioFromActividad = async (socioId: string, actividadId: string): Promise<boolean> => {
     const sId = Number(socioId);
     const aId = Number(actividadId);
-    const socio = socios.find((s) => String(s.id) === String(socioId));
+    const socio =
+      socios.find((s) => String(s.id) === String(socioId)) ||
+      ({ id: sId, actividadesIds: [] } as any);
     const actividad = actividades.find((a) => String(a.id) === String(actividadId));
 
-    if (!socio || !actividad) return false;
+    if (!actividad) return false;
 
     try {
       await api.delete(`/inscripciones/socio/${sId}/actividad/${aId}`);
@@ -622,7 +673,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const actuales = socio.actividadesIds || [];
       const socioActualizado: Socio = {
         ...socio,
-        actividadesIds: actuales.filter((id) => String(id) !== String(actividadId)),
+        actividadesIds: actuales.filter((id: any) => String(id) !== String(actividadId)),
       };
 
       const actividadActualizada: Actividad = {
@@ -633,7 +684,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSocios((prev) => prev.map((s) => (s.id === socio.id ? socioActualizado : s)));
       setActividades((prev) => prev.map((a) => (a.id === actividad.id ? actividadActualizada : a)));
 
-      showToast('info', 'Baja confirmada', `Se dio de baja de ${actividad.nombre}.`);
+      const nombreSocio = socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+      const detalle = nombreSocio ? `Se dio de baja a ${nombreSocio} de ${actividad.nombre}.` : `Se dio de baja de ${actividad.nombre}.`;
+      showToast('info', 'Baja confirmada', detalle);
+      fetchAllData();
       return true;
     } catch (error: any) {
       const msg = error.response?.data?.message || 'No se pudo actualizar el registro en el servidor.';

@@ -33,6 +33,7 @@ export type InstructorData = instructores & {
   disciplinasIds?: string[];
   modalidadContrato?: ModalidadInstructor;
   remuneracionMensual?: number;
+  sueldo?: number;
   diasDisponibles?: string[];
   activo?: boolean;
   fechaAlta?: string;
@@ -103,6 +104,70 @@ export const InstructoresAdmin: React.FC = () => {
 
   const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
 
+  // ✅ Normaliza los IDs de actividades sin importar cómo vengan de la BD
+  const getInstructorDisciplinasIds = (inst: any): string[] => {
+    const raw =
+      inst.disciplinasIds ??
+      inst.actividadesIds ??
+      inst.disciplinas ??
+      inst.actividades ??
+      inst.actividad_id ??
+      inst.actividadId ??
+      inst.disciplina_id;
+
+    if (!raw) return [];
+
+    // Si es un array (de IDs o de objetos { id, ... })
+    if (Array.isArray(raw)) {
+      return raw.map((item) =>
+        typeof item === 'object' && item !== null ? String(item.id ?? item.actividad_id) : String(item)
+      );
+    }
+
+    // Si viene como string (ej: "[1,2]" o "1,2" o "3")
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch {
+        // Si no es JSON válido, lo separamos por coma
+      }
+      return raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    // Si es un número único (ej: actividad_id: 4)
+    return [String(raw)];
+  };
+
+  // ✅ Normaliza el sueldo/remuneración sin importar el nombre de la columna en MySQL o el tipo de dato
+  const getInstructorRemuneracion = (inst: any): number => {
+    const raw =
+      inst.remuneracionMensual ??
+      inst.sueldo ??
+      inst.montoMensual ??
+      inst.remuneracion ??
+      inst.salario ??
+      inst.honorarios ??
+      inst.monto ??
+      0;
+
+    if (typeof raw === 'number') {
+      return isNaN(raw) ? 0 : raw;
+    }
+
+    if (typeof raw === 'string') {
+      // Limpia símbolos de moneda o separadores de miles si vienen como texto
+      const cleaned = raw.replace(/[^0-9.-]+/g, '');
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+
+    return 0;
+  };
+
   // ✅ useMemo ubicado ANTES del return condicional para cumplir las Reglas de Hooks de React
   const filteredInstructores = useMemo(() => {
     return instructoresList.filter((inst) => {
@@ -112,7 +177,7 @@ export const InstructoresAdmin: React.FC = () => {
       const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || '';
       const emailNorm = inst.email || '';
       const telNorm = inst.telefono || '';
-      const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
+      const disciplinasArr = getInstructorDisciplinasIds(inst);
 
       const matchSearch =
         nombreNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -124,8 +189,9 @@ export const InstructoresAdmin: React.FC = () => {
       const matchDisciplina =
         filtroDisciplina === 'TODAS' || disciplinasArr.includes(String(filtroDisciplina));
 
+      const modalidadNorm = inst.modalidadContrato || (inst as any).modalidad || (inst as any).tipoContrato || 'PLANTA_PERMANENTE';
       const matchModalidad =
-        filtroModalidad === 'TODAS' || inst.modalidadContrato === filtroModalidad;
+        filtroModalidad === 'TODAS' || modalidadNorm === filtroModalidad;
 
       const isActivo = inst.activo ?? true;
       const matchEstado =
@@ -172,9 +238,6 @@ export const InstructoresAdmin: React.FC = () => {
   // KPIs
   const totalInstructores = instructoresList.length;
   const activosCount = instructoresList.filter((i) => i.activo ?? true).length;
-  const disciplinasAsignadasCount = new Set(
-    instructoresList.flatMap((i) => i.disciplinasIds || (i as any).actividadesIds || [])
-  ).size;
 
   const handleOpenCreateModal = () => {
     setEditingInstructor(null);
@@ -199,7 +262,13 @@ export const InstructoresAdmin: React.FC = () => {
     setEditingInstructor(inst);
     const nombreNorm =
       inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
-    const disciplinasArr = (inst.disciplinasIds || (inst as any).actividadesIds || []).map(String);
+    const disciplinasArr = getInstructorDisciplinasIds(inst);
+    const remuNorm = getInstructorRemuneracion(inst);
+    const modalidadNorm =
+      inst.modalidadContrato ||
+      (inst as any).modalidad ||
+      (inst as any).tipoContrato ||
+      'PLANTA_PERMANENTE';
 
     setFormData({
       nombreCompleto: nombreNorm,
@@ -208,8 +277,8 @@ export const InstructoresAdmin: React.FC = () => {
       email: inst.email || '',
       tituloProfesional: inst.tituloProfesional || (inst as any).especialidad || '',
       disciplinasIds: disciplinasArr,
-      modalidadContrato: inst.modalidadContrato || 'PLANTA_PERMANENTE',
-      remuneracionMensual: Number(inst.remuneracionMensual || (inst as any).montoMensual || 0),
+      modalidadContrato: modalidadNorm as ModalidadInstructor,
+      remuneracionMensual: remuNorm,
       diasDisponibles: inst.diasDisponibles || ['Lunes', 'Miércoles', 'Viernes'],
       activo: inst.activo ?? true,
       observaciones: inst.observaciones || '',
@@ -251,6 +320,8 @@ export const InstructoresAdmin: React.FC = () => {
     const partesNombre = formData.nombreCompleto.trim().split(' ');
     const nombre = partesNombre[0];
     const apellido = partesNombre.slice(1).join(' ') || partesNombre[0];
+    const disciplinasNumericas = formData.disciplinasIds.map(Number);
+    const sueldoNumerico = Number(formData.remuneracionMensual);
 
     const payload: any = {
       nombre,
@@ -261,12 +332,14 @@ export const InstructoresAdmin: React.FC = () => {
       email: formData.email.trim(),
       tituloProfesional: formData.tituloProfesional.trim(),
       especialidad: formData.tituloProfesional.trim(),
-      disciplinasIds: formData.disciplinasIds,
-      actividadesIds: formData.disciplinasIds,
+      disciplinasIds: disciplinasNumericas,
+      actividadesIds: disciplinasNumericas,
+      actividad_id: disciplinasNumericas.length > 0 ? disciplinasNumericas[0] : null,
       modalidadContrato: formData.modalidadContrato,
-      remuneracionMensual: Number(formData.remuneracionMensual),
-      sueldo: Number(formData.remuneracionMensual),
-      montoMensual: Number(formData.remuneracionMensual),
+      modalidad: formData.modalidadContrato,
+      remuneracionMensual: sueldoNumerico,
+      sueldo: sueldoNumerico,
+      montoMensual: sueldoNumerico,
       diasDisponibles: formData.diasDisponibles,
       activo: formData.activo,
       observaciones: formData.observaciones.trim() || undefined,
@@ -425,9 +498,9 @@ export const InstructoresAdmin: React.FC = () => {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Deportes Asignados</p>
             <p className="text-2xl font-black text-blue-700 mt-1">
-              {disciplinasAsignadasCount} / {actividades.length}
+              {totalInstructores} / {actividades.length}
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Disciplinas con profesor</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Instructores vs. actividades</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <Trophy className="w-6 h-6" />
@@ -534,7 +607,7 @@ export const InstructoresAdmin: React.FC = () => {
                 <th className="py-3.5 px-4">Instructor / Docente</th>
                 <th className="py-3.5 px-4">Disciplinas Asignadas</th>
                 <th className="py-3.5 px-4">Contacto</th>
-                <th className="py-3.5 px-4">Contrato & Remuneración</th>
+                <th className="py-3.5 px-4">Remuneración</th>
                 <th className="py-3.5 px-4">Días Disponibles</th>
                 <th className="py-3.5 px-4 text-center">Estado</th>
                 <th className="py-3.5 px-4 text-right">Acciones</th>
@@ -556,15 +629,15 @@ export const InstructoresAdmin: React.FC = () => {
                     inst.nombreCompleto ||
                     `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
                   const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || 'Instructor';
-                  const remuNorm = Number(inst.remuneracionMensual || (inst as any).montoMensual || 0);
+                  const remuNorm = getInstructorRemuneracion(inst);
                   const isActivo = inst.activo ?? true;
-                  const modBadge = getModalidadLabel(inst.modalidadContrato);
+                  const modalidadNorm =
+                    inst.modalidadContrato ||
+                    (inst as any).modalidad ||
+                    (inst as any).tipoContrato;
+                  const modBadge = getModalidadLabel(modalidadNorm);
 
-                  const disciplinasArr = (
-                    inst.disciplinasIds ||
-                    (inst as any).actividadesIds ||
-                    []
-                  ).map(String);
+                  const disciplinasArr = getInstructorDisciplinasIds(inst);
                   const actividadesAsignadas = actividades.filter((a) =>
                     disciplinasArr.includes(String(a.id))
                   );
