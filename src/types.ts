@@ -77,7 +77,7 @@ export interface instructores {
   email: string;
   telefono?: string;
   sueldo?: number;
-  createdAt?: string;
+  createdAt?: number;
   dni: string;
 }
 
@@ -223,11 +223,13 @@ export type Cobrador = Omit<Partial<cobradores>, 'id'> & {
 
 export type Instructor = Omit<Partial<instructores>, 'id'> & {
   id?: string | number;
-  nombreCompleto?: string;
-  tituloProfesional?: string;
-  disciplinasIds?: string[];
-  activo?: boolean;
-  [key: string]: any;
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono?: string;
+  sueldo?: number;
+  createdAt?: number;
+  dni: string;
 };
 
 export type CuponRecibo = Omit<Partial<cupones>, 'id' | 'cobradorId' | 'socioId'> & {

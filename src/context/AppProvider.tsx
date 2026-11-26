@@ -216,9 +216,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const list = Array.isArray(val) ? val : [];
         normalizedInstructores = list.map((inst: any) => ({
           ...inst,
-          nombreCompleto:
-            inst.nombreCompleto ||
-            `${inst.nombre || ''} ${inst.apellido || ''}`.trim() ||
+          nombre:
+            `${inst.nombre || ''}`.trim() ||
             `Instructor ${inst.id}`,
         }));
         setInstructores(normalizedInstructores);

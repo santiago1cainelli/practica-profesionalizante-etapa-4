@@ -9,8 +9,6 @@ import {
   Mail,
   Edit2,
   Trash2,
-  CheckCircle,
-  XCircle,
   AlertTriangle,
   Award,
   ShieldAlert,
@@ -18,26 +16,19 @@ import {
   X,
   Briefcase,
   DollarSign,
-  BookOpen,
 } from 'lucide-react';
 import { useClub } from '../context/AppProvider';
 import { useApi } from '../hooks/useApi';
 import { instructores } from '../types';
 
-export type ModalidadInstructor = 'PLANTA_PERMANENTE' | 'HONORARIOS' | 'POR_HORA';
-
 export type InstructorData = instructores & {
-  nombreCompleto?: string;
+  nombre: string;
+  apellido: string;
+  email: string;
   dni?: string;
-  tituloProfesional?: string;
-  disciplinasIds?: string[];
-  modalidadContrato?: ModalidadInstructor;
-  remuneracionMensual?: number;
   sueldo?: number;
-  diasDisponibles?: string[];
-  activo?: boolean;
-  fechaAlta?: string;
-  observaciones?: string;
+  telefono: string;
+  createdAt?: number;
 };
 
 export const InstructoresAdmin: React.FC = () => {
@@ -60,11 +51,8 @@ export const InstructoresAdmin: React.FC = () => {
     setInstructoresList(initialInstructores as InstructorData[]);
   }, [initialInstructores]);
 
-  // Filtros y búsqueda
+  // Búsqueda por texto
   const [searchTerm, setSearchTerm] = useState('');
-  const [filtroDisciplina, setFiltroDisciplina] = useState<string>('TODAS');
-  const [filtroModalidad, setFiltroModalidad] = useState<string>('TODAS');
-  const [filtroEstado, setFiltroEstado] = useState<'TODOS' | 'ACTIVOS' | 'INACTIVOS'>('TODOS');
 
   // Estado del modal de creación/edición
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,34 +63,24 @@ export const InstructoresAdmin: React.FC = () => {
 
   // Formulario
   const [formData, setFormData] = useState<{
-    nombreCompleto: string;
+    nombre: string;
+    apellido: string;
     dni: string;
     telefono: string;
     email: string;
-    tituloProfesional: string;
-    disciplinasIds: string[];
-    modalidadContrato: ModalidadInstructor;
-    remuneracionMensual: number;
-    diasDisponibles: string[];
-    activo: boolean;
-    observaciones: string;
+    sueldo: number;
+    createdAt: number;
   }>({
-    nombreCompleto: '',
+    nombre: '',
+    apellido: '',
     dni: '',
     telefono: '',
     email: '',
-    tituloProfesional: '',
-    disciplinasIds: [],
-    modalidadContrato: 'PLANTA_PERMANENTE',
-    remuneracionMensual: 350000,
-    diasDisponibles: ['Lunes', 'Miércoles', 'Viernes'],
-    activo: true,
-    observaciones: '',
+    sueldo: 350000,
+    createdAt: Date.now(),
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
-
-  const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
 
   // ✅ Normaliza los IDs de actividades sin importar cómo vengan de la BD
   const getInstructorDisciplinasIds = (inst: any): string[] => {
@@ -117,14 +95,12 @@ export const InstructoresAdmin: React.FC = () => {
 
     if (!raw) return [];
 
-    // Si es un array (de IDs o de objetos { id, ... })
     if (Array.isArray(raw)) {
       return raw.map((item) =>
         typeof item === 'object' && item !== null ? String(item.id ?? item.actividad_id) : String(item)
       );
     }
 
-    // Si viene como string (ej: "[1,2]" o "1,2" o "3")
     if (typeof raw === 'string') {
       try {
         const parsed = JSON.parse(raw);
@@ -138,7 +114,6 @@ export const InstructoresAdmin: React.FC = () => {
         .filter(Boolean);
     }
 
-    // Si es un número único (ej: actividad_id: 4)
     return [String(raw)];
   };
 
@@ -159,7 +134,6 @@ export const InstructoresAdmin: React.FC = () => {
     }
 
     if (typeof raw === 'string') {
-      // Limpia símbolos de moneda o separadores de miles si vienen como texto
       const cleaned = raw.replace(/[^0-9.-]+/g, '');
       const parsed = parseFloat(cleaned);
       return isNaN(parsed) ? 0 : parsed;
@@ -168,40 +142,25 @@ export const InstructoresAdmin: React.FC = () => {
     return 0;
   };
 
-  // ✅ useMemo ubicado ANTES del return condicional para cumplir las Reglas de Hooks de React
+  // ✅ Filtrado únicamente por término de búsqueda (nombre, apellido, DNI, email o teléfono)
   const filteredInstructores = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return instructoresList;
+
     return instructoresList.filter((inst) => {
-      const nombreNorm =
-        inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
+      const nombreNorm = `${inst.nombre || ''} ${inst.apellido || ''}`.toLowerCase();
       const dniNorm = inst.dni || '';
-      const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || '';
-      const emailNorm = inst.email || '';
+      const emailNorm = (inst.email || '').toLowerCase();
       const telNorm = inst.telefono || '';
-      const disciplinasArr = getInstructorDisciplinasIds(inst);
 
-      const matchSearch =
-        nombreNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dniNorm.includes(searchTerm) ||
-        tituloNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emailNorm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        telNorm.includes(searchTerm);
-
-      const matchDisciplina =
-        filtroDisciplina === 'TODAS' || disciplinasArr.includes(String(filtroDisciplina));
-
-      const modalidadNorm = inst.modalidadContrato || (inst as any).modalidad || (inst as any).tipoContrato || 'PLANTA_PERMANENTE';
-      const matchModalidad =
-        filtroModalidad === 'TODAS' || modalidadNorm === filtroModalidad;
-
-      const isActivo = inst.activo ?? true;
-      const matchEstado =
-        filtroEstado === 'TODOS' ||
-        (filtroEstado === 'ACTIVOS' && isActivo) ||
-        (filtroEstado === 'INACTIVOS' && !isActivo);
-
-      return matchSearch && matchDisciplina && matchModalidad && matchEstado;
+      return (
+        nombreNorm.includes(term) ||
+        dniNorm.includes(term) ||
+        emailNorm.includes(term) ||
+        telNorm.includes(term)
+      );
     });
-  }, [instructoresList, searchTerm, filtroDisciplina, filtroModalidad, filtroEstado]);
+  }, [instructoresList, searchTerm]);
 
   // Control de Acceso Estricto RBAC: Solo ADMINISTRADOR
   if (currentUser?.role !== 'ADMIN') {
@@ -237,22 +196,17 @@ export const InstructoresAdmin: React.FC = () => {
 
   // KPIs
   const totalInstructores = instructoresList.length;
-  const activosCount = instructoresList.filter((i) => i.activo ?? true).length;
 
   const handleOpenCreateModal = () => {
     setEditingInstructor(null);
     setFormData({
-      nombreCompleto: '',
+      nombre: '',
+      apellido: '',
       dni: '',
       telefono: '',
       email: '',
-      tituloProfesional: '',
-      disciplinasIds: [],
-      modalidadContrato: 'PLANTA_PERMANENTE',
-      remuneracionMensual: 350000,
-      diasDisponibles: ['Lunes', 'Miércoles', 'Viernes'],
-      activo: true,
-      observaciones: '',
+      sueldo: 350000,
+      createdAt: Date.now(),
     });
     setFormErrors({});
     setIsModalOpen(true);
@@ -260,28 +214,16 @@ export const InstructoresAdmin: React.FC = () => {
 
   const handleOpenEditModal = (inst: InstructorData) => {
     setEditingInstructor(inst);
-    const nombreNorm =
-      inst.nombreCompleto || `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
-    const disciplinasArr = getInstructorDisciplinasIds(inst);
     const remuNorm = getInstructorRemuneracion(inst);
-    const modalidadNorm =
-      inst.modalidadContrato ||
-      (inst as any).modalidad ||
-      (inst as any).tipoContrato ||
-      'PLANTA_PERMANENTE';
 
     setFormData({
-      nombreCompleto: nombreNorm,
+      nombre: inst.nombre || '',
+      apellido: inst.apellido || '',
       dni: inst.dni || '',
       telefono: inst.telefono || '',
       email: inst.email || '',
-      tituloProfesional: inst.tituloProfesional || (inst as any).especialidad || '',
-      disciplinasIds: disciplinasArr,
-      modalidadContrato: modalidadNorm as ModalidadInstructor,
-      remuneracionMensual: remuNorm,
-      diasDisponibles: inst.diasDisponibles || ['Lunes', 'Miércoles', 'Viernes'],
-      activo: inst.activo ?? true,
-      observaciones: inst.observaciones || '',
+      sueldo: remuNorm,
+      createdAt: Date.now(),
     });
     setFormErrors({});
     setIsModalOpen(true);
@@ -289,7 +231,8 @@ export const InstructoresAdmin: React.FC = () => {
 
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
-    if (!formData.nombreCompleto.trim()) errors.nombreCompleto = 'El nombre completo es obligatorio';
+    if (!formData.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
+    if (!formData.apellido.trim()) errors.apellido = 'El apellido es obligatorio';
     if (!formData.dni.trim()) {
       errors.dni = 'El DNI es obligatorio';
     } else if (!/^\d{7,9}$/.test(formData.dni.replace(/\D/g, ''))) {
@@ -301,11 +244,8 @@ export const InstructoresAdmin: React.FC = () => {
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       errors.email = 'Formato de correo electrónico inválido';
     }
-    if (!formData.tituloProfesional.trim()) {
-      errors.tituloProfesional = 'El título profesional o especialidad es obligatorio';
-    }
-    if (formData.remuneracionMensual < 0) {
-      errors.remuneracionMensual = 'La remuneración no puede ser negativa';
+    if (formData.sueldo < 0) {
+      errors.sueldo = 'El sueldo no puede ser negativo';
     }
 
     setFormErrors(errors);
@@ -317,32 +257,16 @@ export const InstructoresAdmin: React.FC = () => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const partesNombre = formData.nombreCompleto.trim().split(' ');
-    const nombre = partesNombre[0];
-    const apellido = partesNombre.slice(1).join(' ') || partesNombre[0];
-    const disciplinasNumericas = formData.disciplinasIds.map(Number);
-    const sueldoNumerico = Number(formData.remuneracionMensual);
+    const sueldoNumerico = Number(formData.sueldo);
 
     const payload: any = {
-      nombre,
-      apellido,
-      nombreCompleto: formData.nombreCompleto.trim(),
-      dni: formData.dni.replace(/\D/g, ''),
-      telefono: formData.telefono.trim(),
+      nombre: formData.nombre,
+      apellido: formData.apellido,
       email: formData.email.trim(),
-      tituloProfesional: formData.tituloProfesional.trim(),
-      especialidad: formData.tituloProfesional.trim(),
-      disciplinasIds: disciplinasNumericas,
-      actividadesIds: disciplinasNumericas,
-      actividad_id: disciplinasNumericas.length > 0 ? disciplinasNumericas[0] : null,
-      modalidadContrato: formData.modalidadContrato,
-      modalidad: formData.modalidadContrato,
-      remuneracionMensual: sueldoNumerico,
+      telefono: formData.telefono.trim(),
       sueldo: sueldoNumerico,
-      montoMensual: sueldoNumerico,
-      diasDisponibles: formData.diasDisponibles,
-      activo: formData.activo,
-      observaciones: formData.observaciones.trim() || undefined,
+      createdAt: Date.now(),
+      dni: formData.dni.replace(/\D/g, ''),
     };
 
     try {
@@ -352,35 +276,15 @@ export const InstructoresAdmin: React.FC = () => {
         setInstructoresList((prev) =>
           prev.map((item) => (String(item.id) === String(editingInstructor.id) ? actualizado : item))
         );
-        showToast('success', 'Instructor actualizado', `Se actualizaron los datos de ${payload.nombreCompleto}.`);
+        showToast('success', 'Instructor actualizado', `Se actualizaron los datos de ${payload.nombre} ${payload.apellido}.`);
       } else {
         const creado = await instructoresApi.create(payload);
         setInstructoresList((prev) => [...prev, creado || { ...payload, id: Date.now() }]);
-        showToast('success', 'Instructor registrado', `${payload.nombreCompleto} fue dado de alta en la BD.`);
+        showToast('success', 'Instructor registrado', `${payload.nombre} ${payload.apellido} fue dado de alta en la BD.`);
       }
       setIsModalOpen(false);
     } catch (error) {
       showToast('error', 'Error al guardar', 'No se pudo persistir el instructor en el servidor.');
-    }
-  };
-
-  // ✅ Alternar estado activo/inactivo usando instructoresApi.update
-  const handleToggleEstado = async (inst: InstructorData) => {
-    const nuevoEstado = !(inst.activo ?? true);
-    const actualizado = { ...inst, activo: nuevoEstado };
-
-    try {
-      await instructoresApi.update(inst.id, actualizado);
-      setInstructoresList((prev) =>
-        prev.map((item) => (String(item.id) === String(inst.id) ? actualizado : item))
-      );
-      showToast(
-        'info',
-        nuevoEstado ? 'Instructor activado' : 'Instructor desactivado',
-        `Estado actualizado correctamente.`
-      );
-    } catch (error) {
-      showToast('error', 'Error al cambiar estado', 'No se pudo actualizar el estado del instructor.');
     }
   };
 
@@ -397,42 +301,6 @@ export const InstructoresAdmin: React.FC = () => {
       setInstructorToDelete(null);
     } catch (error) {
       showToast('error', 'Error al eliminar', 'No se pudo eliminar el instructor del servidor.');
-    }
-  };
-
-  const toggleDisciplina = (actId: string) => {
-    setFormData((prev) => {
-      const exists = prev.disciplinasIds.includes(actId);
-      if (exists) {
-        return { ...prev, disciplinasIds: prev.disciplinasIds.filter((id) => id !== actId) };
-      } else {
-        return { ...prev, disciplinasIds: [...prev.disciplinasIds, actId] };
-      }
-    });
-  };
-
-  const toggleDia = (dia: string) => {
-    setFormData((prev) => {
-      const exists = prev.diasDisponibles.includes(dia);
-      if (exists) {
-        return { ...prev, diasDisponibles: prev.diasDisponibles.filter((d) => d !== dia) };
-      } else {
-        return { ...prev, diasDisponibles: [...prev.diasDisponibles, dia] };
-      }
-    });
-  };
-
-  // ✅ Parámetro opcional para evitar error de tipos cuando modalidadContrato es undefined
-  const getModalidadLabel = (mod?: ModalidadInstructor | string) => {
-    switch (mod) {
-      case 'PLANTA_PERMANENTE':
-        return { label: 'Planta Permanente', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
-      case 'HONORARIOS':
-        return { label: 'Honorarios / Contrato', color: 'bg-blue-100 text-blue-800 border-blue-200' };
-      case 'POR_HORA':
-        return { label: 'Arancel por Hora', color: 'bg-amber-100 text-amber-800 border-amber-200' };
-      default:
-        return { label: mod || 'Planta Permanente', color: 'bg-slate-100 text-slate-800 border-slate-200' };
     }
   };
 
@@ -486,7 +354,6 @@ export const InstructoresAdmin: React.FC = () => {
         <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">En Actividad</p>
-            <p className="text-2xl font-black text-emerald-600 mt-1">{activosCount}</p>
             <p className="text-[11px] text-slate-500 mt-0.5">Dictando clases regulares</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -519,83 +386,27 @@ export const InstructoresAdmin: React.FC = () => {
         </div>
       </div>
 
-      {/* Barra de Filtros y Búsqueda */}
+      {/* Barra de Búsqueda */}
       <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full md:w-80">
+        <div className="relative w-full md:w-96">
           <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Buscar por nombre, DNI, título o especialidad..."
+            placeholder="Buscar por nombre, apellido, DNI, email o teléfono..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] focus:border-transparent"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          {/* Filtro Deporte */}
-          <div className="flex items-center space-x-1.5 text-xs">
-            <span className="text-slate-500 font-medium">Deporte:</span>
-            <select
-              value={filtroDisciplina}
-              onChange={(e) => setFiltroDisciplina(e.target.value)}
-              className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1A365D]"
-            >
-              <option value="TODAS">Todas las Disciplinas</option>
-              {actividades.map((act) => (
-                <option key={act.id} value={String(act.id)}>
-                  {act.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filtro Contrato */}
-          <div className="flex items-center space-x-1.5 text-xs">
-            <span className="text-slate-500 font-medium">Contrato:</span>
-            <select
-              value={filtroModalidad}
-              onChange={(e) => setFiltroModalidad(e.target.value)}
-              className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1A365D]"
-            >
-              <option value="TODAS">Todas las Modalidades</option>
-              <option value="PLANTA_PERMANENTE">Planta Permanente</option>
-              <option value="HONORARIOS">Honorarios / Contrato</option>
-              <option value="POR_HORA">Arancel por Hora</option>
-            </select>
-          </div>
-
-          {/* Filtro Estado */}
-          <div className="flex items-center space-x-1.5 text-xs">
-            <span className="text-slate-500 font-medium">Estado:</span>
-            <select
-              value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value as any)}
-              className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1A365D]"
-            >
-              <option value="TODOS">Todos</option>
-              <option value="ACTIVOS">Solo Activos</option>
-              <option value="INACTIVOS">Solo Inactivos</option>
-            </select>
-          </div>
-
-          {(searchTerm ||
-            filtroDisciplina !== 'TODAS' ||
-            filtroModalidad !== 'TODAS' ||
-            filtroEstado !== 'TODOS') && (
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setFiltroDisciplina('TODAS');
-                setFiltroModalidad('TODAS');
-                setFiltroEstado('TODOS');
-              }}
-              className="px-2 py-1.5 text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
-            >
-              Limpiar filtros
-            </button>
-          )}
-        </div>
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="px-2 py-1.5 text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+          >
+            Limpiar búsqueda
+          </button>
+        )}
       </div>
 
       {/* Tabla de Instructores */}
@@ -608,34 +419,25 @@ export const InstructoresAdmin: React.FC = () => {
                 <th className="py-3.5 px-4">Disciplinas Asignadas</th>
                 <th className="py-3.5 px-4">Contacto</th>
                 <th className="py-3.5 px-4">Remuneración</th>
-                <th className="py-3.5 px-4">Días Disponibles</th>
-                <th className="py-3.5 px-4 text-center">Estado</th>
                 <th className="py-3.5 px-4 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
               {filteredInstructores.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={5} className="py-8 text-center text-slate-400">
                     <UserX className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                     <p className="font-semibold">
-                      No se encontraron instructores registrados en la BD con los filtros seleccionados.
+                      No se encontraron instructores registrados en la BD con el criterio buscado.
                     </p>
                   </td>
                 </tr>
               ) : (
                 filteredInstructores.map((inst) => {
                   const nombreNorm =
-                    inst.nombreCompleto ||
+                    inst.nombre ||
                     `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
-                  const tituloNorm = inst.tituloProfesional || (inst as any).especialidad || 'Instructor';
                   const remuNorm = getInstructorRemuneracion(inst);
-                  const isActivo = inst.activo ?? true;
-                  const modalidadNorm =
-                    inst.modalidadContrato ||
-                    (inst as any).modalidad ||
-                    (inst as any).tipoContrato;
-                  const modBadge = getModalidadLabel(modalidadNorm);
 
                   const disciplinasArr = getInstructorDisciplinasIds(inst);
                   const actividadesAsignadas = actividades.filter((a) =>
@@ -651,10 +453,6 @@ export const InstructoresAdmin: React.FC = () => {
                           </div>
                           <div>
                             <p className="font-bold text-slate-900 text-sm leading-tight">{nombreNorm}</p>
-                            <p className="text-[11px] text-teal-700 font-medium flex items-center space-x-1 mt-0.5">
-                              <BookOpen className="w-3 h-3 shrink-0" />
-                              <span>{tituloNorm}</span>
-                            </p>
                             <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                               DNI: {inst.dni || 'N/A'} • Legajo ID: #{inst.id}
                             </p>
@@ -694,53 +492,11 @@ export const InstructoresAdmin: React.FC = () => {
 
                       <td className="py-3.5 px-4">
                         <div className="space-y-1">
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${modBadge.color}`}
-                          >
-                            {modBadge.label}
-                          </span>
                           <div className="text-[11px] font-mono font-bold text-slate-700 flex items-center space-x-1">
                             <DollarSign className="w-3 h-3 text-emerald-600" />
                             <span>${remuNorm.toLocaleString('es-AR')}/mes</span>
                           </div>
                         </div>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap gap-1 max-w-[170px]">
-                          {(inst.diasDisponibles || ['Lunes', 'Miércoles', 'Viernes']).map((dia: string) => (
-                            <span
-                              key={dia}
-                              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200"
-                            >
-                              {dia.slice(0, 2)}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4 text-center">
-                        <button
-                          onClick={() => handleToggleEstado(inst)}
-                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors cursor-pointer ${
-                            isActivo
-                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                              : 'bg-red-100 text-red-800 hover:bg-red-200'
-                          }`}
-                          title="Click para alternar estado activo/inactivo"
-                        >
-                          {isActivo ? (
-                            <>
-                              <CheckCircle className="w-3 h-3" />
-                              <span>Activo</span>
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-3 h-3" />
-                              <span>Inactivo</span>
-                            </>
-                          )}
-                        </button>
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
@@ -794,41 +550,41 @@ export const InstructoresAdmin: React.FC = () => {
 
             {/* Modal Form */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
-              {/* Nombre Completo */}
+              {/* Nombre */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nombre y Apellido Completo <span className="text-red-500">*</span>
+                  Nombre <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="ej. Valeria Fontana"
-                  value={formData.nombreCompleto}
-                  onChange={(e) => setFormData({ ...formData, nombreCompleto: e.target.value })}
+                  placeholder="ej. Valeria"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   className={`w-full px-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] ${
-                    formErrors.nombreCompleto ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                    formErrors.nombre ? 'border-red-500 bg-red-50' : 'border-slate-300'
                   }`}
                 />
-                {formErrors.nombreCompleto && (
-                  <p className="text-[11px] text-red-600 mt-1">{formErrors.nombreCompleto}</p>
+                {formErrors.nombre && (
+                  <p className="text-[11px] text-red-600 mt-1">{formErrors.nombre}</p>
                 )}
               </div>
 
-              {/* Título Profesional */}
+              {/* Apellido */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Título Profesional / Especialidad <span className="text-red-500">*</span>
+                  Apellido <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="ej. Lic. en Educación Física y Entrenador CABB"
-                  value={formData.tituloProfesional}
-                  onChange={(e) => setFormData({ ...formData, tituloProfesional: e.target.value })}
+                  placeholder="ej. Fontana"
+                  value={formData.apellido}
+                  onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
                   className={`w-full px-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] ${
-                    formErrors.tituloProfesional ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                    formErrors.apellido ? 'border-red-500 bg-red-50' : 'border-slate-300'
                   }`}
                 />
-                {formErrors.tituloProfesional && (
-                  <p className="text-[11px] text-red-600 mt-1">{formErrors.tituloProfesional}</p>
+                {formErrors.apellido && (
+                  <p className="text-[11px] text-red-600 mt-1">{formErrors.apellido}</p>
                 )}
               </div>
 
@@ -886,56 +642,8 @@ export const InstructoresAdmin: React.FC = () => {
                 {formErrors.email && <p className="text-[11px] text-red-600 mt-1">{formErrors.email}</p>}
               </div>
 
-              {/* Asignación de Disciplinas Deportivas */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Disciplinas / Actividades Deportivas
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 max-h-36 overflow-y-auto">
-                  {actividades.map((act) => {
-                    const actIdStr = String(act.id);
-                    const isChecked = formData.disciplinasIds.includes(actIdStr);
-                    return (
-                      <label
-                        key={act.id}
-                        className={`flex items-center space-x-2 text-xs p-1.5 rounded cursor-pointer transition-colors ${
-                          isChecked
-                            ? 'bg-blue-100/70 font-semibold text-blue-900'
-                            : 'hover:bg-slate-200/50 text-slate-700'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleDisciplina(actIdStr)}
-                          className="rounded border-slate-300 text-[#1A365D] focus:ring-[#1A365D]"
-                        />
-                        <span className="truncate">{act.nombre}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Modalidad de Contrato y Remuneración */}
+              {/* Remuneración */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Modalidad de Contratación <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.modalidadContrato}
-                    onChange={(e) =>
-                      setFormData({ ...formData, modalidadContrato: e.target.value as ModalidadInstructor })
-                    }
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] bg-white text-slate-800"
-                  >
-                    <option value="PLANTA_PERMANENTE">Planta Permanente</option>
-                    <option value="HONORARIOS">Honorarios / Monotributo</option>
-                    <option value="POR_HORA">Arancel por Hora Cátedra</option>
-                  </select>
-                </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Remuneración Mensual ($) <span className="text-red-500">*</span>
@@ -948,73 +656,19 @@ export const InstructoresAdmin: React.FC = () => {
                       type="number"
                       min="0"
                       step="5000"
-                      value={formData.remuneracionMensual}
+                      value={formData.sueldo}
                       onChange={(e) =>
-                        setFormData({ ...formData, remuneracionMensual: Number(e.target.value) })
+                        setFormData({ ...formData, sueldo: Number(e.target.value) })
                       }
                       className={`w-full pl-7 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D] ${
-                        formErrors.remuneracionMensual ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                        formErrors.sueldo ? 'border-red-500 bg-red-50' : 'border-slate-300'
                       }`}
                     />
                   </div>
-                  {formErrors.remuneracionMensual && (
-                    <p className="text-[11px] text-red-600 mt-1">{formErrors.remuneracionMensual}</p>
+                  {formErrors.sueldo && (
+                    <p className="text-[11px] text-red-600 mt-1">{formErrors.sueldo}</p>
                   )}
                 </div>
-              </div>
-
-              {/* Días Disponibles */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Días de Disponibilidad
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {DIAS_SEMANA.map((dia) => {
-                    const isSelected = formData.diasDisponibles.includes(dia);
-                    return (
-                      <button
-                        key={dia}
-                        type="button"
-                        onClick={() => toggleDia(dia)}
-                        className={`px-2.5 py-1 text-xs rounded-md font-semibold transition-colors border cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#1A365D] text-white border-[#1A365D]'
-                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                        }`}
-                      >
-                        {dia}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Estado Activo */}
-              <div className="flex items-center space-x-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="instructorActivo"
-                  checked={formData.activo}
-                  onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
-                  className="rounded border-slate-300 text-[#1A365D] focus:ring-[#1A365D]"
-                />
-                <label htmlFor="instructorActivo" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                  Instructor habilitado y activo en nómina de la BD
-                </label>
-              </div>
-
-              {/* Observaciones */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Observaciones / Antecedentes
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Detalles sobre acreditaciones deportivas y seguros..."
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A365D]"
-                />
               </div>
 
               {/* Form Actions */}
@@ -1030,7 +684,7 @@ export const InstructoresAdmin: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 bg-[#1A365D] hover:bg-[#142847] text-white text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
                 >
-                  {editingInstructor ? 'Guardar Cambios en BD' : 'Confirmar Alta en BD'}
+                  {editingInstructor ? 'Guardar Cambios' : 'Confirmar Alta'}
                 </button>
               </div>
             </form>
@@ -1045,11 +699,11 @@ export const InstructoresAdmin: React.FC = () => {
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-black text-slate-800 mb-1">¿Eliminar Instructor de la BD?</h3>
+            <h3 className="text-base font-black text-slate-800 mb-1">¿Eliminar Instructor?</h3>
             <p className="text-xs text-slate-600 mb-4 leading-relaxed">
               ¿Estás seguro de que deseas eliminar el registro de{' '}
               <strong>
-                {instructorToDelete.nombreCompleto ||
+                {instructorToDelete.nombre ||
                   `${(instructorToDelete as any).nombre || ''} ${
                     (instructorToDelete as any).apellido || ''
                   }`}
@@ -1068,7 +722,7 @@ export const InstructoresAdmin: React.FC = () => {
                 onClick={confirmDelete}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
               >
-                Sí, Eliminar de la BD
+                Sí, Eliminar instructor
               </button>
             </div>
           </div>

@@ -149,7 +149,7 @@ export const CasillerosGrid: React.FC = () => {
             <span>Grilla Interactiva de Casilleros ({total})</span>
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Mapeo en tiempo real de casilleros en MySQL. Regla estatutaria: 1 casillero por socio. Tarifa: $
+            Mapeo en tiempo real de casilleros. Regla estatutaria: 1 casillero por socio. Tarifa: $
             {COSTO_CASILLERO_MENSUAL.toLocaleString('es-AR')}/mes.
           </p>
         </div>
