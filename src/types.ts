@@ -66,6 +66,7 @@ export interface socios {
 export interface casilleros {
   id: number;
   numero: number; // 1 a 100
+  socioId: number | null;
   costoMensual: number; // 2500.00
   fechaAlquiler?: string | null;
 }
@@ -77,7 +78,7 @@ export interface instructores {
   email: string;
   telefono?: string;
   sueldo?: number;
-  createdAt?: number;
+  createdAt?: string;
   dni: string;
 }
 
@@ -186,15 +187,11 @@ export type Socio = Omit<Partial<socios>, 'id' | 'cobradorId' | 'instructorId'> 
 };
 
 export type Locker = Omit<Partial<casilleros>, 'id' | 'socioId'> & {
-  id?: string | number;
+  id?: number;
   numero?: number;
-  estado?: 'DISPONIBLE' | 'OCUPADO' | 'RESERVADO';
-  socioNombre?: string;
-  socioDni?: string;
-  socioId?: any;
-  fechaAsignacion?: string;
+  socioId?: number | null;
   costoMensual?: number;
-  [key: string]: any;
+  fechaAlquiler?: string | null;
 };
 
 export type Actividad = Omit<Partial<actividades>, 'id' | 'instructorId'> & {

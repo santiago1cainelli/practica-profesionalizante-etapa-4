@@ -24,11 +24,10 @@ export type Socio = socios & {
 };
 
 export type Locker = casilleros & {
-  estado?: 'DISPONIBLE' | 'OCUPADO' | 'RESERVADO';
-  socioNombre?: string;
-  socioDni?: string;
-  socioId?: string;
-  fechaAsignacion?: string;
+  numero?: number;
+  socioId?: number;
+  costoMensual?: number;
+  fechaAlquiler?: string;
 };
 
 export type Actividad = actividades & {
@@ -61,7 +60,7 @@ export type Instructor = instructores & {
   email?: string;
   dni?: string;
   sueldo?: number;
-  createdAt?: number;
+  createdAt?: string;
 };
 
 export type CuponRecibo = cupones & {

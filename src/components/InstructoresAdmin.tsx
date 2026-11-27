@@ -259,28 +259,43 @@ export const InstructoresAdmin: React.FC = () => {
 
     const sueldoNumerico = Number(formData.sueldo);
 
-    const payload: any = {
-      nombre: formData.nombre,
-      apellido: formData.apellido,
+    const payload = {
+      nombre: formData.nombre.trim(),
+      apellido: formData.apellido.trim(),
       email: formData.email.trim(),
       telefono: formData.telefono.trim(),
       sueldo: sueldoNumerico,
-      createdAt: Date.now(),
       dni: formData.dni.replace(/\D/g, ''),
     };
 
     try {
       if (editingInstructor) {
-        const actualizado = { ...editingInstructor, ...payload };
-        await instructoresApi.update(editingInstructor.id, actualizado);
+        // ✅ Enviamos solo `payload` (sin `actividades` ni `createdAt` sobrescrito)
+        await instructoresApi.update(editingInstructor.id, payload);
+
+        // Para el estado local de la UI sí conservamos `editingInstructor` (para no perder las etiquetas de actividades en la tabla)
+        const actualizadoLocal = { ...editingInstructor, ...payload };
         setInstructoresList((prev) =>
-          prev.map((item) => (String(item.id) === String(editingInstructor.id) ? actualizado : item))
+          prev.map((item) =>
+            String(item.id) === String(editingInstructor.id) ? actualizadoLocal : item
+          )
         );
-        showToast('success', 'Instructor actualizado', `Se actualizaron los datos de ${payload.nombre} ${payload.apellido}.`);
+        showToast(
+          'success',
+          'Instructor actualizado',
+          `Se actualizaron los datos de ${payload.nombre} ${payload.apellido}.`
+        );
       } else {
-        const creado = await instructoresApi.create(payload);
+        const creado = await instructoresApi.create({
+          ...payload,
+          createdAt: Date.now(),
+        });
         setInstructoresList((prev) => [...prev, creado || { ...payload, id: Date.now() }]);
-        showToast('success', 'Instructor registrado', `${payload.nombre} ${payload.apellido} fue dado de alta en la BD.`);
+        showToast(
+          'success',
+          'Instructor registrado',
+          `${payload.nombre} ${payload.apellido} fue dado de alta en la BD.`
+        );
       }
       setIsModalOpen(false);
     } catch (error) {
@@ -434,9 +449,7 @@ export const InstructoresAdmin: React.FC = () => {
                 </tr>
               ) : (
                 filteredInstructores.map((inst) => {
-                  const nombreNorm =
-                    inst.nombre ||
-                    `${(inst as any).nombre || ''} ${(inst as any).apellido || ''}`.trim();
+                  const nombreNorm = `${inst.nombre || ''} ${inst.apellido || ''}`.trim();
                   const remuNorm = getInstructorRemuneracion(inst);
 
                   const disciplinasArr = getInstructorDisciplinasIds(inst);

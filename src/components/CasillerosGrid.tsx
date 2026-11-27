@@ -1,24 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Grid,
   Search,
   Info,
 } from 'lucide-react';
 import { casilleros } from '../types';
-import { useClub } from '../context/AppProvider'; // ✅ Todos los imports agrupados al inicio
+import { useClub } from '../context/AppProvider';
+import { useApi } from '../hooks/useApi';
 
 export type LockerData = casilleros & {
-  estado?: 'DISPONIBLE' | 'OCUPADO' | 'RESERVADO';
-  socioNombre?: string;
-  socioDni?: string;
-  socioId?: string;
-  fechaAsignacion?: string;
-  costoMensual?: number; // ✅ Declarado para evitar error de tipado en línea 264
+  numero: number;
+  socioId?: number | null;
+  socio_id?: number | null;
+  socio?: { id: number; nombre?: string; apellido?: string; nombreCompleto?: string; dni?: string } | null;
+  costoMensual?: number;
+  fechaAlquiler?: string;
+};
+
+// ✅ Helper para extraer el ID del socio asignado sin importar cómo lo devuelva MySQL/Backend
+const getAssignedSocioId = (locker: LockerData): number | null => {
+  const rawId = locker.socioId ?? locker.socio_id ?? locker.socio?.id ?? null;
+  if (rawId === undefined || rawId === null || String(rawId).trim() === '') return null;
+  const num = Number(rawId);
+  return !isNaN(num) && num > 0 ? num : null;
+};
+
+// ✅ Constante/función separada de `casilleros`:
+// Es 'DISPONIBLE' si no tiene un socioId asignado, y 'OCUPADO' en caso contrario.
+const getLockerEstado = (locker: LockerData): 'DISPONIBLE' | 'OCUPADO' => {
+  return getAssignedSocioId(locker) !== null ? 'OCUPADO' : 'DISPONIBLE';
 };
 
 export const CasillerosGrid: React.FC = () => {
-  // ✅ Usamos únicamente los métodos que existen en AppProvider
-  const { lockers, socios, actualizarCasillero, actualizarSocio, showToast } = useClub();
+  const { lockers: contextLockers, socios, actualizarCasillero, actualizarSocio, showToast } = useClub();
+  const casillerosApi = useApi('/casilleros');
+
+  // ✅ Estado local sincronizado con el contexto y con fallback directo a la API
+  const [lockers, setLockers] = useState<LockerData[]>((contextLockers as LockerData[]) || []);
+
+  useEffect(() => {
+    if (Array.isArray(contextLockers) && contextLockers.length > 0) {
+      setLockers(contextLockers as LockerData[]);
+    }
+  }, [contextLockers]);
+
+  // Si el contexto viene vacío al montar, lo cargamos directamente desde /casilleros
+  useEffect(() => {
+    const fetchLockersIfEmpty = async () => {
+      if ((!contextLockers || contextLockers.length === 0) && (casillerosApi as any)?.getAll) {
+        try {
+          const data = await (casillerosApi as any).getAll();
+          if (Array.isArray(data)) setLockers(data);
+        } catch (err) {
+          console.error('Error cargando casilleros:', err);
+        }
+      }
+    };
+    fetchLockersIfEmpty();
+  }, []);
 
   const [selectedLocker, setSelectedLocker] = useState<LockerData | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>('TODOS');
@@ -28,22 +67,49 @@ export const CasillerosGrid: React.FC = () => {
   // Aranceles de referencia desde BD / API
   const COSTO_CASILLERO_MENSUAL = 2500;
 
-  // Socios disponibles para asignación (sin casillero activo)
-  const eligibleSocios = socios.filter(
-    (s) => !s.casilleroAsignadoId && !(s as any).casilleroId
+  // IDs de socios que ya tienen un casillero ocupado en la grilla
+  const sociosConCasilleroIds = new Set(
+    lockers
+      .map((l) => getAssignedSocioId(l))
+      .filter((id): id is number => id !== null)
   );
 
-  // Estadísticas en tiempo real basadas en la BD
+  // Socios disponibles para asignación (sin casillero activo ni en socio ni en casilleros)
+  const eligibleSocios = socios.filter(
+    (s) =>
+      !s.casilleroAsignadoId &&
+      !(s as any).casilleroId &&
+      !sociosConCasilleroIds.has(Number(s.id))
+  );
+
+  // Helper para obtener los datos del socio vinculado a un casillero
+  const getSocioDelCasillero = (locker: LockerData) => {
+    const assignedId = getAssignedSocioId(locker);
+    if (!assignedId) return null;
+
+    return (
+      socios.find((s) => Number(s.id) === assignedId) ||
+      locker.socio ||
+      null
+    );
+  };
+
+  // Estadísticas en tiempo real usando la constante `estado` separada
   const total = lockers.length;
-  const disponibles = lockers.filter((l) => l.estado === 'DISPONIBLE').length;
-  const ocupados = lockers.filter((l) => l.estado === 'OCUPADO').length;
-  const reservados = lockers.filter((l) => l.estado === 'RESERVADO').length;
+  const disponibles = lockers.filter((l) => getLockerEstado(l) === 'DISPONIBLE').length;
+  const ocupados = lockers.filter((l) => getLockerEstado(l) === 'OCUPADO').length;
 
   const filteredLockers = lockers.filter((l) => {
-    const matchesEstado = filterEstado === 'TODOS' || l.estado === filterEstado;
+    const estado = getLockerEstado(l);
+    const matchesEstado = filterEstado === 'TODOS' || estado === filterEstado;
+
     const term = searchQuery.toLowerCase();
-    const socioNombreNorm = (l.socioNombre || (l as any).socio?.nombreCompleto || '').toLowerCase();
-    const socioDniNorm = l.socioDni || (l as any).socio?.dni || '';
+    const socio = getSocioDelCasillero(l);
+    const socioNombreNorm = (
+      (socio as any)?.nombreCompleto ||
+      `${socio?.nombre || ''} ${socio?.apellido || ''}`.trim()
+    ).toLowerCase();
+    const socioDniNorm = String(socio?.dni || '');
     const numStr = String(l.numero ?? l.id ?? '');
 
     const matchesSearch =
@@ -54,7 +120,7 @@ export const CasillerosGrid: React.FC = () => {
     return matchesEstado && matchesSearch;
   });
 
-  // ✅ Asignar casillero usando actualizarCasillero + actualizarSocio del contexto
+  // ✅ Asignar casillero: sin `socio` y conservando `costoMensual` anterior
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLocker || !selectedSocioId) return;
@@ -70,69 +136,91 @@ export const CasillerosGrid: React.FC = () => {
       return;
     }
 
-    const nombreSocio =
-      socio.nombreCompleto || `${socio.nombre || ''} ${socio.apellido || ''}`.trim();
+    const fechaHoy = new Date().toISOString().split('T')[0];
+    const lockerId = selectedLocker.id ?? selectedLocker.numero;
+    const costoAnterior = selectedLocker.costoMensual ?? COSTO_CASILLERO_MENSUAL;
 
-    await actualizarCasillero({
-      ...selectedLocker,
-      estado: 'OCUPADO',
-      socioId: String(socio.id),
-      socioNombre: nombreSocio,
-      socioDni: socio.dni,
-      fechaAsignacion: new Date().toISOString().split('T')[0],
-    });
+    const payload = {
+      numero: selectedLocker.numero,
+      socioId: Number(socio.id),
+      fechaAlquiler: fechaHoy,
+      costoMensual: Number(costoAnterior),
+    };
 
-    await actualizarSocio({
-      ...socio,
-      casilleroAsignadoId: Number(selectedLocker.numero ?? selectedLocker.id),
-    });
+    try {
+      let respuesta: any = null;
+      if ((casillerosApi as any)?.update) {
+        respuesta = await (casillerosApi as any).update(lockerId, payload);
+      } else {
+        respuesta = await actualizarCasillero(payload as any);
+      }
 
-    setSelectedLocker(null);
-    setSelectedSocioId('');
-  };
+      setLockers((prev) =>
+        prev.map((item) =>
+          String(item.id ?? item.numero) === String(lockerId)
+            ? {
+                ...item,
+                ...(respuesta && typeof respuesta === 'object' ? respuesta : {}),
+                socioId: Number(socio.id),
+                fechaAlquiler: fechaHoy,
+                costoMensual: Number(costoAnterior),
+              }
+            : item
+        )
+      );
 
-  // ✅ Liberar casillero y desvincularlo del socio correspondiente
-  const handleRelease = async (locker: LockerData) => {
-    const socioVinculado = socios.find(
-      (s) =>
-        String(s.id) === String(locker.socioId) ||
-        Number(s.casilleroAsignadoId) === Number(locker.numero)
-    );
-
-    await actualizarCasillero({
-      ...locker,
-      estado: 'DISPONIBLE',
-      socioId: undefined,
-      socioNombre: undefined,
-      socioDni: undefined,
-      fechaAsignacion: undefined,
-    });
-
-    if (socioVinculado) {
-      await actualizarSocio({
-        ...socioVinculado,
-        casilleroAsignadoId: undefined,
-      });
+      showToast('success', 'Casillero asignado', `Casillero N° ${selectedLocker.numero} asignado correctamente.`);
+      setSelectedLocker(null);
+      setSelectedSocioId('');
+    } catch (error) {
+      showToast('error', 'Error al asignar', 'No se pudo actualizar el casillero en el servidor.');
     }
-
-    setSelectedLocker(null);
   };
 
-  // ✅ Alternar reserva usando actualizarCasillero
-  const handleReserve = async (locker: LockerData) => {
-    const nuevoEstado = locker.estado === 'RESERVADO' ? 'DISPONIBLE' : 'RESERVADO';
+  // ✅ Liberar casillero: sin `socio` y conservando `costoMensual` anterior
+  const handleRelease = async (locker: LockerData) => {
+    const lockerId = locker.id ?? locker.numero;
+    const costoAnterior = locker.costoMensual ?? COSTO_CASILLERO_MENSUAL;
 
-    await actualizarCasillero({
-      ...locker,
-      estado: nuevoEstado,
-      socioId: undefined,
-      socioNombre: undefined,
-      socioDni: undefined,
-      fechaAsignacion: undefined,
-    });
+    const payload = {
+      numero: locker.numero,
+      socioId: null,
+      fechaAlquiler: null,
+      costoMensual: Number(costoAnterior),
+    };
 
-    setSelectedLocker(null);
+    try {
+      let respuesta: any = null;
+      if ((casillerosApi as any)?.update) {
+        respuesta = await (casillerosApi as any).update(lockerId, payload);
+      } else {
+        respuesta = await actualizarCasillero(payload as any);
+      }
+
+      setLockers((prev) =>
+        prev.map((item) =>
+          String(item.id ?? item.numero) === String(lockerId)
+            ? {
+                ...item,
+                ...(respuesta && typeof respuesta === 'object' ? respuesta : {}),
+                socioId: null,
+                fechaAlquiler: undefined,
+                costoMensual: Number(costoAnterior),
+              }
+            : item
+        )
+      );
+
+      showToast('success', 'Casillero liberado', `El casillero N° ${locker.numero} vuelve a estar disponible.`);
+      setSelectedLocker(null);
+    } catch (error) {
+      showToast('error', 'Error al liberar', 'No se pudo liberar el casillero en el servidor.');
+    }
   };
+
+  // Constante `estado` separada para el casillero seleccionado en el modal
+  const selectedLockerEstado = selectedLocker ? getLockerEstado(selectedLocker) : null;
+  const selectedLockerSocio = selectedLocker ? getSocioDelCasillero(selectedLocker) : null;
 
   return (
     <div className="space-y-6">
@@ -164,10 +252,6 @@ export const CasillerosGrid: React.FC = () => {
             <span className="w-3.5 h-3.5 rounded bg-[#1A365D] shadow-xs"></span>
             <span className="text-slate-700 font-medium">Ocupado ({ocupados})</span>
           </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-3.5 h-3.5 rounded bg-amber-400 shadow-xs"></span>
-            <span className="text-slate-700 font-medium">Reservado ({reservados})</span>
-          </div>
         </div>
       </div>
 
@@ -194,53 +278,61 @@ export const CasillerosGrid: React.FC = () => {
             <option value="TODOS">Todos ({total})</option>
             <option value="DISPONIBLE">Disponibles ({disponibles})</option>
             <option value="OCUPADO">Ocupados ({ocupados})</option>
-            <option value="RESERVADO">Reservados ({reservados})</option>
           </select>
         </div>
       </div>
 
       {/* Visual Cell Matrix */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
-        <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 sm:gap-2.5">
-          {filteredLockers.map((locker) => {
-            const isOcupado = locker.estado === 'OCUPADO';
-            const isReservado = locker.estado === 'RESERVADO';
-            const nombreSocioNorm = locker.socioNombre || (locker as any).socio?.nombreCompleto || '';
-            const numLocker = locker.numero ?? locker.id;
+        {filteredLockers.length === 0 ? (
+          <div className="py-10 text-center text-xs text-slate-500">
+            No se encontraron casilleros cargados o que coincidan con el filtro aplicado.
+          </div>
+        ) : (
+          <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 sm:gap-2.5">
+            {filteredLockers.map((locker) => {
+              // ✅ Constante `estado` separada del objeto `locker`
+              const estado = getLockerEstado(locker);
+              const isOcupado = estado === 'OCUPADO';
 
-            return (
-              <button
-                key={locker.id ?? locker.numero}
-                onClick={() => setSelectedLocker(locker)}
-                className={`group relative flex flex-col items-center justify-center p-2 rounded-lg border transition-all duration-150 aspect-square cursor-pointer ${
-                  isOcupado
-                    ? 'bg-[#1A365D] text-white border-blue-900 hover:bg-[#2B6CB0]'
-                    : isReservado
-                    ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
-                    : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                }`}
-                title={`Casillero N° ${numLocker}: ${locker.estado} ${
-                  nombreSocioNorm ? `(${nombreSocioNorm})` : ''
-                }`}
-              >
-                <span className="text-xs sm:text-sm font-black tracking-tight">{numLocker}</span>
-                <span className="text-[8px] sm:text-[9px] uppercase font-bold tracking-wider opacity-85 mt-0.5 truncate w-full text-center px-1">
-                  {isOcupado ? 'Ocupado' : isReservado ? 'Reserva' : 'Libre'}
-                </span>
+              const socio = getSocioDelCasillero(locker);
+              const nombreSocioNorm =
+                (socio as any)?.nombreCompleto ||
+                `${socio?.nombre || ''} ${socio?.apellido || ''}`.trim();
+              const numLocker = locker.numero ?? locker.id;
 
-                <div
-                  className={`w-1.5 h-1.5 rounded-full mt-1 ${
-                    isOcupado ? 'bg-blue-300' : isReservado ? 'bg-amber-500' : 'bg-emerald-500'
+              return (
+                <button
+                  key={locker.id ?? locker.numero}
+                  onClick={() => setSelectedLocker(locker)}
+                  className={`group relative flex flex-col items-center justify-center p-2 rounded-lg border transition-all duration-150 aspect-square cursor-pointer ${
+                    isOcupado
+                      ? 'bg-[#1A365D] text-white border-blue-900 hover:bg-[#2B6CB0]'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                   }`}
-                />
-              </button>
-            );
-          })}
-        </div>
+                  title={`Casillero N° ${numLocker}: ${estado} ${
+                    nombreSocioNorm ? `(${nombreSocioNorm})` : ''
+                  }`}
+                >
+                  <span className="text-xs sm:text-sm font-black tracking-tight">{numLocker}</span>
+                  <span className="text-[8px] sm:text-[9px] uppercase font-bold tracking-wider opacity-85 mt-0.5 truncate w-full text-center px-1">
+                    {isOcupado ? 'Ocupado' : 'Libre'}
+                  </span>
+
+                  <div
+                    className={`w-1.5 h-1.5 rounded-full mt-1 ${
+                      isOcupado ? 'bg-blue-300' : 'bg-emerald-500'
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Locker Inspection & Assignment Modal */}
-      {selectedLocker && (
+      {selectedLocker && selectedLockerEstado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="relative w-full max-w-md bg-white rounded-lg shadow-2xl overflow-hidden border border-slate-300">
             {/* Header */}
@@ -265,35 +357,35 @@ export const CasillerosGrid: React.FC = () => {
                 <span className="font-semibold text-slate-600">Estado Actual:</span>
                 <span
                   className={`px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider ${
-                    selectedLocker.estado === 'OCUPADO'
+                    selectedLockerEstado === 'OCUPADO'
                       ? 'bg-[#1A365D] text-white'
-                      : selectedLocker.estado === 'RESERVADO'
-                      ? 'bg-amber-100 text-amber-800'
                       : 'bg-emerald-100 text-emerald-800'
                   }`}
                 >
-                  {selectedLocker.estado}
+                  {selectedLockerEstado}
                 </span>
               </div>
 
               {/* Locker is OCUPADO */}
-              {selectedLocker.estado === 'OCUPADO' ? (
+              {selectedLockerEstado === 'OCUPADO' ? (
                 <div className="space-y-3">
                   <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-lg space-y-1">
                     <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider">
                       Socio Asignado en BD:
                     </span>
                     <h4 className="text-sm font-bold text-slate-900">
-                      {selectedLocker.socioNombre ||
-                        (selectedLocker as any).socio?.nombreCompleto ||
-                        'Socio Asignado'}
+                      {(selectedLockerSocio as any)?.nombreCompleto ||
+                        `${selectedLockerSocio?.nombre || ''} ${
+                          selectedLockerSocio?.apellido || ''
+                        }`.trim() ||
+                        `Socio ID #${getAssignedSocioId(selectedLocker)}`}
                     </h4>
                     <p className="text-xs text-slate-600">
-                      DNI: {selectedLocker.socioDni || (selectedLocker as any).socio?.dni || 'N/A'}
+                      DNI: {selectedLockerSocio?.dni || 'N/A'}
                     </p>
                     <p className="text-[11px] text-slate-500">
                       Asignado el:{' '}
-                      {selectedLocker.fechaAsignacion ||
+                      {selectedLocker.fechaAlquiler ||
                         (selectedLocker as any).fechaIngreso ||
                         'Activo'}
                     </p>
@@ -313,7 +405,7 @@ export const CasillerosGrid: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                /* Locker is DISPONIBLE or RESERVADO */
+                /* Locker is DISPONIBLE */
                 <form onSubmit={handleAssign} className="space-y-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -329,8 +421,7 @@ export const CasillerosGrid: React.FC = () => {
                       {eligibleSocios.map((s) => {
                         const nombreSocio =
                           s.nombreCompleto || `${s.nombre || ''} ${s.apellido || ''}`.trim();
-                        const isMoroso =
-                          s.estado === 'SUSPENDIDO';
+                        const isMoroso = s.estado === 'SUSPENDIDO';
                         return (
                           <option key={s.id} value={String(s.id)} disabled={isMoroso}>
                             {nombreSocio} (DNI: {s.dni}){' '}
@@ -352,17 +443,9 @@ export const CasillerosGrid: React.FC = () => {
 
                   <div className="flex space-x-2 pt-2">
                     <button
-                      type="button"
-                      onClick={() => handleReserve(selectedLocker)}
-                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded text-xs transition-colors cursor-pointer"
-                    >
-                      {selectedLocker.estado === 'RESERVADO' ? 'Quitar Reserva' : 'Poner en Reserva'}
-                    </button>
-
-                    <button
                       type="submit"
                       disabled={!selectedSocioId}
-                      className="flex-1 py-2 bg-[#1A365D] hover:bg-[#2B6CB0] disabled:bg-slate-300 text-white font-bold rounded text-xs transition-colors shadow-xs cursor-pointer"
+                      className="w-full py-2 bg-[#1A365D] hover:bg-[#2B6CB0] disabled:bg-slate-300 text-white font-bold rounded text-xs transition-colors shadow-xs cursor-pointer"
                     >
                       Confirmar Asignación en BD
                     </button>

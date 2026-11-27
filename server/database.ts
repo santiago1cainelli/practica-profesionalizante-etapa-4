@@ -43,7 +43,6 @@ function createEmptyLockers(cantidad = 100): Locker[] {
   for (let i = 1; i <= cantidad; i++) {
     lockers.push({
       numero: i,
-      estado: 'DISPONIBLE',
       costoMensual: CUOTA_VALORES.CASILLERO_MENSUAL,
     });
   }
@@ -258,11 +257,9 @@ export const db = {
       if (lIndex !== -1) {
         data.lockers[lIndex] = {
           ...data.lockers[lIndex],
-          estado: 'DISPONIBLE',
           socioId: undefined,
-          socioNombre: undefined,
-          socioDni: undefined,
-          fechaAsignacion: undefined,
+          fechaAlquiler: undefined,
+          costoMensual: undefined,
         };
       }
     }
@@ -376,7 +373,7 @@ export const db = {
     return initDatabase().instructores;
   },
 
-  async addInstructor(input: Omit<Instructor, 'id' | 'fechaAlta'>): Promise<Instructor> {
+  async addInstructor(input: Omit<Instructor, 'id' | 'createdAt'>): Promise<Instructor> {
     const data = initDatabase();
     const existe = data.instructores.some((i) => i.dni.trim() === input.dni.trim());
     if (existe) {
@@ -386,19 +383,19 @@ export const db = {
     const newInstructor: Instructor = {
       ...input,
       id: `inst-${Date.now()}`,
-      fechaAlta: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString().split('T')[0],
     };
 
     data.instructores = [newInstructor, ...data.instructores];
 
     // Sincronizar en actividades
-    if (input.disciplinasIds && input.disciplinasIds.length > 0) {
+    /*if (input.disciplinasIds && input.disciplinasIds.length > 0) {
       data.actividades = data.actividades.map((a) =>
         input.disciplinasIds.includes(a.id)
           ? { ...a, instructorId: newInstructor.id, instructorNombre: newInstructor.nombreCompleto }
           : a
       );
-    }
+    }*/
 
     await persistDatabaseAsync();
     return newInstructor;
@@ -412,7 +409,7 @@ export const db = {
     data.instructores[index] = { ...data.instructores[index], ...updates };
 
     // Sincronizar actividades
-    if (updates.nombreCompleto !== undefined || updates.disciplinasIds !== undefined) {
+    /*if (updates.nombreCompleto !== undefined || updates.disciplinasIds !== undefined) {
       data.actividades = data.actividades.map((a) => {
         const aIdStr = String(a.id);
         if (updates.disciplinasIds?.includes(aIdStr)) {
@@ -430,7 +427,7 @@ export const db = {
         }
         return a;
       });
-    }
+    }*/
 
     await persistDatabaseAsync();
     return data.instructores[index];
@@ -467,11 +464,9 @@ export const db = {
 
     data.lockers[lockerIndex] = {
       ...data.lockers[lockerIndex],
-      estado: 'OCUPADO',
       socioId: socio.id,
-      socioNombre: socio.nombreCompleto,
-      socioDni: socio.dni,
-      fechaAsignacion: new Date().toISOString().split('T')[0],
+      fechaAlquiler: new Date().toISOString().split('T')[0],
+      costoMensual: undefined,
     };
 
     socio.casilleroAsignadoId = numero;
@@ -492,11 +487,9 @@ export const db = {
 
     data.lockers[lockerIndex] = {
       ...locker,
-      estado: 'DISPONIBLE',
       socioId: undefined,
-      socioNombre: undefined,
-      socioDni: undefined,
-      fechaAsignacion: undefined,
+      fechaAlquiler: undefined,
+      costoMensual: undefined,
     };
 
     await persistDatabaseAsync();
@@ -508,9 +501,6 @@ export const db = {
     const lockerIndex = data.lockers.findIndex((l) => l.numero === numero);
     if (lockerIndex === -1) throw new Error('Casillero no encontrado');
 
-    const current = data.lockers[lockerIndex];
-    const nuevoEstado = current.estado === 'RESERVADO' ? 'DISPONIBLE' : 'RESERVADO';
-    data.lockers[lockerIndex] = { ...current, estado: nuevoEstado };
     await persistDatabaseAsync();
     return data.lockers[lockerIndex];
   },

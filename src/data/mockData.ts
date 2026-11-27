@@ -95,17 +95,13 @@ export const generateInitialLockers = (socios: Socio[] = []): Locker[] => {
     if (assignedSocio) {
       lockers.push({
         numero: i,
-        estado: 'OCUPADO',
         socioId: assignedSocio.id,
-        socioNombre: assignedSocio.nombreCompleto,
-        socioDni: assignedSocio.dni,
-        fechaAsignacion: new Date().toISOString().split('T')[0],
         costoMensual: CUOTA_VALORES.CASILLERO_MENSUAL,
+        fechaAlquiler: new Date().toISOString().split('T')[0],
       });
     } else {
       lockers.push({
         numero: i,
-        estado: 'DISPONIBLE',
         costoMensual: CUOTA_VALORES.CASILLERO_MENSUAL,
       });
     }
